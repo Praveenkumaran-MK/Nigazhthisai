@@ -1,0 +1,67 @@
+# Render Blueprint — provisions all three static sites in one go via
+# "New +" → "Blueprint" in the Render dashboard, pointed at this repo.
+#
+# CAVEAT: Render's Blueprint schema does evolve, and this file hasn't been
+# run against a live Render account from here to confirm it deploys
+# cleanly end-to-end — treat it as a strong starting draft, not a
+# guarantee. If a field is rejected, cross-check it against Render's
+# current reference (render.com/docs/blueprint-spec) — the *manual*
+# per-site dashboard steps in DEPLOYMENT.md are the ones to trust first if
+# this file and the docs ever disagree.
+#
+# Every app needs the same two required env vars (VITE_SUPABASE_URL,
+# VITE_SUPABASE_ANON_KEY) — `sync: false` means Render will prompt you to
+# type the value in the dashboard rather than storing it in this
+# repo-tracked file, which is the point: these are frontend-safe values,
+# but there's still no reason to hardcode them into version control when
+# the dashboard prompt costs nothing.
+
+services:
+  - type: web
+    name: transit-passenger
+    runtime: static
+    buildCommand: npm install && npx turbo run build --filter=@sbt/passenger
+    staticPublishPath: apps/passenger/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: VITE_MOCK_UPI_ID
+        sync: false
+
+  - type: web
+    name: transit-conductor
+    runtime: static
+    buildCommand: npm install && npx turbo run build --filter=@sbt/conductor
+    staticPublishPath: apps/conductor/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+
+  - type: web
+    name: transit-admin
+    runtime: static
+    buildCommand: npm install && npx turbo run build --filter=@sbt/admin
+    staticPublishPath: apps/admin/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: VITE_ADMIN_SUPPORT_EMAIL
+        sync: false
