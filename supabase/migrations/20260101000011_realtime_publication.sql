@@ -1,0 +1,11 @@
+-- =============================================================================
+-- 011: Add persistent-state tables to the supabase_realtime publication.
+--
+-- Supabase ships `supabase_realtime` empty by default — a table must be
+-- explicitly added before any `postgres_changes` subscription against it
+-- can ever fire. No migration did this, so every Postgres Changes listener
+-- in the app (SOS alerts on the Admin command center, ticket status on the
+-- Passenger ticket page, trip/occupancy/stop progression on the Conductor
+-- trip screen) has been silently dead since the schema was created.
+-- =============================================================================
+alter publication supabase_realtime add table tickets, trips, trip_stops, trip_occupancy, alerts;

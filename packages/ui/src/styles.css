@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas-light text-slate-900 antialiased;
+  }
+
+  html.dark body {
+    @apply bg-canvas-dark text-slate-100;
+  }
+
+  /* Amber focus ring: focus indicators are UI components, so the 3:1
+     non-text contrast threshold applies — #D97F00 clears it on both the
+     light canvas and navy surfaces. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-canvas-light;
+  }
+
+  html.dark :focus-visible {
+    @apply ring-offset-canvas-dark;
+  }
+}
+
+@layer components {
+  /* ── LogoLoader ──────────────────────────────────────────────────────
+     The trace path carries pathLength="1", so a dasharray/offset of 1
+     spans the whole path regardless of its real length. */
+  .sbt-logo-loader__trace {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: sbt-logo-draw 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  .sbt-logo-loader__pin {
+    transform-box: fill-box;
+    transform-origin: center;
+    will-change: transform, opacity;
+    animation: sbt-pin-pulse 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes sbt-logo-draw {
+    0% {
+      stroke-dashoffset: 1;
+    }
+    55%,
+    100% {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes sbt-pin-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: translate3d(0, -8%, 0) scale(1.1);
+    }
+  }
+
+  /* ── TransitBusRunner ───────────────────────────────────────────── */
+  .sbt-road-dashes {
+    background-image: repeating-linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.75) 0 12px,
+      transparent 12px 32px
+    );
+    will-change: transform;
+  }
+
+  .sbt-bus-loop {
+    will-change: transform;
+    animation: sbt-bus-run 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes sbt-bus-run {
+    0% {
+      transform: translate3d(-100%, 0, 0);
+    }
+    100% {
+      transform: translate3d(0%, 0, 0);
+    }
+  }
+
+  /* ── Isometric hero scenes ──────────────────────────────────────── */
+  .sbt-iso-stage {
+    perspective: 1000px;
+    perspective-origin: 50% 40%;
+  }
+
+  .sbt-iso-layer {
+    will-change: transform;
+    transform-style: preserve-3d;
+  }
+}
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Subtle glassmorphic surface — a light frost, not a heavy blur wall.
+     Falls back to a solid tinted surface where backdrop-filter is
+     unsupported (older Firefox), so text contrast never depends on it. */
+  .glass-surface {
+    background-color: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+  }
+
+  html.dark .glass-surface {
+    background-color: rgba(10, 31, 69, 0.78);
+    border-color: rgba(191, 211, 238, 0.12);
+  }
+
+  @supports (backdrop-filter: blur(12px)) {
+    .glass-surface {
+      background-color: rgba(255, 255, 255, 0.62);
+      backdrop-filter: blur(12px) saturate(140%);
+    }
+    html.dark .glass-surface {
+      background-color: rgba(10, 31, 69, 0.55);
+      backdrop-filter: blur(12px) saturate(140%);
+    }
+  }
+}
+
+/* Honour the OS-level reduced-motion preference across every custom
+   animation defined here. Tailwind's motion-safe: variant covers the
+   utility-driven ones; this covers the component classes above. */
+@media (prefers-reduced-motion: reduce) {
+  .sbt-logo-loader__trace {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .sbt-logo-loader__pin,
+  .sbt-road-dashes,
+  .sbt-bus-loop,
+  .sbt-iso-layer {
+    animation: none !important;
+  }
+  .sbt-bus-loop {
+    transform: translate3d(-50%, 0, 0);
+  }
+}

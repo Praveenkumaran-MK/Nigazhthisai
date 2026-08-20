@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+.turbo/
+coverage/
+
+# Environment / secrets — NEVER commit real credentials.
+# Only .env.example (a placeholder template) is allowed to be tracked.
+.env
+.env.*
+!.env.example
+*.local
+
+# Supabase local/CLI state
+supabase/.temp/
+supabase/.branches/
+
+# Load-test artifacts (k6 summaries, screenshots) — not source
+load-tests/**/*.json
+load-tests/**/results/
+load-tests/**/*.png
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Playwright / browser automation artifacts (if ever run inside the repo)
+playwright-report/
+test-results/
