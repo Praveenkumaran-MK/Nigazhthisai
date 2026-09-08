@@ -1,8 +1,14 @@
 import type {
   AlertSeverity,
+  AlertSourceRole,
   AlertStatus,
+  AccountStatus,
   BusType,
+  ComplaintStatus,
+  ComplaintType,
+  EtmStatus,
   ScheduleStatus,
+  TicketChannel,
   TicketStatus,
   TripStatus,
   TripStopStatus,
@@ -15,8 +21,24 @@ export interface GpsCoordinate {
 }
 
 // -----------------------------------------------------------------------------
-// stops
+// districts
 // -----------------------------------------------------------------------------
+export interface District {
+  id: string;
+  name: string;
+  code: string;
+  state: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DistrictInsert {
+  name: string;
+  code: string;
+  state?: string;
+}
+
 export interface Stop {
   id: string;
   name: string;
@@ -32,6 +54,7 @@ export interface StopInsert {
   name: string;
   code: string;
   district: string;
+  district_id?: string | null;
   location: GpsCoordinate;
 }
 
@@ -112,6 +135,13 @@ export interface Bus {
   route_id: string | null;
   capacity: number;
   type: BusType;
+  district_id: string | null;
+  is_active: boolean;
+  is_wheelchair_accessible: boolean;
+  registration_number: string | null;
+  bus_qr_payload: string | null;
+  bus_qr_signature: string | null;
+  qr_generated_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -121,6 +151,9 @@ export interface BusInsert {
   route_id?: string | null;
   capacity: number;
   type: BusType;
+  district_id?: string | null;
+  is_wheelchair_accessible?: boolean;
+  registration_number?: string | null;
 }
 
 export type BusUpdate = Partial<BusInsert>;
@@ -135,6 +168,7 @@ export interface Conductor {
   display_name: string;
   phone: string | null;
   is_active: boolean;
+  district_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -144,6 +178,7 @@ export interface ConductorInsert {
   display_name: string;
   phone?: string | null;
   is_active?: boolean;
+  district_id?: string | null;
 }
 
 export type ConductorUpdate = Partial<ConductorInsert>;
@@ -200,6 +235,19 @@ export interface EligibleBus {
   current_stop_id: string | null;
   current_stop_name: string | null;
   available_seats: number;
+  is_wheelchair_accessible: boolean;
+  district_id: string | null;
+}
+
+// -----------------------------------------------------------------------------
+// trip_seat_segments
+// -----------------------------------------------------------------------------
+export interface TripSeatSegment {
+  trip_id: string;
+  from_stop_id: string;
+  to_stop_id: string;
+  sequence_order: number;
+  occupied_seats: number;
 }
 
 // -----------------------------------------------------------------------------
@@ -217,6 +265,9 @@ export interface Ticket {
   qr_payload: string;
   qr_signature: string;
   status: TicketStatus;
+  channel: TicketChannel;
+  pnr: string | null;
+  district_id: string | null;
   created_at: string;
   validated_at: string | null;
   expires_at: string;
@@ -244,11 +295,15 @@ export interface Alert {
   trip_id: string | null;
   bus_id: string | null;
   conductor_id: string | null;
+  district_id: string | null;
   severity: AlertSeverity;
-  message: string;
+  title: string | null;
+  message: string | null;
   latitude: number | null;
   longitude: number | null;
   status: AlertStatus;
+  source_role: AlertSourceRole;
+  passenger_id: string | null;
   created_at: string;
   resolved_at: string | null;
 }
@@ -256,11 +311,34 @@ export interface Alert {
 export interface AlertInsert {
   trip_id?: string | null;
   bus_id?: string | null;
-  conductor_id: string;
+  conductor_id?: string | null;
+  district_id?: string | null;
   severity: AlertSeverity;
-  message: string;
+  title?: string;
+  message?: string;
   latitude?: number | null;
   longitude?: number | null;
+  source_role?: AlertSourceRole;
+  passenger_id?: string | null;
+}
+
+// -----------------------------------------------------------------------------
+// alert_messages (SOS thread)
+// -----------------------------------------------------------------------------
+export interface AlertMessage {
+  id: string;
+  alert_id: string;
+  sender_id: string;
+  sender_role: "admin" | "master_admin" | "conductor";
+  message: string;
+  created_at: string;
+}
+
+export interface AlertMessageInsert {
+  alert_id: string;
+  sender_id: string;
+  sender_role: "admin" | "master_admin" | "conductor";
+  message: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -294,6 +372,113 @@ export interface Profile {
   id: string;
   role: UserRole;
   display_name: string | null;
+  full_name: string | null;
+  phone: string | null;
+  district_id: string | null;
+  status: AccountStatus;
   created_at: string;
   updated_at: string;
+}
+
+// -----------------------------------------------------------------------------
+// complaints
+// -----------------------------------------------------------------------------
+export interface Complaint {
+  id: string;
+  trip_id: string | null;
+  bus_id: string | null;
+  district_id: string | null;
+  passenger_id: string | null;
+  type: ComplaintType;
+  description: string | null;
+  status: ComplaintStatus;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ComplaintInsert {
+  trip_id?: string | null;
+  type: ComplaintType;
+  description?: string | null;
+}
+
+// -----------------------------------------------------------------------------
+// etm_devices
+// -----------------------------------------------------------------------------
+export interface EtmDevice {
+  id: string;
+  device_serial: string;
+  assigned_bus_id: string | null;
+  assigned_conductor_id: string | null;
+  district_id: string | null;
+  status: EtmStatus;
+  battery_level: number | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EtmDeviceInsert {
+  device_serial: string;
+  assigned_bus_id?: string | null;
+  assigned_conductor_id?: string | null;
+  district_id?: string | null;
+  status?: EtmStatus;
+  battery_level?: number | null;
+}
+
+// -----------------------------------------------------------------------------
+// razorpay_orders
+// -----------------------------------------------------------------------------
+export interface RazorpayOrder {
+  id: string;               // Razorpay order_id
+  passenger_id: string | null;
+  trip_id: string | null;
+  origin_stop_id: string | null;
+  dest_stop_id: string | null;
+  passenger_count: number;
+  amount_paise: number;
+  currency: string;
+  status: "CREATED" | "PAID" | "FAILED" | "REFUNDED" | "EXPIRED";
+  razorpay_payment_id: string | null;
+  razorpay_signature: string | null;
+  ticket_id: string | null;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// -----------------------------------------------------------------------------
+// Revenue analytics
+// -----------------------------------------------------------------------------
+export interface RevenueMonthData {
+  month: string;     // e.g. "Sep 2026"
+  revenue: number;
+  tickets: number;
+}
+
+export interface RevenueRouteData {
+  route: string;
+  number: string;
+  revenue: number;
+}
+
+export interface RevenueSummary {
+  total_revenue: number;
+  total_tickets: number;
+  monthly_data: RevenueMonthData[];
+  route_revenue: RevenueRouteData[];
+}
+
+// -----------------------------------------------------------------------------
+// Bus QR generation result
+// -----------------------------------------------------------------------------
+export interface BusQrResult {
+  bus_id: string;
+  qr_payload: string;
+  qr_signature: string;
+  qr_string: string;   // payload.signature — scan this on conductor ETM
+  generated_at: string;
 }

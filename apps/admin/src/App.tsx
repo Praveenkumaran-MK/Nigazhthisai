@@ -15,6 +15,10 @@ import { SchedulesPage } from "./pages/SchedulesPage";
 import { CsvImportPage } from "./pages/CsvImportPage";
 import { FleetPage } from "./pages/FleetPage";
 import { AlertsPage } from "./pages/AlertsPage";
+import { RevenuePage } from "./pages/RevenuePage";
+import { EtmPage } from "./pages/EtmPage";
+import { BusQrPage } from "./pages/BusQrPage";
+import { ComplaintsPage } from "./pages/ComplaintsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { status } = useAdminAuth();
@@ -55,6 +59,10 @@ export function App() {
       <Route path="/import" element={<ProtectedRoute><CsvImportPage /></ProtectedRoute>} />
       <Route path="/fleet" element={<ProtectedRoute><FleetPage /></ProtectedRoute>} />
       <Route path="/alerts" element={<ProtectedRoute><AlertsPage /></ProtectedRoute>} />
+      <Route path="/revenue" element={<ProtectedRoute><RevenuePage /></ProtectedRoute>} />
+      <Route path="/etm" element={<ProtectedRoute><EtmPage /></ProtectedRoute>} />
+      <Route path="/bus-qr" element={<ProtectedRoute><BusQrPage /></ProtectedRoute>} />
+      <Route path="/complaints" element={<ProtectedRoute><ComplaintsPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

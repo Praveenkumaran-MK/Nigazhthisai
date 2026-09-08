@@ -25,7 +25,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
     const p = data as Profile | null;
     setProfile(p);
-    setStatus(p?.role === "admin" ? "signed-in" : "forbidden");
+    setStatus(p?.role === "admin" || p?.role === "master_admin" ? "signed-in" : "forbidden");
   };
 
   useEffect(() => {

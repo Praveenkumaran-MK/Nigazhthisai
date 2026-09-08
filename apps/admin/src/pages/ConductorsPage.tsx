@@ -45,7 +45,12 @@ export function ConductorsPage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${sessionData.session?.access_token ?? ""}`,
           },
-          body: JSON.stringify({ governmentId: governmentId.trim(), displayName: displayName.trim(), temporaryPassword }),
+          body: JSON.stringify({
+            governmentId: governmentId.trim(),
+            displayName: displayName.trim(),
+            temporaryPassword,
+            role: "conductor",
+          }),
         },
       );
 

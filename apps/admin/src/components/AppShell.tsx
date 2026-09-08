@@ -4,19 +4,43 @@ import { Button, StatusIndicator, BrandLogo, AppHeader } from "@sbt/ui";
 import { useAdminAuth } from "../hooks/useAdminAuth";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
 
-const navItems = [
-  { to: "/dashboard", label: "Overview" },
-  { to: "/stops", label: "Stops" },
-  { to: "/routes", label: "Routes" },
-  { to: "/route-stops", label: "Route Stops" },
-  { to: "/fares", label: "Fares" },
-  { to: "/buses", label: "Buses" },
-  { to: "/conductors", label: "Conductors" },
-  { to: "/trips", label: "Trips" },
-  { to: "/schedules", label: "Schedules" },
-  { to: "/import", label: "CSV Import" },
-  { to: "/fleet", label: "Live Fleet" },
-  { to: "/alerts", label: "Alerts" },
+const navGroups = [
+  {
+    label: "Operations",
+    items: [
+      { to: "/dashboard",   label: "Overview" },
+      { to: "/stops",       label: "Stops" },
+      { to: "/routes",      label: "Routes" },
+      { to: "/route-stops", label: "Route Stops" },
+      { to: "/fares",       label: "Fares" },
+      { to: "/buses",       label: "Buses" },
+      { to: "/conductors",  label: "Conductors" },
+      { to: "/trips",       label: "Trips" },
+      { to: "/schedules",   label: "Schedules" },
+      { to: "/import",      label: "CSV Import" },
+    ],
+  },
+  {
+    label: "Monitoring",
+    items: [
+      { to: "/fleet",       label: "Live Fleet" },
+      { to: "/alerts",      label: "🆘 Alerts" },
+      { to: "/complaints",  label: "📋 Complaints" },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
+      { to: "/revenue",     label: "Revenue Analytics" },
+    ],
+  },
+  {
+    label: "Maintenance",
+    items: [
+      { to: "/etm",         label: "ETM Devices" },
+      { to: "/bus-qr",      label: "Bus QR Codes" },
+    ],
+  },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -32,20 +56,28 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mb-6 px-2 pt-1">
           <BrandLogo variant="lockup" tone="light" />
         </div>
-        <nav className="flex flex-col gap-1">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `rounded-pill px-4 py-2 text-sm font-medium transition-colors ${
-                  // navy-900 on amber = 6.3:1; white would be 2.99:1 and fail.
-                  isActive ? "bg-brand-500 font-semibold text-navy-900" : "text-white/60 hover:bg-white/10 hover:text-white"
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
+        <nav className="flex flex-col gap-4">
+          {navGroups.map((group) => (
+            <div key={group.label}>
+              <p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-[0.12em] text-white/30">
+                {group.label}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `rounded-pill px-4 py-2 text-sm font-medium transition-colors ${
+                        isActive ? "bg-brand-500 font-semibold text-navy-900" : "text-white/60 hover:bg-white/10 hover:text-white"
+                      }`
+                    }
+                  >
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
       </aside>

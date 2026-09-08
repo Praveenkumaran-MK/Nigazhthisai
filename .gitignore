@@ -40,3 +40,6 @@ npm-debug.log*
 # Playwright / browser automation artifacts (if ever run inside the repo)
 playwright-report/
 test-results/
+
+# Temporary reference archives
+Backend/
