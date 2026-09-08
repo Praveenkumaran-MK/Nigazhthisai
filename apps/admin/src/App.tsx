@@ -19,6 +19,9 @@ import { RevenuePage } from "./pages/RevenuePage";
 import { EtmPage } from "./pages/EtmPage";
 import { BusQrPage } from "./pages/BusQrPage";
 import { ComplaintsPage } from "./pages/ComplaintsPage";
+import { DistrictsPage } from "./pages/DistrictsPage";
+import { AdminUsersPage } from "./pages/AdminUsersPage";
+import { SystemSettingsPage } from "./pages/SystemSettingsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { status } = useAdminAuth();
@@ -63,6 +66,10 @@ export function App() {
       <Route path="/etm" element={<ProtectedRoute><EtmPage /></ProtectedRoute>} />
       <Route path="/bus-qr" element={<ProtectedRoute><BusQrPage /></ProtectedRoute>} />
       <Route path="/complaints" element={<ProtectedRoute><ComplaintsPage /></ProtectedRoute>} />
+      {/* Master Admin-only routes — DB RLS (is_master_admin()) is the authoritative guard */}
+      <Route path="/districts" element={<ProtectedRoute><DistrictsPage /></ProtectedRoute>} />
+      <Route path="/admin-users" element={<ProtectedRoute><AdminUsersPage /></ProtectedRoute>} />
+      <Route path="/system-settings" element={<ProtectedRoute><SystemSettingsPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

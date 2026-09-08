@@ -18,7 +18,6 @@ const navGroups = [
       { to: "/conductors",  label: "Conductors",  masterOnly: false },
       { to: "/trips",       label: "Trips",       masterOnly: false },
       { to: "/schedules",   label: "Schedules",   masterOnly: false },
-      { to: "/import",      label: "CSV Import",  masterOnly: true  },
     ],
   },
   {
@@ -41,8 +40,19 @@ const navGroups = [
     label: "Maintenance",
     masterOnly: false,
     items: [
-      { to: "/etm",         label: "ETM Devices", masterOnly: false },
+      { to: "/etm",         label: "ETM Devices",  masterOnly: false },
       { to: "/bus-qr",      label: "Bus QR Codes", masterOnly: false },
+    ],
+  },
+  // ─── Master Admin exclusive ───────────────────────────────────────────────
+  {
+    label: "System Control",
+    masterOnly: true,
+    items: [
+      { to: "/districts",       label: "🗺️ Districts",     masterOnly: true },
+      { to: "/admin-users",     label: "👥 Admin Users",   masterOnly: true },
+      { to: "/system-settings", label: "⚙️ System Settings", masterOnly: true },
+      { to: "/import",          label: "📥 CSV Import",    masterOnly: true },
     ],
   },
 ];
