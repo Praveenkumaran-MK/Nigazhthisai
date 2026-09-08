@@ -31,7 +31,10 @@ export async function signInConductor(
   governmentId: string,
   password: string,
 ): Promise<Session> {
-  const email = `${governmentId.toLowerCase().replace(/[^a-z0-9-]/g, "-")}@conductor.internal`;
+  const trimmed = governmentId.trim().toLowerCase();
+  const email = trimmed.includes("@")
+    ? trimmed
+    : `${trimmed.replace(/[^a-z0-9-]/g, "-")}@conductor.internal`;
   const { data, error } = await client.auth.signInWithPassword({ email, password });
   if (error || !data.session) {
     throw new Error(error?.message ?? "Invalid government ID or password");
