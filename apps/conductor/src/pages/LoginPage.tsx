@@ -42,12 +42,12 @@ export function LoginPage() {
       <Card className="w-full max-w-sm">
         <BrandLogo variant="lockup" tone="light" className="mb-5" />
         <h1 className="text-lg font-semibold text-slate-100">Conductor Login</h1>
-        <p className="mt-1 text-sm text-slate-500">Enter your government ID and password.</p>
+        <p className="mt-1 text-sm text-slate-500">Enter your government ID or email, and password.</p>
 
         <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
           <Input
-            label="Government ID"
-            placeholder="TN-MTC-8492"
+            label="Government ID / Email"
+            placeholder="TN-MTC-8492 or conductor@example.com"
             autoComplete="username"
             value={governmentId}
             onChange={(e) => setGovernmentId(e.target.value)}

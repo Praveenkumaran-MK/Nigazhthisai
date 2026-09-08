@@ -56,7 +56,7 @@ export function HomePage() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col">
-      <AppHeader showWordmark actions={<span className="text-[11px] font-medium text-white/60">No login needed</span>}>
+      <AppHeader showWordmark actions={<span className="text-[11px] font-medium text-white/60">Tickets saved to this device</span>}>
         <div className="flex items-center justify-between gap-2 pt-2">
           <h2 className="max-w-[52%] text-2xl font-bold leading-tight text-white sm:text-3xl">
             Where are you headed?

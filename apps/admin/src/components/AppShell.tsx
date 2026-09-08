@@ -7,38 +7,42 @@ import { useOnlineStatus } from "../hooks/useOnlineStatus";
 const navGroups = [
   {
     label: "Operations",
+    masterOnly: false,
     items: [
-      { to: "/dashboard",   label: "Overview" },
-      { to: "/stops",       label: "Stops" },
-      { to: "/routes",      label: "Routes" },
-      { to: "/route-stops", label: "Route Stops" },
-      { to: "/fares",       label: "Fares" },
-      { to: "/buses",       label: "Buses" },
-      { to: "/conductors",  label: "Conductors" },
-      { to: "/trips",       label: "Trips" },
-      { to: "/schedules",   label: "Schedules" },
-      { to: "/import",      label: "CSV Import" },
+      { to: "/dashboard",   label: "Overview",    masterOnly: false },
+      { to: "/stops",       label: "Stops",       masterOnly: false },
+      { to: "/routes",      label: "Routes",      masterOnly: false },
+      { to: "/route-stops", label: "Route Stops", masterOnly: false },
+      { to: "/fares",       label: "Fares",       masterOnly: false },
+      { to: "/buses",       label: "Buses",       masterOnly: false },
+      { to: "/conductors",  label: "Conductors",  masterOnly: false },
+      { to: "/trips",       label: "Trips",       masterOnly: false },
+      { to: "/schedules",   label: "Schedules",   masterOnly: false },
+      { to: "/import",      label: "CSV Import",  masterOnly: true  },
     ],
   },
   {
     label: "Monitoring",
+    masterOnly: false,
     items: [
-      { to: "/fleet",       label: "Live Fleet" },
-      { to: "/alerts",      label: "🆘 Alerts" },
-      { to: "/complaints",  label: "📋 Complaints" },
+      { to: "/fleet",       label: "Live Fleet",    masterOnly: false },
+      { to: "/alerts",      label: "🆘 Alerts",     masterOnly: false },
+      { to: "/complaints",  label: "📋 Complaints", masterOnly: false },
     ],
   },
   {
     label: "Finance",
+    masterOnly: false,
     items: [
-      { to: "/revenue",     label: "Revenue Analytics" },
+      { to: "/revenue",     label: "Revenue Analytics", masterOnly: false },
     ],
   },
   {
     label: "Maintenance",
+    masterOnly: false,
     items: [
-      { to: "/etm",         label: "ETM Devices" },
-      { to: "/bus-qr",      label: "Bus QR Codes" },
+      { to: "/etm",         label: "ETM Devices", masterOnly: false },
+      { to: "/bus-qr",      label: "Bus QR Codes", masterOnly: false },
     ],
   },
 ];
@@ -48,16 +52,36 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const isOnline = useOnlineStatus();
 
+  const isMasterAdmin = profile?.role === "master_admin";
+  const roleLabel = isMasterAdmin ? "Master Admin" : "District Admin";
+  const roleBadgeClass = isMasterAdmin
+    ? "bg-brand-500 text-navy-900"
+    : "bg-white/10 text-white/70";
+
+  // Filter nav items based on role: district admins don't see master-only items
+  const visibleNavGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => isMasterAdmin || !item.masterOnly),
+    }))
+    .filter((group) => group.items.length > 0);
+
   return (
     <div className="flex min-h-dvh bg-canvas-light dark:bg-canvas-dark">
       <aside className="hidden w-60 shrink-0 bg-navy-depth p-4 md:block lg:w-64">
         {/* Desktop sidebar gets the full lockup; the mobile/tablet header
             below falls back to the mark alone (see AppHeader). */}
-        <div className="mb-6 px-2 pt-1">
+        <div className="mb-3 px-2 pt-1">
           <BrandLogo variant="lockup" tone="light" />
         </div>
+        {/* Role badge pinned below logo so the user always knows which tier they're in */}
+        <div className="mb-5 px-2">
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${roleBadgeClass}`}>
+            {roleLabel}
+          </span>
+        </div>
         <nav className="flex flex-col gap-4">
-          {navGroups.map((group) => (
+          {visibleNavGroups.map((group) => (
             <div key={group.label}>
               <p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-[0.12em] text-white/30">
                 {group.label}
@@ -99,8 +123,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           }
           actions={
             <>
-              <span className="hidden text-sm text-slate-500 sm:inline dark:text-slate-400">
-                {profile?.display_name}
+              <span className="hidden items-center gap-2 sm:inline-flex">
+                <span className="text-sm text-slate-500 dark:text-slate-400">
+                  {profile?.display_name}
+                </span>
+                {/* Role badge in the top bar — visible on medium+ screens alongside the display name */}
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${roleBadgeClass}`}>
+                  {roleLabel}
+                </span>
               </span>
               <Button
                 size="sm"

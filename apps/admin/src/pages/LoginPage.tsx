@@ -37,12 +37,22 @@ export function LoginPage() {
     }
   };
 
+  // Detect which portal we're deployed on so the login screen reflects the
+  // correct admin tier. Falls back to a generic "Admin Portal" for local dev
+  // or any unrecognised hostname.
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  const isMasterAdmin = hostname.includes("superadmin");
+  const portalLabel = isMasterAdmin ? "Master Admin" : hostname.includes("admin") ? "District Admin" : "Admin Portal";
+  const portalSubtitle = isMasterAdmin
+    ? "Sign in with your master admin credentials (full system access)."
+    : "Sign in with your district admin email and password.";
+
   return (
     <div className="flex min-h-dvh items-center justify-center bg-navy-700 bg-dot-grid bg-[length:16px_16px] p-6">
       <Card className="w-full max-w-sm">
         <BrandLogo variant="lockup" className="mb-5" />
-        <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">District Admin</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-500">Sign in with your admin email and password.</p>
+        <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{portalLabel}</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-500">{portalSubtitle}</p>
 
         <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
           <Input label="Email" type="email" autoComplete="username" placeholder="admin@transit.gov" value={email} onChange={(e) => setEmail(e.target.value)} required />
