@@ -50,7 +50,7 @@ export function DashboardPage() {
         supabase.from("stops").select("id", { count: "exact", head: true }),
         supabase.from("routes").select("id", { count: "exact", head: true }),
         supabase.from("buses").select("id", { count: "exact", head: true }),
-        supabase.from("trips").select("id", { count: "exact", head: true }).eq("status", "ACTIVE"),
+        supabase.from("trips").select("id", { count: "exact", head: true }).in("status", ["ACTIVE", "SCHEDULED"]),
         supabase.from("alerts").select("id", { count: "exact", head: true }).in("status", ["ACTIVE", "ACKNOWLEDGED"]),
         supabase.from("districts").select("id", { count: "exact", head: true }),
         supabase.from("conductors").select("id", { count: "exact", head: true }),
@@ -72,7 +72,7 @@ export function DashboardPage() {
         supabase.from("stops").select("id", { count: "exact", head: true }),
         supabase.from("routes").select("id", { count: "exact", head: true }),
         supabase.from("buses").select("id", { count: "exact", head: true }),
-        supabase.from("trips").select("id", { count: "exact", head: true }).eq("status", "ACTIVE"),
+        supabase.from("trips").select("id", { count: "exact", head: true }).in("status", ["ACTIVE", "SCHEDULED"]),
         supabase.from("alerts").select("id", { count: "exact", head: true }).in("status", ["ACTIVE", "ACKNOWLEDGED"]),
       ]).then(([stops, routes, buses, activeTrips, activeAlerts]) => {
         setCounts({
@@ -107,25 +107,29 @@ export function DashboardPage() {
         }
       });
 
-    // 3. Fetch Active Running Trips
+    // 3. Fetch Active & Scheduled Trips
     supabase
       .from("trips")
-      .select("id, status, started_at, routes(name, route_number), buses(bus_number)")
-      .eq("status", "ACTIVE")
-      .order("started_at", { ascending: false })
+      .select("id, status, started_at, scheduled_departure, created_at, routes(name, route_number), buses(bus_number)")
+      .in("status", ["ACTIVE", "SCHEDULED"])
+      .order("created_at", { ascending: false })
       .limit(2)
       .then(({ data }) => {
         if (data && data.length > 0) {
           const formatted = data.map((t, idx) => {
             const r = Array.isArray(t.routes) ? t.routes[0] : t.routes;
             const b = Array.isArray(t.buses) ? t.buses[0] : t.buses;
+            const departureTime = t.scheduled_departure || t.started_at || t.created_at;
+            const timeStr = departureTime
+              ? new Date(departureTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : "12:45 PM";
             return {
               id: t.id,
-              trip_code: `TRP-${103 + idx}`,
+              trip_code: `TRP-${100 + idx + 1}`,
               route_name: r?.name || r?.route_number || "TIRUPPUR - AVINASHI",
               plate_number: b?.bus_number || "TN 39 AB 1234",
-              status: "RUNNING",
-              eta: "12:45 PM",
+              status: t.status === "ACTIVE" ? "RUNNING" : "SCHEDULED",
+              eta: timeStr,
             };
           });
           setActiveTripsList(formatted);
