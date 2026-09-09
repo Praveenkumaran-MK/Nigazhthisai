@@ -75,6 +75,9 @@ export interface Route {
   id: string;
   route_number: string;
   name: string;
+  code?: string | null;
+  is_active?: boolean;
+  district_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -82,6 +85,9 @@ export interface Route {
 export interface RouteInsert {
   route_number: string;
   name: string;
+  code?: string | null;
+  is_active?: boolean;
+  district_id?: string | null;
 }
 
 export type RouteUpdate = Partial<RouteInsert>;
