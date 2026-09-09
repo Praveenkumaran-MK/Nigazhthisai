@@ -13,7 +13,7 @@ export default defineConfig({
       includeAssets: ["icons/icon.svg"],
       manifest: {
         id: "/",
-        name: "Thanjai Transit — District Admin",
+        name: "Nigazhthisai — District Admin",
         short_name: "Transit Admin",
         description: "Manage stops, routes, fleet, and respond to alerts.",
         theme_color: "#0D2A5D",

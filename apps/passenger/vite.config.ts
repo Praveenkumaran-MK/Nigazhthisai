@@ -22,7 +22,7 @@ export default defineConfig({
       includeAssets: ["icons/icon.svg"],
       manifest: {
         id: "/",
-        name: "Thanjai Transit — Passenger",
+        name: "Nigazhthisai — Passenger",
         short_name: "Transit Passenger",
         description: "Find your bus, track it live, and ride with a QR ticket — no login required.",
         theme_color: "#0D2A5D",

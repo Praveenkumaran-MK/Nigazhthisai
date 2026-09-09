@@ -19,7 +19,7 @@ export interface BoardingPassCardProps {
   destinationName: string;
   /** e.g. "1h 45m · Non-stop" */
   durationLabel?: string;
-  /** Operator wordmark row, e.g. "Thanjai Transit". */
+  /** Operator wordmark row, e.g. "Nigazhthisai". */
   operatorLabel: string;
   /** 4-6 label/value pairs rendered in a 2-column grid, e.g. Bus/Boarding/Departs/Fare. */
   fields: BoardingPassField[];

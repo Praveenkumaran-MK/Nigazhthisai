@@ -12,8 +12,8 @@ import { AdminAuthProvider } from "./hooks/useAdminAuth";
 const isMasterAdminHost =
   typeof window !== "undefined" && window.location.hostname.includes("superadmin");
 document.title = isMasterAdminHost
-  ? "Thanjai Transit — Master Admin"
-  : "Thanjai Transit — District Admin";
+  ? "Nigazhthisai — Master Admin"
+  : "Nigazhthisai — District Admin";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

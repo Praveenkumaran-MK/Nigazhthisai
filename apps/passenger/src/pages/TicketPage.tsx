@@ -82,7 +82,7 @@ export function TicketPage() {
         originName={originStop?.name ?? "Origin"}
         destinationCode={destStop?.code ?? "—"}
         destinationName={destStop?.name ?? "Destination"}
-        operatorLabel="Thanjai Transit"
+        operatorLabel="Nigazhthisai"
         statusBadge={<Badge tone={statusTone[ticket.status]}>{ticket.status}</Badge>}
         qrValue={`${ticket.qr_payload}.${ticket.qr_signature}`}
         fields={[

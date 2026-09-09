@@ -76,14 +76,17 @@ function LogoMark({ tone, className, title }: { tone: BrandLogoTone; className?:
  * `lockup` adds the wordmark beside it; `lockup-stacked` places it below
  * for splash/hero use.
  */
-export function BrandLogo({ variant = "mark", tone = "navy", className, title = "Thanjai Transit" }: BrandLogoProps) {
+export function BrandLogo({ variant = "mark", tone = "navy", className, title = "Nigazhthisai" }: BrandLogoProps) {
   if (variant === "mark") {
     return <LogoMark tone={tone} className={cn("h-9 w-9", className)} title={title} />;
   }
 
   const stacked = variant === "lockup-stacked";
-  const textColor = tone === "light" ? "text-white" : "text-navy-600";
-  const subColor = tone === "light" ? "text-white/60" : "text-slate-500";
+  // On a navy/dark surface (tone="light"), the name is amber — matching the
+  // map-pin accent in the logo mark. On a light surface (tone="navy") it uses
+  // navy-600 for consistent brand contrast.
+  const nameColor = tone === "light" ? "text-[#D97F00]" : "text-navy-600";
+  const subColor  = tone === "light" ? "text-white/60"  : "text-slate-500";
 
   return (
     <span
@@ -93,7 +96,7 @@ export function BrandLogo({ variant = "mark", tone = "navy", className, title = 
     >
       <LogoMark tone={tone} className={cn(stacked ? "h-14 w-14" : "h-9 w-9", "shrink-0")} />
       <span className={cn("flex flex-col leading-none", stacked && "items-center")}>
-        <span className={cn("text-base font-bold tracking-tight", textColor)}>Thanjai Transit</span>
+        <span className={cn("text-base font-bold tracking-tight", nameColor)}>Nigazhthisai</span>
         <span className={cn("mt-0.5 text-[10px] font-medium uppercase tracking-[0.14em]", subColor)}>
           District Network
         </span>
