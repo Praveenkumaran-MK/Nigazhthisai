@@ -151,7 +151,7 @@ export function EtmPage() {
                 placeholder="ETM-001"
                 value={form.device_serial}
                 onChange={e => setForm(f => ({ ...f, device_serial: e.target.value }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                className="w-full rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
             <div>
@@ -159,7 +159,7 @@ export function EtmPage() {
               <select
                 value={form.district_id}
                 onChange={e => setForm(f => ({ ...f, district_id: e.target.value }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                className="w-full rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               >
                 <option value="">— All districts —</option>
                 {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -170,7 +170,7 @@ export function EtmPage() {
               <select
                 value={form.status}
                 onChange={e => setForm(f => ({ ...f, status: e.target.value as EtmDevice["status"] }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                className="w-full rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               >
                 <option>ACTIVE</option>
                 <option>OFFLINE</option>
@@ -186,7 +186,7 @@ export function EtmPage() {
                 max={100}
                 value={form.battery_level}
                 onChange={e => setForm(f => ({ ...f, battery_level: Number(e.target.value) }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                className="w-full rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
             <div className="flex gap-2 sm:col-span-2 lg:col-span-4">

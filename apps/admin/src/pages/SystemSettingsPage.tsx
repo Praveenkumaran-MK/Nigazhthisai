@@ -162,7 +162,7 @@ export function SystemSettingsPage() {
                   value={authorityName}
                   onChange={(e) => setAuthorityName(e.target.value)}
                   placeholder="e.g. Tamil Nadu State Transport Corporation"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  className="w-full rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 />
               </div>
 
@@ -177,7 +177,7 @@ export function SystemSettingsPage() {
                   onChange={(e) => setUpiId(e.target.value)}
                   placeholder="transit-authority@upi"
                   required
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  className="w-full rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 />
                 <p className="mt-1 text-xs text-slate-400">
                   This is re-validated server-side on every ticket purchase.
@@ -195,7 +195,7 @@ export function SystemSettingsPage() {
                     value={supportPhone}
                     onChange={(e) => setSupportPhone(e.target.value)}
                     placeholder="+91-XXXXX-XXXXX"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                    className="w-full rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>
@@ -207,7 +207,7 @@ export function SystemSettingsPage() {
                     value={supportEmail}
                     onChange={(e) => setSupportEmail(e.target.value)}
                     placeholder="support@transit.gov.in"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                    className="w-full rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                   />
                 </div>
               </div>

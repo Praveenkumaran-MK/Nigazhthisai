@@ -64,6 +64,11 @@ export function RevenuePage() {
   const maxRouteRevenue = Math.max(...(data?.route_revenue ?? []).map(r => r.revenue), 1);
   const maxMonthRevenue = Math.max(...(data?.monthly_data ?? []).map(m => m.revenue), 1);
 
+  const monthlyData = data?.monthly_data ?? [];
+  const routeRevenue = data?.route_revenue ?? [];
+  const totalRevenue = data?.total_revenue ?? 0;
+  const totalTickets = data?.total_tickets ?? 0;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -78,7 +83,7 @@ export function RevenuePage() {
               <select
                 value={selectedDistrict}
                 onChange={e => setSelectedDistrict(e.target.value)}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                className="rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               >
                 <option value="">All Districts</option>
                 {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -91,7 +96,7 @@ export function RevenuePage() {
               type="date"
               value={fromDate}
               onChange={e => setFromDate(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
           <div>
@@ -100,7 +105,7 @@ export function RevenuePage() {
               type="date"
               value={toDate}
               onChange={e => setToDate(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              className="rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
         </div>
@@ -121,19 +126,19 @@ export function RevenuePage() {
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Total Revenue</p>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                ₹{data.total_revenue.toLocaleString("en-IN")}
+                ₹{totalRevenue.toLocaleString("en-IN")}
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Tickets Sold</p>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {data.total_tickets.toLocaleString("en-IN")}
+                {totalTickets.toLocaleString("en-IN")}
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Avg. Revenue / Ticket</p>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                ₹{data.total_tickets > 0 ? Math.round(data.total_revenue / data.total_tickets).toLocaleString("en-IN") : "—"}
+                ₹{totalTickets > 0 ? Math.round(totalRevenue / totalTickets).toLocaleString("en-IN") : "—"}
               </p>
             </div>
           </div>
@@ -142,11 +147,11 @@ export function RevenuePage() {
             {/* Monthly trend */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
               <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4">Monthly Revenue Trend</h2>
-              {data.monthly_data.length === 0 ? (
+              {monthlyData.length === 0 ? (
                 <p className="text-sm text-slate-400">No data for this period.</p>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {data.monthly_data.map(m => (
+                  {monthlyData.map(m => (
                     <HBar key={m.month} label={m.month} value={m.revenue} max={maxMonthRevenue} />
                   ))}
                 </div>
@@ -156,11 +161,11 @@ export function RevenuePage() {
             {/* Revenue by route */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
               <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4">Revenue by Route</h2>
-              {(data.route_revenue ?? []).length === 0 ? (
+              {routeRevenue.length === 0 ? (
                 <p className="text-sm text-slate-400">No route data for this period.</p>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {data.route_revenue.slice(0, 10).map(r => (
+                  {routeRevenue.slice(0, 10).map(r => (
                     <HBar
                       key={r.route}
                       label={`${r.number} · ${r.route}`}
@@ -174,7 +179,7 @@ export function RevenuePage() {
           </div>
 
           {/* Ticket breakdown table */}
-          {data.monthly_data.length > 0 && (
+          {monthlyData.length > 0 && (
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700 text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-700/50">
@@ -187,12 +192,12 @@ export function RevenuePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {data.monthly_data.map(m => (
+                  {monthlyData.map(m => (
                     <tr key={m.month} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
                       <td className="px-4 py-2.5 font-medium text-slate-700 dark:text-slate-300">{m.month}</td>
-                      <td className="px-4 py-2.5 tabular-nums text-slate-600 dark:text-slate-400">{m.tickets.toLocaleString("en-IN")}</td>
+                      <td className="px-4 py-2.5 tabular-nums text-slate-600 dark:text-slate-400">{(m.tickets ?? 0).toLocaleString("en-IN")}</td>
                       <td className="px-4 py-2.5 tabular-nums font-semibold text-slate-800 dark:text-slate-200">
-                        ₹{m.revenue.toLocaleString("en-IN")}
+                        ₹{(m.revenue ?? 0).toLocaleString("en-IN")}
                       </td>
                     </tr>
                   ))}

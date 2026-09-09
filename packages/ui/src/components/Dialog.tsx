@@ -17,13 +17,18 @@ const sizeClasses = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-2xl" };
 export function Dialog({ open, onClose, title, description, children, footer, size = "md" }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
       if (e.key === "Tab" && panelRef.current) {
         const focusable = panelRef.current.querySelectorAll<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
@@ -48,7 +53,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
       document.body.style.overflow = "";
       previouslyFocused?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -63,7 +68,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
         aria-describedby={description ? "dialog-description" : undefined}
         tabIndex={-1}
         className={cn(
-          "relative z-10 w-full rounded-t-2xl border border-border-light bg-white p-6 shadow-xl outline-none",
+          "relative z-10 w-full rounded-t-2xl border border-border-light bg-white p-6 shadow-xl outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0",
           "sm:rounded-2xl dark:border-border-dark dark:bg-surface-dark",
           sizeClasses[size],
         )}

@@ -123,7 +123,7 @@ export function ComplaintsPage() {
         <select
           value={filterType}
           onChange={e => setFilterType(e.target.value)}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+          className="rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         >
           <option value="">All Types</option>
           {TYPES.map(t => <option key={t} value={t}>{typeLabel[t]}</option>)}
@@ -132,7 +132,7 @@ export function ComplaintsPage() {
           <select
             value={filterDistrict}
             onChange={e => setFilterDistrict(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+            className="rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
           >
             <option value="">All Districts</option>
             {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}

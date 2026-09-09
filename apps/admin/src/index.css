@@ -1,5 +1,9 @@
 @import "@sbt/ui/styles.css";
 
 html {
-  color-scheme: light dark;
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }

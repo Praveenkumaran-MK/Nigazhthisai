@@ -135,12 +135,12 @@ export function BusQrPage() {
           placeholder="Search bus number / reg…"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm w-52 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+          className="w-52 rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         />
         <select
           value={filterDistrict}
           onChange={e => setFilterDistrict(e.target.value)}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+          className="rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         >
           <option value="">All Districts</option>
           {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}

@@ -5,6 +5,11 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
@@ -13,6 +18,23 @@
 
   html.dark body {
     @apply bg-canvas-dark text-slate-100;
+  }
+
+  /* Default form control styles for crisp light/dark mode contrast */
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+    @apply bg-white text-slate-900 border-slate-300;
+  }
+
+  select option {
+    @apply bg-white text-slate-900;
+  }
+
+  html.dark input:not([type="checkbox"]):not([type="radio"]), html.dark select, html.dark textarea {
+    @apply bg-slate-800 text-slate-100 border-slate-700;
+  }
+
+  html.dark select option {
+    @apply bg-slate-800 text-slate-100;
   }
 
   /* Amber focus ring: focus indicators are UI components, so the 3:1

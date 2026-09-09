@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button, DataTable, Dialog, Input, Alert, Badge, useToast, ErrorState } from "@sbt/ui";
 import type { Conductor } from "@sbt/shared-types";
 import { toAppError } from "@sbt/supabase-client";
@@ -106,11 +106,11 @@ export function ConductorsPage() {
     }
   };
 
-  const closeDialog = () => {
+  const closeDialog = useCallback(() => {
     setOpen(false);
     setIssuedCredentials(null);
     setFormError(null);
-  };
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">

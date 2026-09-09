@@ -241,7 +241,7 @@ export function AlertsPage() {
                       value={messageInput[alert.id] ?? ""}
                       onChange={e => setMessageInput(prev => ({ ...prev, [alert.id]: e.target.value }))}
                       onKeyDown={e => e.key === "Enter" && handleSendMessage(alert.id)}
-                      className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                      className="flex-1 rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-1.5 text-xs focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                     />
                     <button
                       onClick={() => handleSendMessage(alert.id)}
