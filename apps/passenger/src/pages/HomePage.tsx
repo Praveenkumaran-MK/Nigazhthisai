@@ -144,6 +144,31 @@ export function HomePage() {
               options={routes.map((r) => ({ value: r.id, label: `${r.route_number} — ${r.name}` }))}
             />
 
+            {/* Popular Route Shortcuts */}
+            {routes.length > 0 && !selectedRouteId && (
+              <div className="flex flex-col gap-1.5 pt-1">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                  ⚡ Popular Routes
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {routes.slice(0, 4).map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedRouteId(r.id);
+                        setOriginStopId("");
+                        setDestStopId("");
+                      }}
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700 transition dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    >
+                      {r.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{t("from")}</span>
@@ -168,6 +193,24 @@ export function HomePage() {
                 options={(routeDetail?.stops ?? []).map((s) => ({ value: s.id, label: s.name }))}
               />
             </div>
+
+            {/* Swap Origin / Destination Button */}
+            {routeDetail && originStopId && destStopId && (
+              <div className="flex justify-center -my-2 relative z-10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const temp = originStopId;
+                    setOriginStopId(destStopId);
+                    setDestStopId(temp);
+                  }}
+                  className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  title="Swap Origin and Destination"
+                >
+                  ⇅
+                </button>
+              </div>
+            )}
 
             <Select
               label={t("to")}

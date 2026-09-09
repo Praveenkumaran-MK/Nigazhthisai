@@ -34,6 +34,9 @@ export function ScannerPage() {
       setCooldown(true);
       try {
         const ticket = await validateTicket(supabase, { qr_payload: value, trip_id: tripId });
+        if ("vibrate" in navigator) {
+          navigator.vibrate([120]);
+        }
         setFeedback({
           tone: "success",
           title: "Ticket Validated",
@@ -45,6 +48,9 @@ export function ScannerPage() {
           },
         });
       } catch (e) {
+        if ("vibrate" in navigator) {
+          navigator.vibrate([100, 50, 100]);
+        }
         setFeedback({
           tone: "danger",
           title: "Ticket Rejected",
@@ -87,6 +93,9 @@ export function ScannerPage() {
 
       const isSuccessful = Boolean(data?.success || data?.valid);
       if (isSuccessful) {
+        if ("vibrate" in navigator) {
+          navigator.vibrate([120]);
+        }
         const fromStop = data.from_stop ?? data.origin_stop_name ?? "Origin";
         const toStop = data.to_stop ?? data.dest_stop_name ?? "Destination";
         const fare = data.total_fare ?? data.fare ?? 0;
@@ -104,6 +113,9 @@ export function ScannerPage() {
         });
         setPnrInput("");
       } else {
+        if ("vibrate" in navigator) {
+          navigator.vibrate([100, 50, 100]);
+        }
         setFeedback({
           tone: "danger",
           title: data?.error_code || "Validation Failed",
@@ -111,6 +123,9 @@ export function ScannerPage() {
         });
       }
     } catch (err: any) {
+      if ("vibrate" in navigator) {
+        navigator.vibrate([100, 50, 100]);
+      }
       setFeedback({
         tone: "danger",
         title: "Validation Error",
