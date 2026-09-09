@@ -6,6 +6,7 @@ import "leaflet/dist/leaflet.css";
 import "./index.css";
 import { App } from "./App";
 import { AdminAuthProvider } from "./hooks/useAdminAuth";
+import { FeatureFlagsProvider } from "./hooks/useFeatureFlags";
 
 // The HTML <title> is baked at build time (same bundle for both portals).
 // Override it immediately so the browser tab shows the correct tier.
@@ -20,7 +21,9 @@ createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <ToastProvider>
         <AdminAuthProvider>
-          <App />
+          <FeatureFlagsProvider>
+            <App />
+          </FeatureFlagsProvider>
         </AdminAuthProvider>
       </ToastProvider>
     </BrowserRouter>

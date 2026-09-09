@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 import { useAdminAuth } from "./useAdminAuth";
 
@@ -11,21 +11,35 @@ export interface FeatureFlag {
   updated_by?: string | null;
 }
 
-export function useFeatureFlags() {
+interface FeatureFlagsContextValue {
+  flags: Record<string, boolean>;
+  featureList: FeatureFlag[];
+  loading: boolean;
+  updatingKey: string | null;
+  toggleFlag: (featureKey: string, nextState: boolean) => Promise<void>;
+  isAccessible: (featureKey?: string) => boolean;
+  refetch: () => Promise<void>;
+}
+
+const DEFAULT_FLAGS: Record<string, boolean> = {
+  dashboard: true,
+  live_monitoring: true,
+  revenue_analytics: true,
+  operations_module: true,
+  buses_management: true,
+  routes_management: true,
+  trips_management: true,
+  operational_alerts: true,
+  shops_management: true,
+  support_faq: true,
+};
+
+const FeatureFlagsContext = createContext<FeatureFlagsContextValue | null>(null);
+
+export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
   const { profile } = useAdminAuth();
   const isMasterAdmin = profile?.role === "master_admin";
-  const [flags, setFlags] = useState<Record<string, boolean>>({
-    dashboard: true,
-    live_monitoring: true,
-    revenue_analytics: true,
-    operations_module: true,
-    buses_management: true,
-    routes_management: true,
-    trips_management: true,
-    operational_alerts: true,
-    shops_management: true,
-    support_faq: true,
-  });
+  const [flags, setFlags] = useState<Record<string, boolean>>(DEFAULT_FLAGS);
   const [featureList, setFeatureList] = useState<FeatureFlag[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
@@ -55,9 +69,9 @@ export function useFeatureFlags() {
   useEffect(() => {
     void fetchFlags();
 
-    // Subscribe to realtime database changes for instantaneous sync
+    const channelName = `rt-flags-singleton-${Date.now()}`;
     const channel = supabase
-      .channel("realtime-feature-flags")
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
@@ -92,7 +106,6 @@ export function useFeatureFlags() {
   }, [fetchFlags]);
 
   const toggleFlag = async (featureKey: string, nextState: boolean) => {
-    // Master admin only check
     if (!isMasterAdmin) {
       throw new Error("Only Master Admin has authority to toggle system feature flags.");
     }
@@ -128,10 +141,6 @@ export function useFeatureFlags() {
     }
   };
 
-  /**
-   * Evaluates whether a normal admin is allowed to access the specified module.
-   * Master Admin always has full access regardless of flag toggle.
-   */
   const isAccessible = useCallback(
     (featureKey?: string) => {
       if (!featureKey) return true;
@@ -141,13 +150,35 @@ export function useFeatureFlags() {
     [flags, isMasterAdmin]
   );
 
-  return {
-    flags,
-    featureList,
-    loading,
-    updatingKey,
-    toggleFlag,
-    isAccessible,
-    refetch: fetchFlags,
-  };
+  return (
+    <FeatureFlagsContext.Provider
+      value={{
+        flags,
+        featureList,
+        loading,
+        updatingKey,
+        toggleFlag,
+        isAccessible,
+        refetch: fetchFlags,
+      }}
+    >
+      {children}
+    </FeatureFlagsContext.Provider>
+  );
+}
+
+export function useFeatureFlags(): FeatureFlagsContextValue {
+  const ctx = useContext(FeatureFlagsContext);
+  if (!ctx) {
+    return {
+      flags: DEFAULT_FLAGS,
+      featureList: [],
+      loading: false,
+      updatingKey: null,
+      toggleFlag: async () => {},
+      isAccessible: () => true,
+      refetch: async () => {},
+    };
+  }
+  return ctx;
 }

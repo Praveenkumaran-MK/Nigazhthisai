@@ -88,21 +88,21 @@ export function DashboardPage() {
     // 2. Fetch Latest Alert
     supabase
       .from("alerts")
-      .select("id, message, created_at, severity, buses(plate_number)")
+      .select("id, message, created_at, severity, buses(bus_number)")
       .in("status", ["ACTIVE", "ACKNOWLEDGED"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
-          const rawBus = data.buses as { plate_number?: string } | { plate_number?: string }[] | null;
-          const plate = Array.isArray(rawBus) ? rawBus[0]?.plate_number : rawBus?.plate_number;
+          const rawBus = data.buses as { bus_number?: string } | { bus_number?: string }[] | null;
+          const busNo = Array.isArray(rawBus) ? rawBus[0]?.bus_number : rawBus?.bus_number;
           setLatestAlert({
             id: data.id,
             message: data.message,
             created_at: new Date(data.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             severity: data.severity,
-            bus_plate_number: plate,
+            bus_plate_number: busNo,
           });
         }
       });
@@ -110,7 +110,7 @@ export function DashboardPage() {
     // 3. Fetch Active Running Trips
     supabase
       .from("trips")
-      .select("id, status, started_at, routes(name, route_number), buses(plate_number)")
+      .select("id, status, started_at, routes(name, route_number), buses(bus_number)")
       .eq("status", "ACTIVE")
       .order("started_at", { ascending: false })
       .limit(2)
@@ -123,7 +123,7 @@ export function DashboardPage() {
               id: t.id,
               trip_code: `TRP-${103 + idx}`,
               route_name: r?.name || r?.route_number || "TIRUPPUR - AVINASHI",
-              plate_number: b?.plate_number || "TN 39 AB 1234",
+              plate_number: b?.bus_number || "TN 39 AB 1234",
               status: "RUNNING",
               eta: "12:45 PM",
             };
