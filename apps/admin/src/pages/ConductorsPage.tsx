@@ -22,6 +22,14 @@ export function ConductorsPage() {
   const [issuedCredentials, setIssuedCredentials] = useState<{ email: string; password: string } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Edit Conductor state
+  const [editingConductor, setEditingConductor] = useState<Conductor | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editGovId, setEditGovId] = useState("");
+  const [editActive, setEditActive] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -62,20 +70,13 @@ export function ConductorsPage() {
         },
       );
 
-      // Check response.ok BEFORE parsing JSON — an undeployed function or a
-      // gateway error returns an HTML/text body, and calling .json() on
-      // that throws a SyntaxError that used to mask the real problem.
       if (!response.ok) {
         let message = `Server error (status ${response.status})`;
         try {
           const errorBody = await response.json();
-          // Route the edge function's error code through the same
-          // UPPER_SNAKE_CASE -> friendly-message mapping used for every
-          // other RPC error (e.g. RATE_LIMITED), instead of showing the
-          // raw code verbatim.
           message = errorBody.error ? toAppError({ message: errorBody.error }).message : message;
         } catch {
-          /* non-JSON error body; keep the generic status message */
+          /* non-JSON error body */
         }
         throw new Error(message);
       }
@@ -94,16 +95,6 @@ export function ConductorsPage() {
       await reload();
       push({ tone: "success", title: "Conductor account created" });
     } catch (err) {
-      // Compensating delete: if the conductors row was inserted but a later
-      // step (edge function call, link_conductor_account) failed, the row
-      // would otherwise sit "unlinked" forever and permanently block retry
-      // via the unique(government_id) constraint. NOTE: if the edge
-      // function DID create the auth user but link_conductor_account then
-      // failed, this leaves that auth user orphaned (role stays
-      // 'passenger') — deleting an auth.users row requires the service
-      // role, which this client-side code intentionally never holds.
-      // Acceptable residual gap: retry provisions a fresh conductor row
-      // with a fresh synthetic email, so it doesn't block the admin.
       if (conductorRowId) {
         await supabase.from("conductors").delete().eq("id", conductorRowId);
         await reload();
@@ -111,6 +102,31 @@ export function ConductorsPage() {
       setFormError(err instanceof Error ? err.message : "Could not create conductor");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingConductor) return;
+    setIsEditing(true);
+    try {
+      const { error: err } = await supabase.rpc("update_conductor_profile", {
+        p_conductor_id: editingConductor.id,
+        p_display_name: editName.trim(),
+        p_phone_number: editPhone.trim() || null,
+        p_government_id: editGovId.trim(),
+        p_is_active: editActive,
+      });
+
+      if (err) throw err;
+
+      setEditingConductor(null);
+      await reload();
+      push({ tone: "success", title: "Conductor profile updated" });
+    } catch (err: any) {
+      alert("Failed to update conductor: " + err.message);
+    } finally {
+      setIsEditing(false);
     }
   };
 
@@ -124,9 +140,9 @@ export function ConductorsPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Conductors</h1>
+          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Conductors Management</h1>
           <p className="text-sm text-slate-500 dark:text-slate-500">
-            Creating a conductor provisions a real login (see supabase/functions/provision-conductor).
+            Manage conductor accounts, government IDs, and operational status.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>Add conductor</Button>
@@ -146,6 +162,25 @@ export function ConductorsPage() {
               render: (c) => <Badge tone={c.is_active ? "success" : "neutral"}>{c.is_active ? "Active" : "Inactive"}</Badge>,
             },
             { key: "linked", header: "Login", render: (c) => (c.user_id ? <Badge tone="brand">Linked</Badge> : <Badge tone="warning">Not linked</Badge>) },
+            {
+              key: "actions",
+              header: "",
+              render: (c) => (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingConductor(c);
+                    setEditName(c.display_name);
+                    setEditPhone(c.phone ?? "");
+                    setEditGovId(c.government_id);
+                    setEditActive(c.is_active);
+                  }}
+                  className="text-xs font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400"
+                >
+                  Edit Profile
+                </button>
+              ),
+            },
           ]}
           rows={rows}
           getRowId={(c) => c.id}
@@ -154,20 +189,17 @@ export function ConductorsPage() {
         />
       )}
 
+      {/* Add Conductor Dialog */}
       <Dialog open={open} onClose={closeDialog} title="Add conductor">
         {issuedCredentials ? (
           <div className="flex flex-col gap-3">
             <Alert tone="success" title="Account created">
-              Share these one-time credentials with the conductor securely (they should change the
-              password on first login — password change UI is out of scope for this demo build).
+              Share these one-time credentials with the conductor securely.
             </Alert>
             <div className="rounded-lg bg-slate-50 p-3 font-mono text-sm dark:bg-[#0a0a0a]">
               <p>Email: {issuedCredentials.email}</p>
               <p>Temporary password: {issuedCredentials.password}</p>
             </div>
-            {/* Must clear issuedCredentials too, not just close — otherwise
-                reopening "Add conductor" showed this conductor's temporary
-                password again instead of a blank form. */}
             <Button onClick={closeDialog}>Done</Button>
           </div>
         ) : (
@@ -186,6 +218,37 @@ export function ConductorsPage() {
             </div>
           </form>
         )}
+      </Dialog>
+
+      {/* Edit Conductor Dialog */}
+      <Dialog open={Boolean(editingConductor)} onClose={() => setEditingConductor(null)} title="Edit Conductor Profile">
+        <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
+          <Input label="Display Name" required value={editName} onChange={(e) => setEditName(e.target.value)} />
+          <Input label="Government ID" required value={editGovId} onChange={(e) => setEditGovId(e.target.value)} />
+          <Input label="Phone Number" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="edit-active"
+              checked={editActive}
+              onChange={(e) => setEditActive(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+            />
+            <label htmlFor="edit-active" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Active Operational Status
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-2">
+            <Button type="button" variant="outline" onClick={() => setEditingConductor(null)} disabled={isEditing}>
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={isEditing}>
+              Save Changes
+            </Button>
+          </div>
+        </form>
       </Dialog>
     </div>
   );

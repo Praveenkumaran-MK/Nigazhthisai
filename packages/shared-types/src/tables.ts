@@ -192,6 +192,8 @@ export interface Trip {
   route_id: string;
   conductor_id: string | null;
   service_date: string;
+  scheduled_departure?: string | null;
+  scheduled_arrival?: string | null;
   started_at: string | null;
   ended_at: string | null;
   status: TripStatus;

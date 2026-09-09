@@ -36,4 +36,4 @@ export type ComplaintStatus = "OPEN" | "IN_REVIEW" | "RESOLVED" | "DISMISSED";
 
 export type EtmStatus = "ACTIVE" | "OFFLINE" | "CHARGING" | "FAULTY";
 
-export type AlertSourceRole = "conductor" | "passenger";
+export type AlertSourceRole = "conductor" | "passenger" | "system";

@@ -1,19 +1,8 @@
 // Edge Function: verify-payment
 //
 // Purpose: Verify a Razorpay payment signature server-side (HMAC-SHA256)
-// BEFORE creating a ticket. Without this, any attacker who reverse-engineers
-// the client code could POST a fake success payload and get free tickets.
-//
-// Flow:
-//   1. Passenger completes payment in Razorpay checkout
-//   2. Client receives: razorpay_order_id, razorpay_payment_id, razorpay_signature
-//   3. Client POSTs all three (+ trip/stop context) to THIS function
-//   4. We verify: HMAC-SHA256(order_id + "|" + payment_id, RAZORPAY_KEY_SECRET) == signature
-//   5. Only on success → call create_secure_ticket RPC with the passenger's JWT
-//   6. Return the ticket record
-//
-// Deploy:  supabase functions deploy verify-payment
-// Secrets: supabase secrets set RAZORPAY_KEY_SECRET=<live/test secret>
+// BEFORE creating a ticket. Enforces amount verification, constant-time
+// signature checking, and idempotent ticket creation.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { crypto } from "https://deno.land/std@0.224.0/crypto/mod.ts";
@@ -28,6 +17,7 @@ interface VerifyPaymentRequest {
   origin_stop_id:      string;
   dest_stop_id:        string;
   passenger_count:     number;
+  concession_type?:    string;
 }
 
 const corsHeaders = {
@@ -85,7 +75,6 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl       = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const razorpaySecret    = Deno.env.get("RAZORPAY_KEY_SECRET");
-  const razorpayTestMode  = Deno.env.get("RAZORPAY_TEST_MODE") === "true";
 
   if (!razorpaySecret) {
     console.error("RAZORPAY_KEY_SECRET not configured");
@@ -116,10 +105,9 @@ Deno.serve(async (req: Request) => {
     }
   }
   const passengerCount = Math.max(1, Math.min(6, Math.floor(body.passenger_count ?? 1)));
+  const concessionType = body.concession_type ?? "NORMAL";
 
-  // ─── CRITICAL SECURITY CHECK ────────────────────────────────────────────────
-  // Verify Razorpay HMAC signature BEFORE doing anything with the database.
-  // If this check fails, the request is fraudulent — reject immediately.
+  // ─── CRITICAL SECURITY CHECK 1: Cryptographic HMAC signature ───────────────
   const isValid = await verifyRazorpaySignature(
     body.razorpay_order_id,
     body.razorpay_payment_id,
@@ -131,17 +119,13 @@ Deno.serve(async (req: Request) => {
     console.warn(`PAYMENT FRAUD ATTEMPT from user ${userData.user.id}: invalid signature for order ${body.razorpay_order_id}`);
     return jsonResponse({ error: "PAYMENT_SIGNATURE_INVALID" }, 400);
   }
-  // ────────────────────────────────────────────────────────────────────────────
 
-  // Use the service-role client to record the payment and create the ticket.
-  // Service role bypasses RLS on razorpay_orders but NOT on tickets —
-  // create_secure_ticket is SECURITY DEFINER and enforces its own rules.
   const admin = createClient(supabaseUrl, serviceRoleKey);
 
-  // Idempotency: if this payment_id already has a ticket, return the existing one
+  // ─── CRITICAL SECURITY CHECK 2: Idempotency & Replay Protection ─────────────
   const { data: existingOrder } = await admin
     .from("razorpay_orders")
-    .select("ticket_id, status")
+    .select("ticket_id, status, amount_paise")
     .eq("razorpay_payment_id", body.razorpay_payment_id)
     .single();
 
@@ -169,17 +153,17 @@ Deno.serve(async (req: Request) => {
       status:              "PAID",
     }, { onConflict: "id" });
 
-  // Now create the ticket using the caller's JWT so RLS + auth.uid() work correctly
+  // Create the ticket using the caller's JWT so RLS + auth.uid() work correctly
   const { data: ticket, error: ticketError } = await callerClient.rpc("create_secure_ticket", {
     p_trip_id:         body.trip_id,
     p_origin_stop_id:  body.origin_stop_id,
     p_dest_stop_id:    body.dest_stop_id,
     p_passenger_count: passengerCount,
+    p_concession_type: concessionType,
   });
 
   if (ticketError || !ticket) {
     console.error("create_secure_ticket failed:", ticketError);
-    // Mark the order as FAILED so it can be investigated
     await admin
       .from("razorpay_orders")
       .update({ status: "FAILED" })
@@ -187,7 +171,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: ticketError?.message ?? "TICKET_CREATION_FAILED" }, 500);
   }
 
-  // Link the ticket to the order
+  // Link ticket to order
   await admin
     .from("razorpay_orders")
     .update({ ticket_id: ticket.id })

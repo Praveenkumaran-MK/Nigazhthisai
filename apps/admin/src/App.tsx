@@ -17,6 +17,7 @@ import { FleetPage } from "./pages/FleetPage";
 import { AlertsPage } from "./pages/AlertsPage";
 import { RevenuePage } from "./pages/RevenuePage";
 import { EtmPage } from "./pages/EtmPage";
+import { MaintenancePage } from "./pages/MaintenancePage";
 import { BusQrPage } from "./pages/BusQrPage";
 import { ComplaintsPage } from "./pages/ComplaintsPage";
 import { DistrictsPage } from "./pages/DistrictsPage";
@@ -41,8 +42,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  // Frontend gate is UX-only — every request below is still enforced by
-  // Postgres RLS (is_admin(), migration 007), which is the real boundary.
   return <AppShell>{children}</AppShell>;
 }
 
@@ -64,6 +63,7 @@ export function App() {
       <Route path="/alerts" element={<ProtectedRoute><AlertsPage /></ProtectedRoute>} />
       <Route path="/revenue" element={<ProtectedRoute><RevenuePage /></ProtectedRoute>} />
       <Route path="/etm" element={<ProtectedRoute><EtmPage /></ProtectedRoute>} />
+      <Route path="/maintenance" element={<ProtectedRoute><MaintenancePage /></ProtectedRoute>} />
       <Route path="/bus-qr" element={<ProtectedRoute><BusQrPage /></ProtectedRoute>} />
       <Route path="/complaints" element={<ProtectedRoute><ComplaintsPage /></ProtectedRoute>} />
       {/* Master Admin-only routes — DB RLS (is_master_admin()) is the authoritative guard */}

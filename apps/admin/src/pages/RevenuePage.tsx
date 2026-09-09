@@ -1,37 +1,39 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
-import type { RevenueSummary, District } from "@sbt/shared-types";
+import type { District } from "@sbt/shared-types";
+import { StatCard, Card } from "@sbt/ui";
 
-interface BarBarProps { label: string; value: number; max: number; }
-function HBar({ label, value, max }: BarBarProps) {
-  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-  return (
-    <div className="flex items-center gap-3">
-      <span className="w-28 shrink-0 truncate text-xs text-slate-600 dark:text-slate-400">{label}</span>
-      <div className="flex-1 h-3 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-        <div className="h-full rounded-full bg-brand-600 transition-all duration-500" style={{ width: `${pct}%` }} />
-      </div>
-      <span className="w-20 text-right text-xs font-semibold text-slate-700 dark:text-slate-300 tabular-nums">
-        ₹{value.toLocaleString("en-IN")}
-      </span>
-    </div>
-  );
+interface BreakdownItem {
+  group_key: string;
+  label: string;
+  total_revenue: number;
+  tickets_count: number;
+  cash_revenue?: number;
+  digital_revenue?: number;
+  bus_number?: string;
+  bus_type?: string;
+  route_code?: string;
+}
+
+interface AnalyticsResult {
+  start_date: string;
+  end_date: string;
+  group_by: string;
+  district_id: string | null;
+  total_revenue: number;
+  total_tickets: number;
+  breakdown: BreakdownItem[];
 }
 
 export function RevenuePage() {
-  const [data, setData] = useState<RevenueSummary | null>(null);
   const [districts, setDistricts] = useState<District[]>([]);
   const [selectedDistrict, setSelectedDistrict] = useState<string>("");
-  const [fromDate, setFromDate] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 6);
-    return d.toISOString().split("T")[0];
-  });
-  const [toDate, setToDate] = useState(new Date().toISOString().split("T")[0]);
+  const [groupBy, setGroupBy] = useState<"day" | "bus" | "route" | "concession" | "payment_method">("day");
+  const [dateRange, setDateRange] = useState<"7" | "30" | "90">("30");
+  const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load districts for Master Admin filter
   useEffect(() => {
     supabase
       .from("districts")
@@ -45,168 +47,153 @@ export function RevenuePage() {
     setLoading(true);
     setError(null);
     try {
-      const { data: result, error: err } = await supabase.rpc("get_revenue_summary", {
+      const days = parseInt(dateRange, 10);
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - days);
+
+      const { data: result, error: err } = await supabase.rpc("get_revenue_analytics", {
         p_district_id: selectedDistrict || null,
-        p_from_date:   fromDate,
-        p_to_date:     toDate,
+        p_start_date: start.toISOString().split("T")[0],
+        p_end_date: end.toISOString().split("T")[0],
+        p_group_by: groupBy,
       });
+
       if (err) throw err;
-      setData(result as RevenueSummary);
+      setAnalytics(result as AnalyticsResult);
     } catch (e: any) {
-      setError(e.message ?? "Failed to load revenue data");
+      setError(e.message ?? "Failed to load revenue analytics");
     } finally {
       setLoading(false);
     }
-  }, [selectedDistrict, fromDate, toDate]);
+  }, [selectedDistrict, groupBy, dateRange]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const maxRouteRevenue = Math.max(...(data?.route_revenue ?? []).map(r => r.revenue), 1);
-  const maxMonthRevenue = Math.max(...(data?.monthly_data ?? []).map(m => m.revenue), 1);
-
-  const monthlyData = data?.monthly_data ?? [];
-  const routeRevenue = data?.route_revenue ?? [];
-  const totalRevenue = data?.total_revenue ?? 0;
-  const totalTickets = data?.total_tickets ?? 0;
+  const maxRevenue = Math.max(...(analytics?.breakdown ?? []).map((b) => Number(b.total_revenue)), 1);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
+      {/* Header & Filter Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Revenue Analytics</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">District-level financial overview from ticket sales.</p>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Revenue & Fare Analytics</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Real-time financial breakdown across buses, dates, routes, and concessions.
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2 items-end">
+
+        <div className="flex flex-wrap gap-2 items-center">
           {districts.length > 0 && (
-            <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">District</label>
-              <select
-                value={selectedDistrict}
-                onChange={e => setSelectedDistrict(e.target.value)}
-                className="rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-              >
-                <option value="">All Districts</option>
-                {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-            </div>
+            <select
+              value={selectedDistrict}
+              onChange={(e) => setSelectedDistrict(e.target.value)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            >
+              <option value="">All Districts</option>
+              {districts.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
           )}
-          <div>
-            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">From</label>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={e => setFromDate(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">To</label>
-            <input
-              type="date"
-              value={toDate}
-              onChange={e => setToDate(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            />
-          </div>
+
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value as any)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+          >
+            <option value="7">Last 7 Days</option>
+            <option value="30">Last 30 Days</option>
+            <option value="90">Last 90 Days</option>
+          </select>
         </div>
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
           {error}
         </div>
       )}
 
-      {loading ? (
-        <div className="text-sm text-slate-500">Loading revenue data…</div>
-      ) : !data ? null : (
-        <>
-          {/* KPI cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Total Revenue</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                ₹{totalRevenue.toLocaleString("en-IN")}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Tickets Sold</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {totalTickets.toLocaleString("en-IN")}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Avg. Revenue / Ticket</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                ₹{totalTickets > 0 ? Math.round(totalRevenue / totalTickets).toLocaleString("en-IN") : "—"}
-              </p>
-            </div>
-          </div>
+      {/* Summary KPI Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          label="Total Net Revenue"
+          value={`₹${(analytics?.total_revenue ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+        />
+        <StatCard
+          label="Total Tickets Sold"
+          value={analytics?.total_tickets ?? 0}
+        />
+        <StatCard
+          label="Average Fare / Ticket"
+          value={`₹${(analytics?.total_tickets ? (analytics.total_revenue / analytics.total_tickets) : 0).toFixed(2)}`}
+        />
+      </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {/* Monthly trend */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4">Monthly Revenue Trend</h2>
-              {monthlyData.length === 0 ? (
-                <p className="text-sm text-slate-400">No data for this period.</p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {monthlyData.map(m => (
-                    <HBar key={m.month} label={m.month} value={m.revenue} max={maxMonthRevenue} />
-                  ))}
-                </div>
-              )}
-            </div>
+      {/* Breakdown Dimension Tabs */}
+      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-2">
+        {[
+          { key: "day", label: "📅 By Day" },
+          { key: "bus", label: "🚌 By Bus" },
+          { key: "route", label: "🛣️ By Route" },
+          { key: "concession", label: "🎓 By Concession" },
+          { key: "payment_method", label: "💳 By Payment Method" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setGroupBy(tab.key as any)}
+            className={`px-4 py-2 text-sm font-semibold border-b-2 transition ${
+              groupBy === tab.key
+                ? "border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400"
+                : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-            {/* Revenue by route */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4">Revenue by Route</h2>
-              {routeRevenue.length === 0 ? (
-                <p className="text-sm text-slate-400">No route data for this period.</p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {routeRevenue.slice(0, 10).map(r => (
-                    <HBar
-                      key={r.route}
-                      label={`${r.number} · ${r.route}`}
-                      value={r.revenue}
-                      max={maxRouteRevenue}
+      {/* Breakdown Table & Visual Bars */}
+      <Card className="p-5 border-slate-200 dark:border-slate-800">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-4">
+          Revenue Breakdown ({groupBy.toUpperCase()})
+        </h2>
+
+        {loading ? (
+          <div className="py-8 text-center text-sm text-slate-500">Loading breakdown data…</div>
+        ) : (analytics?.breakdown.length ?? 0) === 0 ? (
+          <div className="py-8 text-center text-sm text-slate-500">No revenue records found for this period.</div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {analytics?.breakdown.map((item) => {
+              const pct = maxRevenue > 0 ? Math.round((Number(item.total_revenue) / maxRevenue) * 100) : 0;
+              return (
+                <div key={item.group_key} className="flex flex-col gap-1 py-1 border-b border-slate-100 dark:border-slate-800/60 last:border-0">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{item.label}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-slate-400">{item.tickets_count} tickets</span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                        ₹{Number(item.total_revenue).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full bg-brand-600 dark:bg-brand-500 rounded-full transition-all duration-300"
+                      style={{ width: `${pct}%` }}
                     />
-                  ))}
+                  </div>
                 </div>
-              )}
-            </div>
+              );
+            })}
           </div>
-
-          {/* Ticket breakdown table */}
-          {monthlyData.length > 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700 text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-700/50">
-                  <tr>
-                    {["Month", "Tickets", "Revenue"].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {monthlyData.map(m => (
-                    <tr key={m.month} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                      <td className="px-4 py-2.5 font-medium text-slate-700 dark:text-slate-300">{m.month}</td>
-                      <td className="px-4 py-2.5 tabular-nums text-slate-600 dark:text-slate-400">{(m.tickets ?? 0).toLocaleString("en-IN")}</td>
-                      <td className="px-4 py-2.5 tabular-nums font-semibold text-slate-800 dark:text-slate-200">
-                        ₹{(m.revenue ?? 0).toLocaleString("en-IN")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
-      )}
+        )}
+      </Card>
     </div>
   );
 }

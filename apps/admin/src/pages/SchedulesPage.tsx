@@ -1,17 +1,33 @@
-import { useEffect, useState } from "react";
-import { Button, Card, DataTable, Dialog, Select, DateTimePicker, Badge, Alert, useToast, ErrorState } from "@sbt/ui";
+import { useEffect, useState, useCallback } from "react";
+import { Button, Card, DataTable, Dialog, Select, DateTimePicker, Badge, Alert, useToast, ErrorState, Input } from "@sbt/ui";
 import type { Route, Bus, Conductor, Schedule } from "@sbt/shared-types";
 import { listRoutes, confirmScheduleAndCreateTrip } from "@sbt/supabase-client";
 import { supabase } from "../lib/supabase";
 import { useCrudResource } from "../hooks/useCrudResource";
 
+interface WeeklySchedule {
+  id: string;
+  route_id: string;
+  day_of_week: number;
+  departure_time: string;
+  bus_id: string | null;
+  preferred_conductor_id: string | null;
+  duration_hours: number;
+  is_active: boolean;
+}
+
+const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 export function SchedulesPage() {
   const { rows, status, error, create, reload } = useCrudResource<Schedule>({ table: "schedules", orderBy: "scheduled_start" });
   const { push } = useToast();
+  const [tab, setTab] = useState<"trips" | "templates">("trips");
+
   const [routes, setRoutes] = useState<Route[]>([]);
   const [buses, setBuses] = useState<Bus[]>([]);
   const [conductors, setConductors] = useState<Conductor[]>([]);
 
+  // Trip Schedule Wizard
   const [wizardOpen, setWizardOpen] = useState(false);
   const [routeId, setRouteId] = useState("");
   const [busId, setBusId] = useState("");
@@ -26,6 +42,35 @@ export function SchedulesPage() {
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
 
+  // Weekly Schedule Templates
+  const [weeklyTemplates, setWeeklyTemplates] = useState<WeeklySchedule[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [tplRouteId, setTplRouteId] = useState("");
+  const [tplDay, setTplDay] = useState("1");
+  const [tplTime, setTplTime] = useState("08:00");
+  const [tplBusId, setTplBusId] = useState("");
+  const [tplConductorId, setTplConductorId] = useState("");
+  const [tplDuration, setTplDuration] = useState("2.0");
+  const [isSavingTpl, setIsSavingTpl] = useState(false);
+
+  const loadTemplates = useCallback(async () => {
+    setLoadingTemplates(true);
+    try {
+      const { data, error: err } = await supabase
+        .from("route_weekly_schedules")
+        .select("*")
+        .order("day_of_week")
+        .order("departure_time");
+      if (err) throw err;
+      setWeeklyTemplates((data ?? []) as WeeklySchedule[]);
+    } catch (e: any) {
+      console.error("Failed to load weekly templates:", e);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  }, []);
+
   useEffect(() => {
     listRoutes(supabase).then(setRoutes);
     supabase.from("buses").select("*").order("bus_number").then(({ data }) => setBuses((data ?? []) as Bus[]));
@@ -35,10 +80,12 @@ export function SchedulesPage() {
       .eq("is_active", true)
       .order("display_name")
       .then(({ data }) => setConductors((data ?? []) as Conductor[]));
-  }, []);
+    void loadTemplates();
+  }, [loadTemplates]);
 
   const routeLabel = (id: string) => routes.find((r) => r.id === id)?.route_number ?? id.slice(0, 8);
-  const busLabel = (id: string) => buses.find((b) => b.id === id)?.bus_number ?? id.slice(0, 8);
+  const busLabel = (id: string | null) => (id ? buses.find((b) => b.id === id)?.bus_number ?? id.slice(0, 8) : "—");
+  const conductorLabel = (id: string | null) => (id ? conductors.find((c) => c.id === id)?.display_name ?? id.slice(0, 8) : "—");
 
   const resetWizard = () => {
     setRouteId("");
@@ -48,8 +95,6 @@ export function SchedulesPage() {
     setFormError(null);
   };
 
-  // "Later" MUST immediately open the calendar/date-time modal (spec §43) —
-  // no intermediate confirmation, no silently closing the wizard.
   const handleChooseLater = () => {
     setCalendarOpen(true);
   };
@@ -68,10 +113,6 @@ export function SchedulesPage() {
     const start = new Date(startIso);
     const end = new Date(start.getTime() + Number(durationHours) * 60 * 60 * 1000);
 
-    // Reject overlapping windows for the same bus (a bus can't run two
-    // schedules at once). The previous `end <= start` check here was
-    // unreachable — end is always start + a positive duration — so it
-    // never actually caught anything; this replaces it with a real check.
     const overlapping = rows.some(
       (s) =>
         s.bus_id === busId &&
@@ -122,51 +163,187 @@ export function SchedulesPage() {
     }
   };
 
+  const handleSaveTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tplRouteId || !tplTime) return;
+    setIsSavingTpl(true);
+    try {
+      const { error: err } = await supabase.from("route_weekly_schedules").insert({
+        route_id: tplRouteId,
+        day_of_week: parseInt(tplDay, 10),
+        departure_time: tplTime,
+        bus_id: tplBusId || null,
+        preferred_conductor_id: tplConductorId || null,
+        duration_hours: parseFloat(tplDuration),
+        is_active: true,
+      });
+      if (err) throw err;
+      push({ tone: "success", title: "Weekday schedule template saved" });
+      setShowTemplateModal(false);
+      await loadTemplates();
+    } catch (err: any) {
+      alert("Failed to save template: " + err.message);
+    } finally {
+      setIsSavingTpl(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    if (!confirm("Delete this recurring schedule slot?")) return;
+    try {
+      await supabase.from("route_weekly_schedules").delete().eq("id", id);
+      await loadTemplates();
+    } catch (e: any) {
+      alert("Failed to delete: " + e.message);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Schedules</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-500">Plan when a bus runs a route, then confirm with a conductor to create the trip.</p>
+          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Schedules & Timetables</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Plan dynamic one-time trips or configure weekday departure templates.
+          </p>
         </div>
-        <Button
-          onClick={() => {
-            resetWizard();
-            setWizardOpen(true);
-          }}
-        >
-          New schedule
-        </Button>
+        <div className="flex gap-2">
+          {tab === "trips" ? (
+            <Button
+              onClick={() => {
+                resetWizard();
+                setWizardOpen(true);
+              }}
+            >
+              + New Trip Schedule
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                if (routes.length > 0 && !tplRouteId && routes[0]) setTplRouteId(routes[0].id);
+                setShowTemplateModal(true);
+              }}
+            >
+              + Add Weekday Slot
+            </Button>
+          )}
+        </div>
       </div>
 
-      {status === "error" ? (
-        <ErrorState description={error ?? undefined} onRetry={reload} />
+      {/* Tabs */}
+      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-2">
+        <button
+          type="button"
+          onClick={() => setTab("trips")}
+          className={`px-4 py-2 text-sm font-semibold border-b-2 transition ${
+            tab === "trips"
+              ? "border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          ⏱️ Active Trip Schedules
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("templates")}
+          className={`px-4 py-2 text-sm font-semibold border-b-2 transition ${
+            tab === "templates"
+              ? "border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          📅 Weekday Departure Templates
+        </button>
+      </div>
+
+      {tab === "trips" ? (
+        status === "error" ? (
+          <ErrorState description={error ?? undefined} onRetry={reload} />
+        ) : (
+          <DataTable
+            columns={[
+              { key: "route", header: "Route", render: (s) => routeLabel(s.route_id) },
+              { key: "bus", header: "Bus", render: (s) => busLabel(s.bus_id) },
+              { key: "start", header: "Start", render: (s) => new Date(s.scheduled_start).toLocaleString() },
+              { key: "end", header: "End", render: (s) => new Date(s.scheduled_end).toLocaleString() },
+              { key: "status", header: "Status", render: (s) => <Badge tone={s.status === "CONFIRMED" ? "success" : s.status === "CANCELLED" ? "danger" : "neutral"}>{s.status}</Badge> },
+              {
+                key: "actions",
+                header: "",
+                render: (s) =>
+                  s.status === "PLANNED" ? (
+                    <Button size="sm" onClick={() => setConfirmingSchedule(s)}>
+                      Confirm &amp; assign conductor
+                    </Button>
+                  ) : null,
+              },
+            ]}
+            rows={rows}
+            getRowId={(s) => s.id}
+            isLoading={status === "loading"}
+            emptyTitle="No schedules yet"
+          />
+        )
       ) : (
-        <DataTable
-          columns={[
-            { key: "route", header: "Route", render: (s) => routeLabel(s.route_id) },
-            { key: "bus", header: "Bus", render: (s) => busLabel(s.bus_id) },
-            { key: "start", header: "Start", render: (s) => new Date(s.scheduled_start).toLocaleString() },
-            { key: "end", header: "End", render: (s) => new Date(s.scheduled_end).toLocaleString() },
-            { key: "status", header: "Status", render: (s) => <Badge tone={s.status === "CONFIRMED" ? "success" : s.status === "CANCELLED" ? "danger" : "neutral"}>{s.status}</Badge> },
-            {
-              key: "actions",
-              header: "",
-              render: (s) =>
-                s.status === "PLANNED" ? (
-                  <Button size="sm" onClick={() => setConfirmingSchedule(s)}>
-                    Confirm &amp; assign conductor
-                  </Button>
-                ) : null,
-            },
-          ]}
-          rows={rows}
-          getRowId={(s) => s.id}
-          isLoading={status === "loading"}
-          emptyTitle="No schedules yet"
-        />
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+            <thead className="bg-slate-50 dark:bg-slate-800/60">
+              <tr>
+                {["Day of Week", "Departure Time", "Route", "Assigned Bus", "Preferred Conductor", "Duration", "Actions"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {loadingTemplates ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">Loading templates…</td>
+                </tr>
+              ) : weeklyTemplates.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">No recurring timetable templates created yet.</td>
+                </tr>
+              ) : (
+                weeklyTemplates.map((t) => (
+                  <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                    <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
+                      {DAYS_OF_WEEK[t.day_of_week] ?? "Unknown"}
+                    </td>
+                    <td className="px-4 py-3 font-mono font-bold text-emerald-600">
+                      {t.departure_time.slice(0, 5)}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">
+                      {routeLabel(t.route_id)}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                      {busLabel(t.bus_id)}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                      {conductorLabel(t.preferred_conductor_id)}
+                    </td>
+                    <td className="px-4 py-3 text-xs font-mono">
+                      {t.duration_hours}h
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTemplate(t.id)}
+                        className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
+      {/* Trip Schedule Modal */}
       <Dialog open={wizardOpen} onClose={() => setWizardOpen(false)} title="New schedule" size="md">
         <div className="flex flex-col gap-4">
           <Select label="Route" placeholder="Select a route" value={routeId} onChange={(e) => setRouteId(e.target.value)} options={routes.map((r) => ({ value: r.id, label: `${r.route_number} — ${r.name}` }))} />
@@ -192,7 +369,7 @@ export function SchedulesPage() {
         </div>
       </Dialog>
 
-      {/* "Later" immediately opens this calendar/date-time modal (spec §43) — never silently closes the wizard. */}
+      {/* Choose Date & Time */}
       <Dialog open={calendarOpen} onClose={() => setCalendarOpen(false)} title="Choose date & time" size="sm">
         <div className="flex flex-col gap-4">
           <DateTimePicker label="Start" value={scheduledStart} onChange={setScheduledStart} min={new Date().toISOString()} />
@@ -208,8 +385,7 @@ export function SchedulesPage() {
         </div>
       </Dialog>
 
-      {/* Materializes the schedule into a real trip (confirm_schedule_and_create_trip RPC) —
-          without this step nothing ever consumed a PLANNED schedule. */}
+      {/* Confirm Schedule */}
       <Dialog
         open={Boolean(confirmingSchedule)}
         onClose={() => {
@@ -247,6 +423,72 @@ export function SchedulesPage() {
             </Button>
           </div>
         </div>
+      </Dialog>
+
+      {/* Weekday Schedule Slot Template Modal */}
+      <Dialog open={showTemplateModal} onClose={() => setShowTemplateModal(false)} title="Add Weekday Departure Template">
+        <form onSubmit={handleSaveTemplate} className="flex flex-col gap-4 py-2">
+          <Select
+            label="Route"
+            value={tplRouteId}
+            onChange={(e) => setTplRouteId(e.target.value)}
+            options={routes.map((r) => ({ value: r.id, label: `${r.route_number} — ${r.name}` }))}
+          />
+
+          <Select
+            label="Day of Week"
+            value={tplDay}
+            onChange={(e) => setTplDay(e.target.value)}
+            options={DAYS_OF_WEEK.map((day, idx) => ({ value: String(idx), label: day }))}
+          />
+
+          <Input
+            type="time"
+            label="Departure Time (HH:MM)"
+            value={tplTime}
+            onChange={(e) => setTplTime(e.target.value)}
+            required
+          />
+
+          <Select
+            label="Designated Bus (Optional)"
+            value={tplBusId}
+            onChange={(e) => setTplBusId(e.target.value)}
+            options={[
+              { value: "", label: "— Any Available Bus —" },
+              ...buses.map((b) => ({ value: b.id, label: b.bus_number })),
+            ]}
+          />
+
+          <Select
+            label="Preferred Conductor (Optional)"
+            value={tplConductorId}
+            onChange={(e) => setTplConductorId(e.target.value)}
+            options={[
+              { value: "", label: "— Assign Later —" },
+              ...conductors.map((c) => ({ value: c.id, label: `${c.display_name} (${c.government_id})` })),
+            ]}
+          />
+
+          <Input
+            type="number"
+            label="Trip Duration (Hours)"
+            step="0.5"
+            min="0.5"
+            max="12"
+            value={tplDuration}
+            onChange={(e) => setTplDuration(e.target.value)}
+          />
+
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" type="button" onClick={() => setShowTemplateModal(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={isSavingTpl}>
+              Save Recurring Slot
+            </Button>
+          </div>
+        </form>
       </Dialog>
     </div>
   );

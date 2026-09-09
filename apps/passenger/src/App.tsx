@@ -1,12 +1,14 @@
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { usePassengerSession } from "./hooks/usePassengerSession";
 import { LoadingState, ErrorState, OfflineBanner, BottomNav } from "@sbt/ui";
+import { useI18n } from "./lib/i18n";
 import { HomePage } from "./pages/HomePage";
 import { SearchResultsPage } from "./pages/SearchResultsPage";
 import { LiveMapPage } from "./pages/LiveMapPage";
 import { CheckoutPage } from "./pages/CheckoutPage";
 import { TicketPage } from "./pages/TicketPage";
 import { MyTicketsPage } from "./pages/MyTicketsPage";
+import { GrievancePage } from "./pages/GrievancePage";
 
 function HomeIcon() {
   return (
@@ -31,15 +33,27 @@ function TicketIcon() {
   );
 }
 
-// The bottom tab bar only appears on these top-level screens — Search/
-// Checkout/Ticket/LiveMap are task flows the passenger is meant to
-// complete and leave, not destinations to jump between, matching the
-// reference app's pattern of a tab bar for top-level sections only.
-const TAB_ROUTES = ["/", "/my-tickets"];
+function ReportIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-full w-full">
+      <path
+        d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// Bottom tab bar only appears on these top-level screens
+const TAB_ROUTES = ["/", "/my-tickets", "/report"];
 
 function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useI18n();
   const showTabBar = TAB_ROUTES.includes(location.pathname);
 
   return (
@@ -52,18 +66,32 @@ function AppRoutes() {
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/ticket/:ticketId" element={<TicketPage />} />
           <Route path="/my-tickets" element={<MyTicketsPage />} />
+          <Route path="/report" element={<GrievancePage />} />
         </Routes>
       </div>
       {showTabBar && (
         <BottomNav
           items={[
-            { key: "home", label: "Home", icon: <HomeIcon />, active: location.pathname === "/", onClick: () => navigate("/") },
+            {
+              key: "home",
+              label: t("home"),
+              icon: <HomeIcon />,
+              active: location.pathname === "/",
+              onClick: () => navigate("/"),
+            },
             {
               key: "tickets",
-              label: "My Tickets",
+              label: t("tickets"),
               icon: <TicketIcon />,
               active: location.pathname === "/my-tickets",
               onClick: () => navigate("/my-tickets"),
+            },
+            {
+              key: "report",
+              label: t("grievance"),
+              icon: <ReportIcon />,
+              active: location.pathname === "/report",
+              onClick: () => navigate("/report"),
             },
           ]}
         />
@@ -74,11 +102,12 @@ function AppRoutes() {
 
 export function App() {
   const { isReady, error } = usePassengerSession();
+  const { t } = useI18n();
 
   if (error) {
     return (
       <div className="flex min-h-dvh items-center justify-center p-6">
-        <ErrorState title="Could not connect" description={error} onRetry={() => window.location.reload()} />
+        <ErrorState title={t("connecting")} description={error} onRetry={() => window.location.reload()} />
       </div>
     );
   }
@@ -86,14 +115,14 @@ export function App() {
   if (!isReady) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
-        <LoadingState label="Setting up your session…" />
+        <LoadingState label={t("settingUp")} />
       </div>
     );
   }
 
   return (
     <div className="min-h-dvh bg-canvas-light dark:bg-canvas-dark">
-      <OfflineBanner message="You're offline — live tracking and ticket purchase are unavailable until you reconnect." />
+      <OfflineBanner message={t("offline")} />
       <AppRoutes />
     </div>
   );

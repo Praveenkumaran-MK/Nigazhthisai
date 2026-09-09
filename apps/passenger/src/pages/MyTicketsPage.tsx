@@ -4,6 +4,7 @@ import { Badge, Card, EmptyState, LoadingState } from "@sbt/ui";
 import type { Stop } from "@sbt/shared-types";
 import { supabase } from "../lib/supabase";
 import { useMyTickets } from "../hooks/useTicket";
+import { useI18n } from "../lib/i18n";
 
 const statusTone = {
   CREATED: "neutral",
@@ -15,6 +16,7 @@ const statusTone = {
 
 export function MyTicketsPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const { tickets, status, reload } = useMyTickets();
   const [stopsById, setStopsById] = useState<Map<string, Stop>>(new Map());
 
@@ -35,16 +37,16 @@ export function MyTicketsPage() {
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-5 pb-28 pt-8">
       <header>
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">My Tickets</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-500">Tickets bought on this device.</p>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{t("myTickets")}</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-500">{t("ticketsOnDevice")}</p>
       </header>
 
-      {status === "loading" && <LoadingState label="Loading your tickets…" />}
+      {status === "loading" && <LoadingState label={t("loadingTickets")} />}
 
       {status === "success" && tickets.length === 0 && (
         <EmptyState
-          title="No tickets yet"
-          description="Tickets you buy will show up here — they're tied to this browser, not an account."
+          title={t("noTicketsYet")}
+          description={t("noTicketsDesc")}
         />
       )}
 
@@ -72,7 +74,7 @@ export function MyTicketsPage() {
                   minute: "2-digit",
                 })}
                 {" · "}
-                {ticket.passenger_count} passenger{ticket.passenger_count === 1 ? "" : "s"} · ₹{ticket.total_fare.toFixed(2)}
+                {ticket.passenger_count} {ticket.passenger_count === 1 ? t("passenger") : t("passengers")} · ₹{ticket.total_fare.toFixed(2)}
               </p>
             </Card>
           );

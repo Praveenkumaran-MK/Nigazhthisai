@@ -40,8 +40,9 @@ const navGroups = [
     label: "Maintenance",
     masterOnly: false,
     items: [
-      { to: "/etm",         label: "ETM Devices",  masterOnly: false },
-      { to: "/bus-qr",      label: "Bus QR Codes", masterOnly: false },
+      { to: "/maintenance", label: "🛠️ Fleet & ETM Maint", masterOnly: false },
+      { to: "/etm",         label: "📟 ETM Devices",       masterOnly: false },
+      { to: "/bus-qr",      label: "Bus QR Codes",         masterOnly: false },
     ],
   },
   // ─── Master Admin exclusive ───────────────────────────────────────────────
