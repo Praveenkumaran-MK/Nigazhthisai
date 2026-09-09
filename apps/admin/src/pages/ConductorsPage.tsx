@@ -3,6 +3,7 @@ import { Button, DataTable, Dialog, Input, Alert, Badge, useToast, ErrorState } 
 import type { Conductor } from "@sbt/shared-types";
 import { toAppError } from "@sbt/supabase-client";
 import { useCrudResource } from "../hooks/useCrudResource";
+import { useAdminAuth } from "../hooks/useAdminAuth";
 import { supabase } from "../lib/supabase";
 
 function randomTempPassword(): string {
@@ -10,6 +11,7 @@ function randomTempPassword(): string {
 }
 
 export function ConductorsPage() {
+  const { profile } = useAdminAuth();
   const { rows, status, error, reload } = useCrudResource<Conductor>({ table: "conductors", orderBy: "display_name" });
   const { push } = useToast();
   const [open, setOpen] = useState(false);
@@ -29,7 +31,12 @@ export function ConductorsPage() {
     try {
       const { data: conductorRow, error: insertError } = await supabase
         .from("conductors")
-        .insert({ government_id: governmentId.trim(), display_name: displayName.trim(), phone: phone.trim() || null })
+        .insert({
+          government_id: governmentId.trim(),
+          display_name: displayName.trim(),
+          phone: phone.trim() || null,
+          district_id: profile?.district_id ?? null,
+        })
         .select()
         .single();
       if (insertError) throw new Error(insertError.message);
@@ -50,6 +57,7 @@ export function ConductorsPage() {
             displayName: displayName.trim(),
             temporaryPassword,
             role: "conductor",
+            district_id: profile?.district_id ?? undefined,
           }),
         },
       );

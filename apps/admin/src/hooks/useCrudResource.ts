@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { useAdminAuth } from "./useAdminAuth";
+
+const DISTRICT_SCOPED_TABLES = new Set([
+  "buses",
+  "routes",
+  "stops",
+  "schedules",
+  "fares",
+  "conductors",
+  "etm_devices",
+  "complaints",
+]);
 
 export interface CrudResourceOptions {
   /** Table targeted by insert/update/delete. */
@@ -19,6 +31,7 @@ export interface CrudResourceOptions {
  * state around it.
  */
 export function useCrudResource<T extends { id: string }>({ table, readTable, orderBy }: CrudResourceOptions) {
+  const { profile } = useAdminAuth();
   const [rows, setRows] = useState<T[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -50,11 +63,17 @@ export function useCrudResource<T extends { id: string }>({ table, readTable, or
   // escape hatch — every other input value in this file stays fully typed.
   const create = useCallback(
     async (input: Partial<T>) => {
-      const { error: err } = await supabase.from(table).insert(input as never);
+      const payload = {
+        ...(profile?.district_id && DISTRICT_SCOPED_TABLES.has(table) && !("district_id" in (input as object))
+          ? { district_id: profile.district_id }
+          : {}),
+        ...input,
+      };
+      const { error: err } = await supabase.from(table).insert(payload as never);
       if (err) throw new Error(err.message);
       await reload();
     },
-    [table, reload],
+    [table, reload, profile?.district_id],
   );
 
   const update = useCallback(

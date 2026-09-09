@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
+import { useAdminAuth } from "../hooks/useAdminAuth";
 import type { District, EtmDevice } from "@sbt/shared-types";
 
 interface EtmWithRelations extends EtmDevice {
@@ -9,6 +10,7 @@ interface EtmWithRelations extends EtmDevice {
 }
 
 export function EtmPage() {
+  const { profile } = useAdminAuth();
   const [devices, setDevices] = useState<EtmWithRelations[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +73,7 @@ export function EtmPage() {
     try {
       const payload = {
         device_serial: form.device_serial.trim().toUpperCase(),
-        district_id: form.district_id || null,
+        district_id: form.district_id || profile?.district_id || null,
         status: form.status,
         battery_level: form.battery_level,
       };
