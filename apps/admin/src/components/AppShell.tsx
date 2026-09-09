@@ -3,46 +3,60 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { Button, StatusIndicator, BrandLogo, AppHeader } from "@sbt/ui";
 import { useAdminAuth } from "../hooks/useAdminAuth";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
+import { useFeatureFlags } from "../hooks/useFeatureFlags";
 
-const navGroups = [
+interface NavItem {
+  to: string;
+  label: string;
+  masterOnly?: boolean;
+  featureKey?: string;
+}
+
+interface NavGroup {
+  label: string;
+  masterOnly?: boolean;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
   {
     label: "Operations",
     masterOnly: false,
     items: [
-      { to: "/dashboard",   label: "Overview",    masterOnly: false },
-      { to: "/stops",       label: "Stops",       masterOnly: false },
-      { to: "/routes",      label: "Routes",      masterOnly: false },
-      { to: "/route-stops", label: "Route Stops", masterOnly: false },
-      { to: "/fares",       label: "Fares",       masterOnly: false },
-      { to: "/buses",       label: "Buses",       masterOnly: false },
-      { to: "/conductors",  label: "Conductors",  masterOnly: false },
-      { to: "/trips",       label: "Trips",       masterOnly: false },
-      { to: "/schedules",   label: "Schedules",   masterOnly: false },
+      { to: "/dashboard",   label: "Overview",    masterOnly: false, featureKey: "dashboard" },
+      { to: "/stops",       label: "Stops",       masterOnly: false, featureKey: "operations_module" },
+      { to: "/routes",      label: "Routes",      masterOnly: false, featureKey: "routes_management" },
+      { to: "/route-stops", label: "Route Stops", masterOnly: false, featureKey: "routes_management" },
+      { to: "/fares",       label: "Fares",       masterOnly: false, featureKey: "operations_module" },
+      { to: "/buses",       label: "Buses",       masterOnly: false, featureKey: "buses_management" },
+      { to: "/conductors",  label: "Conductors",  masterOnly: false, featureKey: "operations_module" },
+      { to: "/trips",       label: "Trips",       masterOnly: false, featureKey: "trips_management" },
+      { to: "/schedules",   label: "Schedules",   masterOnly: false, featureKey: "trips_management" },
     ],
   },
   {
     label: "Monitoring",
     masterOnly: false,
     items: [
-      { to: "/fleet",       label: "Live Fleet",    masterOnly: false },
-      { to: "/alerts",      label: "🆘 Alerts",     masterOnly: false },
-      { to: "/complaints",  label: "📋 Complaints", masterOnly: false },
+      { to: "/fleet",       label: "Live Fleet",    masterOnly: false, featureKey: "live_monitoring" },
+      { to: "/alerts",      label: "🆘 Alerts",     masterOnly: false, featureKey: "operational_alerts" },
+      { to: "/complaints",  label: "📋 Complaints", masterOnly: false, featureKey: "support_faq" },
     ],
   },
   {
     label: "Finance",
     masterOnly: false,
     items: [
-      { to: "/revenue",     label: "Revenue Analytics", masterOnly: false },
+      { to: "/revenue",     label: "Revenue Analytics", masterOnly: false, featureKey: "revenue_analytics" },
     ],
   },
   {
     label: "Maintenance",
     masterOnly: false,
     items: [
-      { to: "/maintenance", label: "🛠️ Fleet & ETM Maint", masterOnly: false },
-      { to: "/etm",         label: "📟 ETM Devices",       masterOnly: false },
-      { to: "/bus-qr",      label: "Bus QR Codes",         masterOnly: false },
+      { to: "/maintenance", label: "🛠️ Fleet & ETM Maint", masterOnly: false, featureKey: "shops_management" },
+      { to: "/etm",         label: "📟 ETM Devices",       masterOnly: false, featureKey: "shops_management" },
+      { to: "/bus-qr",      label: "Bus QR Codes",         masterOnly: false, featureKey: "shops_management" },
     ],
   },
   // ─── Master Admin exclusive ───────────────────────────────────────────────
@@ -60,6 +74,7 @@ const navGroups = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { profile, logout } = useAdminAuth();
+  const { isAccessible } = useFeatureFlags();
   const navigate = useNavigate();
   const isOnline = useOnlineStatus();
 
@@ -69,11 +84,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     ? "bg-brand-500 text-navy-900"
     : "bg-white/10 text-white/70";
 
-  // Filter nav items based on role: district admins don't see master-only items
+  // Filter nav items: master admins see everything; district admins see enabled modules
   const visibleNavGroups = navGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => isMasterAdmin || !item.masterOnly),
+      items: group.items.filter((item) => {
+        if (isMasterAdmin) return true;
+        if (item.masterOnly) return false;
+        return isAccessible(item.featureKey);
+      }),
     }))
     .filter((group) => group.items.length > 0);
 
@@ -121,8 +140,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         <AppHeader
           variant="plain"
           sticky
-          /* The sidebar already carries the brand on md+, so the mark only
-             appears here on smaller screens where the sidebar is hidden. */
           leading={
             <span className="flex items-center gap-3">
               <BrandLogo variant="mark" tone="navy" className="h-7 w-7 md:hidden" />
@@ -138,7 +155,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span className="text-sm text-slate-500 dark:text-slate-400">
                   {profile?.display_name}
                 </span>
-                {/* Role badge in the top bar — visible on medium+ screens alongside the display name */}
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${roleBadgeClass}`}>
                   {roleLabel}
                 </span>
