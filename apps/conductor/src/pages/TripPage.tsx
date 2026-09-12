@@ -206,8 +206,16 @@ export function TripPage() {
     if (!tripId || !trip) return;
     setIsStarting(true);
     try {
+      console.info("[TripPage] Initiating vehicle verification for bus_id:", trip.bus_id);
+
       // 1. Verify bus QR against assigned bus
-      await verifyBusQr(supabase, scannedValue, trip.bus_id);
+      await verifyBusQr(
+        supabase,
+        scannedValue,
+        trip.bus_id,
+        assignedBus?.bus_number,
+        assignedBus?.registration_number
+      );
 
       // 2. Haptic buzz on valid bus identity
       if ("vibrate" in navigator) {
@@ -225,6 +233,9 @@ export function TripPage() {
         description: `Bus #${assignedBus?.bus_number ?? "assigned vehicle"} is now broadcasting GPS and visible to passengers.`,
       });
       await loadTrip();
+    } catch (err: any) {
+      console.error("[TripPage] Bus verification error:", err);
+      throw err;
     } finally {
       setIsStarting(false);
     }

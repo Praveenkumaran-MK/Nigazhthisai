@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase";
 import type { Bus, BusQrResult, District } from "@sbt/shared-types";
 import QRCode from "qrcode";
 import { BusIcon, DownloadIcon } from "@sbt/ui";
-import { Printer } from "lucide-react";
+import { Printer, Copy, Check } from "lucide-react";
 
 interface BusWithQr extends Bus {
   district_name?: string;
@@ -112,6 +112,17 @@ export function BusQrPage() {
       </body></html>
     `);
     w.print();
+  };
+
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyCode = async (bus: BusWithQr) => {
+    const code = bus.bus_qr_payload && bus.bus_qr_signature
+      ? `${bus.bus_qr_payload}.${bus.bus_qr_signature}`
+      : bus.bus_number;
+    await navigator.clipboard.writeText(code);
+    setCopiedId(bus.id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const filtered = buses.filter(b => {
@@ -242,6 +253,17 @@ export function BusQrPage() {
                       className="rounded-lg border border-slate-300 p-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                     >
                       <Printer className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleCopyCode(bus)}
+                      title="Copy Verification Token / Bus Number"
+                      className={`rounded-lg border p-2 text-xs font-semibold transition-colors ${
+                        copiedId === bus.id
+                          ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                          : "border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                      }`}
+                    >
+                      {copiedId === bus.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                     </button>
                   </>
                 )}

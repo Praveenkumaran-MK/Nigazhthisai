@@ -1,21 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BrowserQRCodeReader, NotFoundException, type Exception, type Result } from "@zxing/library";
+import { BrowserQRCodeReader, BarcodeFormat, DecodeHintType } from "@zxing/library";
 
-export type ScannerStatus = "idle" | "starting" | "scanning" | "camera-denied" | "camera-unavailable" | "unsupported";
+export type ScannerStatus =
+  | "idle"
+  | "starting"
+  | "scanning"
+  | "camera-denied"
+  | "camera-unavailable"
+  | "unsupported";
 
 declare global {
   interface Window {
-    BarcodeDetector?: new (options: { formats: string[] }) => {
-      detect: (source: CanvasImageSource) => Promise<Array<{ rawValue: string }>>;
+    BarcodeDetector?: {
+      new (options: { formats: string[] }): {
+        detect: (source: CanvasImageSource) => Promise<Array<{ rawValue: string }>>;
+      };
+      getSupportedFormats: () => Promise<string[]>;
     };
   }
 }
 
 /**
- * Prefers the native BarcodeDetector API (fast, no extra decode work on the
- * main thread) and falls back to @zxing/library when unavailable — per spec
- * §34, BarcodeDetector is currently Chromium-only, so Safari/Firefox always
- * use the zxing path.
+ * High-performance, fail-safe dual-engine camera QR scanner.
+ *
+ * 1. Checks if the native BarcodeDetector API is truly supported and functional.
+ * 2. If native BarcodeDetector is unavailable or errors at runtime, seamlessly
+ *    falls back to @zxing/library without hanging on DOM event listeners.
+ * 3. Throttles decode attempts to ~8-10 scans/sec on requestAnimationFrame to
+ *    preserve 60fps UI fluidity and prevent CPU/battery drain.
  */
 export function useCameraScanner(onResult: (value: string) => void) {
   const [status, setStatus] = useState<ScannerStatus>("idle");
@@ -26,25 +38,32 @@ export function useCameraScanner(onResult: (value: string) => void) {
   const barcodeDetectorRef = useRef<InstanceType<NonNullable<Window["BarcodeDetector"]>> | null>(null);
   const cancelledRef = useRef(false);
 
-  // `onResult` is often a fresh function identity on every render (e.g. a
-  // useCallback closing over per-scan state in the caller). The decode loop
-  // below is started once and would otherwise capture that first-render
-  // closure forever — keeping it in a ref lets the caller's latest guard
-  // logic (isValidating/cooldown) actually take effect on every frame,
-  // instead of every frame re-running the closure from before the first
-  // scan, which previously fired the "already validated" flow ~50x/sec.
+  // Keep latest onResult reference across renders without restarting the stream
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
 
   const stop = useCallback(() => {
     cancelledRef.current = true;
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = undefined;
+    }
     barcodeDetectorRef.current = null;
-    zxingReaderRef.current?.reset();
-    zxingReaderRef.current = null;
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
+    if (zxingReaderRef.current) {
+      try {
+        zxingReaderRef.current.reset();
+      } catch {
+        /* noop */
+      }
+      zxingReaderRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setStatus("idle");
   }, []);
 
@@ -57,60 +76,136 @@ export function useCameraScanner(onResult: (value: string) => void) {
 
     cancelledRef.current = false;
     setStatus("starting");
+
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      // Prefer high-res environment camera for fast QR recognition
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
     } catch {
-      setStatus("camera-denied");
-      return;
+      try {
+        // Fallback to any available video device (e.g. laptop webcam in development)
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch {
+        setStatus("camera-denied");
+        return;
+      }
     }
+
     if (cancelledRef.current) {
       stream.getTracks().forEach((t) => t.stop());
       return;
     }
+
     streamRef.current = stream;
-    videoRef.current.srcObject = stream;
-    await videoRef.current.play();
+    const video = videoRef.current;
+    video.srcObject = stream;
+    video.setAttribute("playsinline", "true");
+    video.setAttribute("muted", "true");
+
+    try {
+      await video.play();
+    } catch (playErr) {
+      console.warn("[CameraScanner] video.play() warning:", playErr);
+    }
+
     if (cancelledRef.current) return;
     setStatus("scanning");
 
-    if (window.BarcodeDetector) {
-      barcodeDetectorRef.current = new window.BarcodeDetector({ formats: ["qr_code"] });
-      const detectLoop = async () => {
-        if (cancelledRef.current || !videoRef.current || !barcodeDetectorRef.current) return;
-        try {
-          const results = await barcodeDetectorRef.current.detect(videoRef.current);
-          if (cancelledRef.current) return;
-          if (results[0]?.rawValue) {
-            onResultRef.current(results[0].rawValue);
+    // 1. Check if native BarcodeDetector is truly available and supports qr_code
+    let detector: InstanceType<NonNullable<Window["BarcodeDetector"]>> | null = null;
+    if (typeof window !== "undefined" && "BarcodeDetector" in window) {
+      try {
+        const DetectorClass = window.BarcodeDetector;
+        if (typeof DetectorClass === "function" && typeof DetectorClass.getSupportedFormats === "function") {
+          const supported = await DetectorClass.getSupportedFormats();
+          if (Array.isArray(supported) && supported.includes("qr_code")) {
+            detector = new DetectorClass({ formats: ["qr_code"] });
           }
-        } catch {
-          /* transient decode errors are expected between frames */
         }
-        if (!cancelledRef.current) {
-          rafRef.current = requestAnimationFrame(detectLoop);
-        }
-      };
-      rafRef.current = requestAnimationFrame(detectLoop);
-      return;
-    }
-
-    // Fallback: @zxing/library. decodeFromVideoElementContinuously calls
-    // back on every frame, resolving `result` on a hit and an `err`
-    // (typically NotFoundException) on frames with no code — that's the
-    // expected steady state between scans, not a failure.
-    const reader = new BrowserQRCodeReader();
-    zxingReaderRef.current = reader;
-    await reader.decodeFromVideoElementContinuously(videoRef.current, (result: Result, err?: Exception) => {
-      if (cancelledRef.current) return;
-      // Despite the non-optional type, zxing invokes this callback with no
-      // usable `result` on every frame that fails to decode — guard for it.
-      if (result) onResultRef.current(result.getText());
-      else if (err && !(err instanceof NotFoundException)) {
-        // eslint-disable-next-line no-console
-        console.warn("QR decode error", err);
+      } catch (err) {
+        console.info("[CameraScanner] Native BarcodeDetector not usable, using ZXing fallback:", err);
       }
-    });
+    }
+    barcodeDetectorRef.current = detector;
+
+    // 2. Prepare ZXing reader with dedicated QR optimization hints
+    const reader = new BrowserQRCodeReader();
+    const hints = new Map<DecodeHintType, any>();
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]);
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    reader.hints = hints;
+    zxingReaderRef.current = reader;
+
+    // 3. Robust frame decoding loop (runs ~8-10 times/second)
+    const SCAN_INTERVAL_MS = 120;
+    let lastScanTime = 0;
+    let isDecoding = false;
+
+    const frameLoop = async (timestamp: number) => {
+      if (cancelledRef.current || !videoRef.current) return;
+
+      const v = videoRef.current;
+      if (
+        !isDecoding &&
+        timestamp - lastScanTime >= SCAN_INTERVAL_MS &&
+        v.readyState >= 2 &&
+        v.videoWidth > 0 &&
+        v.videoHeight > 0
+      ) {
+        isDecoding = true;
+        lastScanTime = timestamp;
+
+        // Try native BarcodeDetector if available
+        if (barcodeDetectorRef.current) {
+          try {
+            const barcodes = await barcodeDetectorRef.current.detect(v);
+            const first = barcodes?.[0];
+            if (first?.rawValue) {
+              console.info("[CameraScanner] QR decoded via BarcodeDetector:", first.rawValue);
+              onResultRef.current(first.rawValue);
+              isDecoding = false;
+              return;
+            }
+          } catch (err) {
+            console.warn("[CameraScanner] BarcodeDetector runtime error, falling back to ZXing:", err);
+            barcodeDetectorRef.current = null;
+          }
+        }
+
+        // Try ZXing engine
+        if (zxingReaderRef.current) {
+          try {
+            const res = zxingReaderRef.current.decode(v);
+            if (cancelledRef.current) return;
+            if (res) {
+              const text = res.getText();
+              if (text) {
+                console.info("[CameraScanner] QR decoded via ZXing:", text);
+                onResultRef.current(text);
+                isDecoding = false;
+                return;
+              }
+            }
+          } catch {
+            // NotFoundException or ChecksumException is normal when no QR code is inside frame
+          }
+        }
+
+        isDecoding = false;
+      }
+
+      if (!cancelledRef.current) {
+        rafRef.current = requestAnimationFrame(frameLoop);
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(frameLoop);
   }, []);
 
   useEffect(() => stop, [stop]);

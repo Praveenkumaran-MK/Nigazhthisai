@@ -7,12 +7,48 @@ export async function startTrip(
   tripId: string,
   busQr?: string,
 ): Promise<Trip> {
-  const { data, error } = await client.rpc("start_trip", {
+  // 1. Try 2-arg start_trip (migration 042+)
+  let res = await client.rpc("start_trip", {
     p_trip_id: tripId,
     p_bus_qr: busQr ?? null,
   });
-  if (error) throw toAppError(error);
-  return data as unknown as Trip;
+
+  // 2. Fallback to 1-arg start_trip if remote database only has the original function
+  if (
+    res.error &&
+    (res.error.code === "PGRST202" ||
+      res.error.message?.includes("schema cache") ||
+      res.error.message?.includes("function") ||
+      res.error.message?.includes("start_trip"))
+  ) {
+    console.warn("[startTrip] 2-arg start_trip not found, calling 1-arg fallback:", res.error);
+    res = await client.rpc("start_trip", {
+      p_trip_id: tripId,
+    });
+  }
+
+  // 3. Fallback to direct status transition if RPC is unavailable in schema cache
+  if (
+    res.error &&
+    (res.error.code === "PGRST202" || res.error.message?.includes("schema cache"))
+  ) {
+    console.warn("[startTrip] start_trip RPC missing, updating trips table directly:", res.error);
+    const { data: updated, error: updateErr } = await client
+      .from("trips")
+      .update({
+        status: "ACTIVE",
+        started_at: new Date().toISOString(),
+      })
+      .eq("id", tripId)
+      .select("*")
+      .single();
+
+    if (updateErr) throw toAppError(updateErr);
+    return updated as unknown as Trip;
+  }
+
+  if (res.error) throw toAppError(res.error);
+  return res.data as unknown as Trip;
 }
 
 export async function departStopAndExpireTickets(

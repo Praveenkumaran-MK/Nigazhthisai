@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useCameraScanner } from "../hooks/useCameraScanner";
-import { Camera, X, Zap, Keyboard, ShieldAlert, ShieldCheck, RefreshCw, Bus } from "lucide-react";
-import { Button, Input, Card } from "@sbt/ui";
+import { Camera, X, Zap, Keyboard, ShieldAlert, ShieldCheck, RefreshCw, Bus, CheckCircle2 } from "lucide-react";
+import { Button, Input } from "@sbt/ui";
 
 interface BusQrScannerModalProps {
   isOpen: boolean;
@@ -23,6 +23,7 @@ export function BusQrScannerModal({
 }: BusQrScannerModalProps) {
   const [mode, setMode] = useState<"camera" | "manual">("camera");
   const [isVerifying, setIsVerifying] = useState(false);
+  const [detectedText, setDetectedText] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [manualCode, setManualCode] = useState("");
   const [torchOn, setTorchOn] = useState(false);
@@ -32,6 +33,11 @@ export function BusQrScannerModal({
     async (value: string) => {
       if (isVerifying || cooldown || !isOpen) return;
 
+      // Instant haptic and visual confirmation that QR was captured by camera
+      if ("vibrate" in navigator) {
+        navigator.vibrate([70]);
+      }
+      setDetectedText(value.length > 32 ? `${value.slice(0, 32)}…` : value);
       setIsVerifying(true);
       setErrorMessage(null);
       setCooldown(true);
@@ -42,11 +48,12 @@ export function BusQrScannerModal({
         if ("vibrate" in navigator) {
           navigator.vibrate([100, 50, 100]);
         }
-        setErrorMessage(err.message || "Failed to verify bus QR code. Please try again.");
-        // Re-enable scanning after 2.5s cooldown
+        setErrorMessage(err.message || "Failed to verify bus QR code. Please try again or use manual entry.");
+        // Allow re-scan after 2 seconds
         window.setTimeout(() => {
           setCooldown(false);
-        }, 2500);
+          setDetectedText(null);
+        }, 2000);
       } finally {
         setIsVerifying(false);
       }
@@ -60,6 +67,7 @@ export function BusQrScannerModal({
   useEffect(() => {
     if (isOpen && mode === "camera") {
       setErrorMessage(null);
+      setDetectedText(null);
       void start();
     } else {
       stop();
@@ -90,11 +98,15 @@ export function BusQrScannerModal({
     }
   };
 
-  const handleManualSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = manualCode.trim();
+  const handleManualSubmit = async (e?: React.FormEvent, overrideCode?: string) => {
+    if (e) e.preventDefault();
+    const clean = (overrideCode ?? manualCode).trim();
     if (!clean || isVerifying) return;
 
+    if ("vibrate" in navigator) {
+      navigator.vibrate([70]);
+    }
+    setDetectedText(clean);
     setIsVerifying(true);
     setErrorMessage(null);
 
@@ -105,6 +117,7 @@ export function BusQrScannerModal({
         navigator.vibrate([100, 50, 100]);
       }
       setErrorMessage(err.message || "Invalid bus verification code.");
+      setDetectedText(null);
     } finally {
       setIsVerifying(false);
     }
@@ -173,7 +186,13 @@ export function BusQrScannerModal({
         {mode === "camera" ? (
           <div className="relative flex flex-col items-center bg-black p-4">
             {/* Viewfinder Frame */}
-            <div className="relative aspect-square w-full max-w-[300px] overflow-hidden rounded-2xl border-2 border-emerald-500/60 bg-slate-900 shadow-inner">
+            <div
+              className={`relative aspect-square w-full max-w-[300px] overflow-hidden rounded-2xl border-2 transition-all duration-300 bg-slate-900 shadow-inner ${
+                detectedText
+                  ? "border-emerald-400 ring-4 ring-emerald-500/50"
+                  : "border-emerald-500/60"
+              }`}
+            >
               <video
                 ref={videoRef}
                 playsInline
@@ -196,18 +215,27 @@ export function BusQrScannerModal({
 
               {/* Verifying Indicator Overlay */}
               {isVerifying && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 text-center">
-                  <RefreshCw className="h-10 w-10 text-emerald-400 animate-spin mb-3" />
-                  <p className="text-sm font-bold text-white">Verifying Vehicle Identity…</p>
-                  <p className="text-xs text-emerald-300 mt-1">Connecting session with Bus #{assignedBus?.bus_number}</p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4 text-center z-10 animate-fade-in">
+                  <div className="relative mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400">
+                    <RefreshCw className="h-8 w-8 animate-spin" />
+                  </div>
+                  <p className="text-sm font-bold text-white">QR Code Detected!</p>
+                  <p className="text-xs text-emerald-300 mt-1">
+                    Validating identity for Bus #{assignedBus?.bus_number}…
+                  </p>
+                  {detectedText && (
+                    <p className="mt-2 max-w-[240px] truncate rounded bg-slate-900 px-2 py-1 font-mono text-[10px] text-slate-400 border border-slate-800">
+                      {detectedText}
+                    </p>
+                  )}
                 </div>
               )}
 
-              {/* Camera Status Overlay */}
+              {/* Camera Starting Overlay */}
               {status === "starting" && !isVerifying && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/70 p-4 text-center">
                   <RefreshCw className="h-8 w-8 text-emerald-400 animate-spin mb-2" />
-                  <p className="text-xs text-slate-300">Starting camera sensor…</p>
+                  <p className="text-xs text-slate-300 font-medium">Starting camera sensor…</p>
                 </div>
               )}
 
@@ -225,8 +253,8 @@ export function BusQrScannerModal({
               Align the QR code sticker on <strong className="text-slate-200">Bus #{assignedBus?.bus_number}</strong> inside the frame.
             </p>
 
-            {/* Quick Actions (Torch toggle) */}
-            <div className="mt-3 flex items-center gap-3">
+            {/* Quick Actions (Torch toggle & Quick Manual Fallback) */}
+            <div className="mt-3 flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={toggleTorch}
@@ -239,10 +267,46 @@ export function BusQrScannerModal({
                 <Zap className="h-3.5 w-3.5" />
                 <span>{torchOn ? "Torch On" : "Torch Off"}</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setMode("manual")}
+                className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
+              >
+                <Keyboard className="h-3.5 w-3.5" />
+                <span>Manual Entry</span>
+              </button>
             </div>
           </div>
         ) : (
           <form onSubmit={handleManualSubmit} className="flex flex-col gap-4 p-5 bg-slate-950">
+            {/* Quick 1-Click Verification for Assigned Bus */}
+            {assignedBus && (
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-3.5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-white">Assigned to Trip</p>
+                      <p className="text-xs text-emerald-300 font-mono">Bus #{assignedBus.bus_number}</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5"
+                    isLoading={isVerifying}
+                    onClick={() => {
+                      setManualCode(assignedBus.bus_number);
+                      void handleManualSubmit(undefined, assignedBus.bus_number);
+                    }}
+                  >
+                    Use This Bus
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
                 Bus Verification Code or Bus Number
@@ -262,7 +326,7 @@ export function BusQrScannerModal({
             <Button
               type="submit"
               size="lg"
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-12 text-sm"
               isLoading={isVerifying}
               disabled={!manualCode.trim()}
             >
