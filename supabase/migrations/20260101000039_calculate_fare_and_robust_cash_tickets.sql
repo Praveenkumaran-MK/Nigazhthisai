@@ -120,6 +120,7 @@ declare
   v_ticket         public.tickets%rowtype;
   v_qr_payload     text;
   v_qr_signature   text;
+  v_norm_concession text := 'NORMAL';
   v_existing       public.tickets%rowtype;
 begin
   if not is_conductor() and not is_any_admin() then
@@ -210,12 +211,12 @@ begin
   end if;
 
   case upper(coalesce(p_concession_type, 'NORMAL'))
-    when 'STUDENT'         then v_discount_pct := 0.50;
-    when 'SENIOR'          then v_discount_pct := 0.50;
-    when 'SENIOR_CITIZEN'  then v_discount_pct := 0.50;
-    when 'MONTHLY_PASS'    then v_discount_pct := 0.75;
-    when 'FREEDOM_FIGHTER' then v_discount_pct := 1.00;
-    else                        v_discount_pct := 0.00;
+    when 'STUDENT'         then v_discount_pct := 0.50; v_norm_concession := 'STUDENT';
+    when 'SENIOR'          then v_discount_pct := 0.50; v_norm_concession := 'SENIOR_CITIZEN';
+    when 'SENIOR_CITIZEN'  then v_discount_pct := 0.50; v_norm_concession := 'SENIOR_CITIZEN';
+    when 'MONTHLY_PASS'    then v_discount_pct := 0.75; v_norm_concession := 'MONTHLY_PASS';
+    when 'FREEDOM_FIGHTER' then v_discount_pct := 1.00; v_norm_concession := 'FREEDOM_FIGHTER';
+    else                        v_discount_pct := 0.00; v_norm_concession := 'NORMAL';
   end case;
 
   v_total_fare := round((v_fare_per_pax * coalesce(p_passenger_count, 1)) * (1.0 - v_discount_pct), 2);
@@ -277,11 +278,11 @@ begin
     v_qr_signature,
     'VALIDATED',
     v_trip.district_id,
-    upper(coalesce(p_concession_type, 'NORMAL')),
+    v_norm_concession,
     v_discount_amt,
     'CASH',
     v_pnr,
-    'CONDUCTOR_POS',
+    'CASH',
     v_conductor_id,
     p_idempotency_key,
     true,

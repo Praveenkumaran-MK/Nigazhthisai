@@ -62,7 +62,7 @@ export function TripPage() {
   const [originStopId, setOriginStopId] = useState<string>("");
   const [destStopId, setDestStopId] = useState<string>("");
   const [passengerCount, setPassengerCount] = useState<number>(1);
-  const [concessionType, setConcessionType] = useState<string>("NONE");
+  const [concessionType, setConcessionType] = useState<string>("NORMAL");
   const [isIssuing, setIsIssuing] = useState(false);
   const [issuedTicket, setIssuedTicket] = useState<IssuedTicket | null>(null);
   const [estimatedFare, setEstimatedFare] = useState<number>(15);
@@ -173,7 +173,7 @@ export function TripPage() {
       .then(({ data }) => {
         let baseFare = Number(data) || 15;
         let discountPct = 0;
-        if (concessionType === "STUDENT" || concessionType === "SENIOR") discountPct = 0.5;
+        if (concessionType === "STUDENT" || concessionType === "SENIOR" || concessionType === "SENIOR_CITIZEN") discountPct = 0.5;
         if (concessionType === "MONTHLY_PASS") discountPct = 0.75;
         if (concessionType === "FREEDOM_FIGHTER") discountPct = 1.0;
 
@@ -740,9 +740,9 @@ export function TripPage() {
                 value={concessionType}
                 onChange={(e) => setConcessionType(e.target.value)}
                 options={[
-                  { value: "NONE", label: "None (Full Fare)" },
+                  { value: "NORMAL", label: "Normal (Full Fare)" },
                   { value: "STUDENT", label: "Student (50% Off)" },
-                  { value: "SENIOR", label: "Senior (50% Off)" },
+                  { value: "SENIOR_CITIZEN", label: "Senior (50% Off)" },
                   { value: "MONTHLY_PASS", label: "Pass (75% Off)" },
                   { value: "FREEDOM_FIGHTER", label: "Free Pass" },
                 ]}
