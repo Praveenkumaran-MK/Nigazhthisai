@@ -77,6 +77,17 @@ $$;
 
 grant execute on function public.calculate_fare(uuid, uuid, uuid) to anon, authenticated;
 
+-- Ensure all required ticket columns exist
+alter table public.tickets
+  add column if not exists discount_amount numeric(10, 2) default 0.00,
+  add column if not exists created_by_conductor_id uuid references public.conductors(id) on delete set null,
+  add column if not exists payment_method text default 'APP',
+  add column if not exists concession_type text default 'NORMAL',
+  add column if not exists channel text default 'APP',
+  add column if not exists district_id uuid references public.districts(id) on delete set null,
+  add column if not exists pnr text,
+  add column if not exists is_validated boolean default false;
+
 -- 2. Hardened generate_passenger_cash_ticket
 create or replace function public.generate_passenger_cash_ticket(
   p_trip_id          uuid,

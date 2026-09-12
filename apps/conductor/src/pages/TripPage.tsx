@@ -304,7 +304,8 @@ export function TripPage() {
         });
 
         if (fbErr) {
-          throw error || fbErr;
+          console.warn("[CashTicket] issue_cash_ticket also failed:", fbErr);
+          throw fbErr;
         }
 
         ticketData = {
