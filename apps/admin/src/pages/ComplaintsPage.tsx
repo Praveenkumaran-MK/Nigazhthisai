@@ -110,8 +110,7 @@ export function ComplaintsPage() {
           *,
           buses (
             id,
-            bus_number,
-            bus_type
+            bus_number
           ),
           trips (
             id,

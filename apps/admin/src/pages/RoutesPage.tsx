@@ -145,19 +145,43 @@ export function RoutesPage() {
     setSchedulerOpen(true);
 
     try {
-      // 1. Fetch standard route stops
-      const { data: stdStops } = await supabase
+      // 1. Fetch standard route stops (with fallback)
+      let stdStops: any[] = [];
+      const stdResWithEta = await supabase
         .from("route_stops")
         .select("id, stop_id, sequence_order, expected_arrival_time, stops(name, code)")
         .eq("route_id", route.id)
         .order("sequence_order");
 
-      // 2. Fetch day-specific overrides
-      const { data: dayStops } = await supabase
+      if (stdResWithEta.data && !stdResWithEta.error) {
+        stdStops = stdResWithEta.data;
+      } else {
+        const stdResFallback = await supabase
+          .from("route_stops")
+          .select("id, stop_id, sequence_order, stops(name, code)")
+          .eq("route_id", route.id)
+          .order("sequence_order");
+        stdStops = stdResFallback.data ?? [];
+      }
+
+      // 2. Fetch day-specific overrides (with fallback)
+      let dayStops: any[] = [];
+      const dayResWithEta = await supabase
         .from("route_day_stops")
         .select("id, stop_id, sequence_order, day_of_week, expected_arrival_time, stops(name, code)")
         .eq("route_id", route.id)
         .order("sequence_order");
+
+      if (dayResWithEta.data && !dayResWithEta.error) {
+        dayStops = dayResWithEta.data;
+      } else {
+        const dayResFallback = await supabase
+          .from("route_day_stops")
+          .select("id, stop_id, sequence_order, day_of_week, stops(name, code)")
+          .eq("route_id", route.id)
+          .order("sequence_order");
+        dayStops = dayResFallback.data ?? [];
+      }
 
       const map: Record<number, RouteStopItem[]> = {};
 
@@ -282,18 +306,47 @@ export function RoutesPage() {
         expected_arrival_time: s.expected_arrival_time || null,
       }));
 
+      // 1. Try modern RPC with ETAs (migration 040)
       const { error: rpcErr } = await supabase.rpc("save_route_day_stops", {
         p_route_id: activeRoute.id,
         p_day_of_week: selectedDayKey,
         p_stops: payload,
       });
 
-      if (rpcErr) throw rpcErr;
+      if (rpcErr) {
+        // 2. Try legacy RPC with stop_ids array (migration 033)
+        const stopIds = currentList.map((s) => s.stop_id);
+        const { error: legacyErr } = await supabase.rpc("save_route_day_stops", {
+          p_route_id: activeRoute.id,
+          p_day_of_week: selectedDayKey,
+          p_stop_ids: stopIds,
+        });
+
+        if (legacyErr) {
+          // 3. Fallback: Direct table operations
+          await supabase
+            .from("route_day_stops")
+            .delete()
+            .eq("route_id", activeRoute.id)
+            .eq("day_of_week", selectedDayKey);
+
+          if (currentList.length > 0) {
+            const rows = currentList.map((s, idx) => ({
+              route_id: activeRoute.id,
+              day_of_week: selectedDayKey,
+              stop_id: s.stop_id,
+              sequence_order: idx + 1,
+            }));
+            const { error: insErr } = await supabase.from("route_day_stops").insert(rows);
+            if (insErr) throw insErr;
+          }
+        }
+      }
 
       push({
         tone: "success",
         title: "Schedule & Stop Sequence Saved",
-        description: `Updated ${currentList.length} stops with ETAs for ${
+        description: `Updated ${currentList.length} stops for ${
           DAYS.find((d) => d.key === selectedDayKey)?.label
         }`,
       });

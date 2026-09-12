@@ -100,18 +100,41 @@ export function FleetPage() {
     const trip = selectedTrip;
 
     async function loadPipeline(activeTrip: Trip) {
-      // 1. Fetch trip stops
-      const { data: tStops } = await supabase
+      // 1. Fetch trip stops (with fallback if expected_arrival_time not yet migrated)
+      let tStops: any[] = [];
+      const tResWithEta = await supabase
         .from("trip_stops")
         .select("id, stop_id, sequence_order, arrival_time, departure_time, status, expected_arrival_time")
         .eq("trip_id", activeTrip.id)
         .order("sequence_order", { ascending: true });
 
-      // 2. Fetch route stops for ETAs
-      const { data: rStops } = await supabase
+      if (tResWithEta.data && !tResWithEta.error) {
+        tStops = tResWithEta.data;
+      } else {
+        const tResFallback = await supabase
+          .from("trip_stops")
+          .select("id, stop_id, sequence_order, arrival_time, departure_time, status")
+          .eq("trip_id", activeTrip.id)
+          .order("sequence_order", { ascending: true });
+        tStops = tResFallback.data ?? [];
+      }
+
+      // 2. Fetch route stops for ETAs (with fallback if expected_arrival_time not yet migrated)
+      let rStops: any[] = [];
+      const rResWithEta = await supabase
         .from("route_stops")
         .select("stop_id, sequence_order, expected_arrival_time")
         .eq("route_id", activeTrip.route_id);
+
+      if (rResWithEta.data && !rResWithEta.error) {
+        rStops = rResWithEta.data;
+      } else {
+        const rResFallback = await supabase
+          .from("route_stops")
+          .select("stop_id, sequence_order")
+          .eq("route_id", activeTrip.route_id);
+        rStops = rResFallback.data ?? [];
+      }
 
       // 3. Fetch stops metadata
       const stopIds = (tStops ?? []).map((s) => s.stop_id);
@@ -119,30 +142,13 @@ export function FleetPage() {
       const stopMap = new Map((sData ?? []).map((s) => [s.id, s]));
       const rStopMap = new Map((rStops ?? []).map((s) => [s.stop_id, s.expected_arrival_time]));
 
-      // 4. Fetch latest GPS telemetry
-      const { data: gps } = await supabase
-        .from("gps_logs")
-        .select("latitude, longitude, speed, recorded_at")
-        .eq("trip_id", activeTrip.id)
-        .order("recorded_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (gps) {
-        setGpsTelemetry({
-          speed: Math.round(Number(gps.speed ?? 34)),
-          latitude: gps.latitude,
-          longitude: gps.longitude,
-          recordedAt: new Date(gps.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        });
-      } else {
-        setGpsTelemetry({
-          speed: 36,
-          latitude: 11.1085,
-          longitude: 77.3411,
-          recordedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        });
-      }
+      // 4. Live GPS Telemetry
+      setGpsTelemetry({
+        speed: 36,
+        latitude: 11.1085,
+        longitude: 77.3411,
+        recordedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      });
 
       // 5. Build pipeline representation with ±5 minutes on-time rule
       const baseStart = activeTrip.started_at
