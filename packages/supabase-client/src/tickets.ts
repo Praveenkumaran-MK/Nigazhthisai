@@ -33,3 +33,28 @@ export async function validateTicket(client: SupabaseClient, input: ValidateTick
   if (error) throw toAppError(error);
   return data as unknown as Ticket;
 }
+
+/**
+ * Transfers an unvalidated ticket from a missed bus to the next available bus on the same route.
+ */
+export async function transferMissedTicket(
+  client: SupabaseClient,
+  ticketId: string,
+): Promise<{
+  ticket_id: string;
+  pnr: string;
+  old_trip_id: string;
+  new_trip_id: string;
+  new_bus_id: string;
+  new_bus_number: string;
+  route_id: string;
+  transfer_count: number;
+  transferred_at: string;
+}> {
+  const { data, error } = await client.rpc("transfer_missed_ticket", {
+    p_ticket_id: ticketId,
+  });
+  if (error) throw toAppError(error);
+  return data;
+}
+

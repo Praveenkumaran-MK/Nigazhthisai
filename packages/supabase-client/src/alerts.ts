@@ -36,3 +36,29 @@ export async function listActiveAlerts(client: SupabaseClient): Promise<Alert[]>
   if (error) throw toAppError(error);
   return (data ?? []) as Alert[];
 }
+
+/**
+ * Audits a trip for revenue leakage by comparing physical headcount against validated tickets.
+ * Triggers a REVENUE_FRAUD alert if difference exceeds threshold.
+ */
+export async function auditRevenueLeakage(
+  client: SupabaseClient,
+  tripId: string,
+  physicalHeadcount?: number,
+): Promise<{
+  trip_id: string;
+  bus_number: string;
+  validated_tickets: number;
+  onboard_headcount: number;
+  mismatch_diff: number;
+  alert_triggered: boolean;
+  alert_id: string | null;
+}> {
+  const { data, error } = await client.rpc("audit_trip_revenue_leakage", {
+    p_trip_id: tripId,
+    p_physical_headcount: physicalHeadcount ?? null,
+  });
+  if (error) throw toAppError(error);
+  return data;
+}
+

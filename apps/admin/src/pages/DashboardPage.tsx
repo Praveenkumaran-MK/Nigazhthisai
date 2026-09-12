@@ -54,6 +54,21 @@ interface LiveTripSnippet {
   eta: string;
 }
 
+interface RouteDemandInsight {
+  route_id: string;
+  route_number: string;
+  route_name: string;
+  total_passengers: number;
+  total_trips: number;
+  busiest_origin_stop: string;
+  busiest_origin_count: number;
+  busiest_dest_stop: string;
+  busiest_dest_count: number;
+  avg_trip_utilization_pct: number;
+  surge_detected: boolean;
+  suggested_additional_buses: number;
+}
+
 export function DashboardPage() {
   const { profile } = useAdminAuth();
   const isMasterAdmin = profile?.role === "master_admin";
@@ -75,6 +90,7 @@ export function DashboardPage() {
   });
   const [latestAlert, setLatestAlert] = useState<LiveAlertSnippet | null>(null);
   const [activeTripsList, setActiveTripsList] = useState<LiveTripSnippet[]>([]);
+  const [demandInsights, setDemandInsights] = useState<RouteDemandInsight[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -136,6 +152,13 @@ export function DashboardPage() {
     }
 
     void fetchDashboardData();
+
+    // Fetch Live Route Demand Analytics
+    supabase.rpc("compute_route_demand_analytics").then(({ data }) => {
+      if (data && Array.isArray(data)) {
+        setDemandInsights(data as RouteDemandInsight[]);
+      }
+    });
 
     // Fetch Latest Alert
     supabase
@@ -294,6 +317,108 @@ export function DashboardPage() {
 
       {/* Master Authority Feature Switches */}
       <AdminControlCenter />
+
+      {/* Real-time Corridor Passenger Demand & Fleet Surge Insights */}
+      {demandInsights.length > 0 && (
+        <Card className="border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#112240]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4 dark:border-slate-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Corridor Passenger Demand & Surge Intelligence
+                </h3>
+                <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                  Computed Live
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Automated demand aggregation from passenger bookings. Highlights peak stop density and suggests fleet adjustments.
+              </p>
+            </div>
+            <Link
+              to="/schedules"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 dark:text-brand-400"
+            >
+              <span>Manage Schedules & Fleet Allocation</span>
+              <ArrowRightIcon className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {demandInsights.slice(0, 6).map((item) => (
+              <div
+                key={item.route_id}
+                className={`rounded-xl border p-4 transition-all ${
+                  item.surge_detected
+                    ? "border-amber-500/50 bg-amber-50/40 dark:border-amber-500/30 dark:bg-amber-950/20 shadow-sm"
+                    : "border-slate-100 bg-slate-50/60 dark:border-slate-800/80 dark:bg-slate-900/40"
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="text-xs font-mono font-bold text-slate-400 uppercase">
+                      Route {item.route_number}
+                    </span>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[200px]">
+                      {item.route_name}
+                    </h4>
+                  </div>
+                  {item.surge_detected ? (
+                    <span className="rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 animate-pulse">
+                      <span>⚡ Surge (+{item.suggested_additional_buses} Bus)</span>
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 text-[10px] font-bold">
+                      Normal Demand
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3 space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Total Booked Pax:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{item.total_passengers}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Busiest Boarding:</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[140px]" title={item.busiest_origin_stop}>
+                      {item.busiest_origin_stop} ({item.busiest_origin_count})
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Busiest Alighting:</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[140px]" title={item.busiest_dest_stop}>
+                      {item.busiest_dest_stop} ({item.busiest_dest_count})
+                    </span>
+                  </div>
+                </div>
+
+                {/* Utilization Progress Bar */}
+                <div className="mt-3.5">
+                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-1">
+                    <span className="text-slate-400">Capacity Load</span>
+                    <span className={item.avg_trip_utilization_pct >= 85 ? "text-amber-600 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"}>
+                      {item.avg_trip_utilization_pct}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        item.avg_trip_utilization_pct >= 85
+                          ? "bg-amber-500"
+                          : item.avg_trip_utilization_pct >= 60
+                          ? "bg-brand-500"
+                          : "bg-emerald-500"
+                      }`}
+                      style={{ width: `${Math.min(100, item.avg_trip_utilization_pct)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Executive Command Hero */}
       <Card className="overflow-hidden bg-navy-depth p-0 shadow-glow-navy">

@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { BoardingPassCard, Badge, LoadingState, Alert, TicketCountdown, Dialog, Button, Input, ShieldAlertIcon } from "@sbt/ui";
 import type { Stop, Bus } from "@sbt/shared-types";
+import { transferMissedTicket } from "@sbt/supabase-client";
+import { RefreshCw } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useLoadTicket } from "../hooks/useTicket";
 import { useGeofenceAlighting } from "../hooks/useGeofenceAlighting";
@@ -85,6 +87,11 @@ export function TicketPage() {
   const [inputMessage, setInputMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Ticket Transfer state
+  const [isTransferring, setIsTransferring] = useState(false);
+  const [transferMessage, setTransferMessage] = useState<string | null>(null);
+  const [transferError, setTransferError] = useState<string | null>(null);
 
   useEffect(() => {
     void reload();
@@ -227,6 +234,26 @@ export function TicketPage() {
     }
   };
 
+  const handleTransferTicket = async () => {
+    if (!ticket) return;
+    setIsTransferring(true);
+    setTransferError(null);
+    setTransferMessage(null);
+    try {
+      const res = await transferMissedTicket(supabase, ticket.id);
+      setTransferMessage(`Ticket successfully transferred to Bus #${res.new_bus_number}! Your cryptographic QR pass has been re-authorized.`);
+      await reload();
+      if (res.new_bus_id) {
+        const { data: bData } = await supabase.from("buses").select("*").eq("id", res.new_bus_id).single();
+        if (bData) setBus(bData as Bus);
+      }
+    } catch (err: any) {
+      setTransferError(err.message || "No upcoming buses found on this route or transfer limit reached.");
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
   if (status === "loading" || !ticket) {
     return (
       <div className="flex h-dvh items-center justify-center">
@@ -277,6 +304,31 @@ export function TicketPage() {
           <ShieldAlertIcon className="h-4 w-4 text-rose-500" />
           <span>Emergency Assistance / SOS Chat</span>
         </button>
+      )}
+
+      {/* Missed Bus Ticket Transfer Option */}
+      {ticket.status === "PAID" && (
+        <div className="w-full flex flex-col gap-2">
+          <button
+            type="button"
+            disabled={isTransferring}
+            onClick={handleTransferTicket}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-brand-500/40 bg-brand-500/10 p-3 text-xs font-bold text-brand-400 hover:bg-brand-500/20 active:scale-[0.99] transition-all"
+          >
+            <RefreshCw className={`h-4 w-4 ${isTransferring ? "animate-spin" : ""}`} />
+            <span>Missed This Bus? Shift Ticket to Next Bus →</span>
+          </button>
+          {transferMessage && (
+            <Alert tone="success" title="Ticket Transferred">
+              {transferMessage}
+            </Alert>
+          )}
+          {transferError && (
+            <Alert tone="danger" title="Transfer Unavailable">
+              {transferError}
+            </Alert>
+          )}
+        </div>
       )}
 
       {ticketActive && withinGeofence && (
