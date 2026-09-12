@@ -1,9 +1,29 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Card, LoadingState, StatusIndicator, StatCard, Badge } from "@sbt/ui";
-import { QrCode, Ticket } from "lucide-react";
+import { QrCode, Ticket, Play, Clock, Bus as BusIcon } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useConductorAuth } from "../hooks/useConductorAuth";
+
+interface AssignedTrip {
+  id: string;
+  status: "SCHEDULED" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+  bus_id: string;
+  route_id: string;
+  scheduled_departure?: string | null;
+  scheduled_arrival?: string | null;
+  started_at?: string | null;
+  current_stop_id?: string | null;
+  buses?: {
+    id: string;
+    bus_number: string;
+  } | null;
+  routes?: {
+    id: string;
+    route_number: string;
+    name: string;
+  } | null;
+}
 
 interface ConductorStats {
   conductor_id: string;
@@ -31,6 +51,7 @@ export function DashboardPage() {
   const { conductor, logout } = useConductorAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<ConductorStats | null>(null);
+  const [assignedTrips, setAssignedTrips] = useState<AssignedTrip[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,17 +67,65 @@ export function DashboardPage() {
     };
   }, []);
 
-  const loadStats = useCallback(async () => {
+  const loadData = useCallback(async () => {
     if (!conductor?.id) return;
     try {
-      const { data, error } = await supabase.rpc("get_conductor_stats", {
-        p_conductor_id: conductor.id,
-        p_target_date: new Date().toISOString().split("T")[0],
-      });
-      if (error) throw error;
-      setStats(data as ConductorStats);
+      // 1. Fetch live assigned trips (both SCHEDULED and ACTIVE)
+      const { data: tripsData, error: tripsErr } = await supabase
+        .from("trips")
+        .select(`
+          id,
+          status,
+          bus_id,
+          route_id,
+          scheduled_departure,
+          scheduled_arrival,
+          started_at,
+          current_stop_id,
+          buses (
+            id,
+            bus_number
+          ),
+          routes (
+            id,
+            route_number,
+            name
+          )
+        `)
+        .eq("conductor_id", conductor.id)
+        .in("status", ["ACTIVE", "SCHEDULED"])
+        .order("created_at", { ascending: false });
+
+      if (!tripsErr && tripsData) {
+        const mapped: AssignedTrip[] = (tripsData as any[]).map((t) => ({
+          id: t.id,
+          status: t.status,
+          bus_id: t.bus_id,
+          route_id: t.route_id,
+          scheduled_departure: t.scheduled_departure,
+          scheduled_arrival: t.scheduled_arrival,
+          started_at: t.started_at,
+          current_stop_id: t.current_stop_id,
+          buses: Array.isArray(t.buses) ? t.buses[0] : t.buses,
+          routes: Array.isArray(t.routes) ? t.routes[0] : t.routes,
+        }));
+        setAssignedTrips(mapped);
+      }
+
+      // 2. Fetch stats for financial metrics
+      try {
+        const { data: statsData } = await supabase.rpc("get_conductor_stats", {
+          p_conductor_id: conductor.id,
+          p_target_date: new Date().toISOString().split("T")[0],
+        });
+        if (statsData) {
+          setStats(statsData as ConductorStats);
+        }
+      } catch {
+        // Fallback if RPC fails
+      }
     } catch (err) {
-      console.error("Failed to load conductor stats:", err);
+      console.error("Failed to load conductor dashboard data:", err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -64,13 +133,52 @@ export function DashboardPage() {
   }, [conductor?.id]);
 
   useEffect(() => {
-    void loadStats();
-  }, [loadStats]);
+    void loadData();
+  }, [loadData]);
+
+  // Real-time listener for newly assigned or updated trips
+  useEffect(() => {
+    if (!conductor?.id) return;
+    const channel = supabase
+      .channel(`conductor-trips-realtime-${conductor.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "trips",
+          filter: `conductor_id=eq.${conductor.id}`,
+        },
+        () => {
+          void loadData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [conductor?.id, loadData]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    void loadStats();
+    void loadData();
   };
+
+  // Derive active and scheduled trips
+  const activeTrip = assignedTrips.find((t) => t.status === "ACTIVE") ?? (stats?.active_trip ? {
+    id: stats.active_trip.id,
+    status: "ACTIVE" as const,
+    bus_id: stats.active_trip.bus_id,
+    route_id: "",
+    started_at: stats.active_trip.actual_departure,
+    buses: { id: stats.active_trip.bus_id, bus_number: stats.active_trip.bus_number },
+    routes: { id: "", route_number: stats.active_trip.route_code, name: `${stats.active_trip.origin} → ${stats.active_trip.destination}` },
+  } : null);
+
+  const scheduledTrips = assignedTrips.filter((t) => t.status === "SCHEDULED");
+  const primaryScheduledTrip = !activeTrip && scheduledTrips.length > 0 ? scheduledTrips[0] : null;
+  const otherScheduledTrips = !activeTrip && scheduledTrips.length > 1 ? scheduledTrips.slice(1) : (activeTrip ? scheduledTrips : []);
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-5 p-5 pt-8">
@@ -100,29 +208,67 @@ export function DashboardPage() {
         <LoadingState label="Loading conductor dashboard…" />
       ) : (
         <>
-          {/* Active Trip Banner or Scheduled Trip */}
-          {stats?.active_trip ? (
-            <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 shadow-lg shadow-emerald-950/20">
+          {/* Active Trip Banner */}
+          {activeTrip ? (
+            <Card className="border-emerald-500/40 bg-gradient-to-br from-emerald-950/50 via-slate-900 to-slate-900 shadow-xl shadow-emerald-950/30">
               <div className="flex items-center justify-between">
-                <Badge tone="success">TRIP IN PROGRESS</Badge>
-                <span className="text-xs font-mono text-emerald-400">
-                  Bus #{stats.active_trip.bus_number ?? "N/A"}
+                <Badge tone="success" className="font-extrabold uppercase tracking-wider">TRIP IN PROGRESS</Badge>
+                <span className="text-xs font-mono font-bold text-emerald-400">
+                  Bus #{activeTrip.buses?.bus_number ?? "N/A"}
                 </span>
               </div>
               <div className="mt-3">
                 <h2 className="text-lg font-bold text-slate-100">
-                  {stats.active_trip.route_code}: {stats.active_trip.origin} → {stats.active_trip.destination}
+                  {activeTrip.routes?.route_number ? `Route ${activeTrip.routes.route_number}: ` : ""}
+                  {activeTrip.routes?.name ?? "Live Transit Service"}
                 </h2>
                 <p className="mt-1 text-xs text-slate-400">
-                  Stop #{stats.active_trip.current_stop_index ?? 1} • Started {stats.active_trip.actual_departure ? new Date(stats.active_trip.actual_departure).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Recently"}
+                  Started {activeTrip.started_at ? new Date(activeTrip.started_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Recently"}
                 </p>
               </div>
               <div className="mt-4 flex gap-2">
-                <Button className="flex-1" size="lg" onClick={() => navigate(`/trip/${stats.active_trip!.id}`)}>
+                <Button className="flex-1" size="lg" onClick={() => navigate(`/trip/${activeTrip.id}`)}>
                   Continue Live Trip →
                 </Button>
-                <Button variant="secondary" size="lg" onClick={() => navigate(`/trip/${stats.active_trip!.id}/scan`)}>
+                <Button variant="secondary" size="lg" onClick={() => navigate(`/trip/${activeTrip.id}/scan`)}>
                   Scan QR
+                </Button>
+              </div>
+            </Card>
+          ) : primaryScheduledTrip ? (
+            /* Prominent Scheduled Trip Banner (Asking to Start) */
+            <Card className="border-amber-500/50 bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-900 shadow-xl shadow-amber-950/30">
+              <div className="flex items-center justify-between">
+                <Badge tone="warning" className="animate-pulse font-extrabold uppercase tracking-wider">
+                  SCHEDULED SERVICE READY
+                </Badge>
+                <span className="text-xs font-mono font-bold text-amber-400">
+                  Bus #{primaryScheduledTrip.buses?.bus_number ?? "N/A"}
+                </span>
+              </div>
+              <div className="mt-3">
+                <h2 className="text-lg font-bold text-slate-100">
+                  {primaryScheduledTrip.routes?.route_number ? `Route ${primaryScheduledTrip.routes.route_number}: ` : ""}
+                  {primaryScheduledTrip.routes?.name ?? "Assigned Route"}
+                </h2>
+                <div className="mt-1.5 flex items-center gap-2 text-xs text-amber-200/90 font-medium">
+                  <Clock className="h-3.5 w-3.5 text-amber-400" />
+                  <span>
+                    Scheduled Departure:{" "}
+                    {primaryScheduledTrip.scheduled_departure
+                      ? new Date(primaryScheduledTrip.scheduled_departure).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      : "Immediate / On Demand"}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4">
+                <Button
+                  size="lg"
+                  className="w-full h-13 text-base font-extrabold shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center justify-center gap-2"
+                  onClick={() => navigate(`/trip/${primaryScheduledTrip.id}`)}
+                >
+                  <Play className="h-5 w-5 fill-current" />
+                  <span>Start Transit Service →</span>
                 </Button>
               </div>
             </Card>
@@ -130,10 +276,51 @@ export function DashboardPage() {
             <Card className="border-slate-800 bg-slate-900/60">
               <div className="flex items-center justify-between">
                 <Badge tone="neutral">SCHEDULE</Badge>
-                <span className="text-xs text-slate-400">Today: {stats?.trips_count ?? 0} Trips Assigned</span>
+                <span className="text-xs text-slate-400">Today: {assignedTrips.length} Trips Assigned</span>
               </div>
-              <p className="mt-2 text-sm text-slate-300">No trip is currently active right now.</p>
+              <p className="mt-2 text-sm text-slate-300">No trips currently assigned or active right now.</p>
             </Card>
+          )}
+
+          {/* Upcoming Additional Scheduled Trips List */}
+          {otherScheduledTrips.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Upcoming Assigned Trips</h3>
+              <div className="flex flex-col gap-2">
+                {otherScheduledTrips.map((st) => (
+                  <div
+                    key={st.id}
+                    className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/80 p-3.5 transition hover:border-slate-700"
+                  >
+                    <div>
+                      <p className="font-bold text-slate-200 text-sm">
+                        {st.routes?.route_number ? `${st.routes.route_number}: ` : ""}
+                        {st.routes?.name ?? "Trip Service"}
+                      </p>
+                      <p className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                        <span className="inline-flex items-center gap-1 font-mono">
+                          <BusIcon className="h-3 w-3 text-slate-500" />
+                          {st.buses?.bus_number ?? "N/A"}
+                        </span>
+                        <span>•</span>
+                        <span>
+                          {st.scheduled_departure
+                            ? new Date(st.scheduled_departure).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                            : "Scheduled"}
+                        </span>
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => navigate(`/trip/${st.id}`)}
+                    >
+                      View & Start
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Today's Operational Key Metrics */}
@@ -188,10 +375,11 @@ export function DashboardPage() {
                 size="md"
                 className="inline-flex items-center gap-2"
                 onClick={() => {
-                  if (stats?.active_trip) {
-                    navigate(`/trip/${stats.active_trip.id}/scan`);
+                  const targetTrip = activeTrip || primaryScheduledTrip;
+                  if (targetTrip) {
+                    navigate(`/trip/${targetTrip.id}/scan`);
                   } else {
-                    alert("Please start or open a trip first to scan tickets.");
+                    alert("No active or scheduled trip to scan tickets for.");
                   }
                 }}
               >
@@ -203,10 +391,11 @@ export function DashboardPage() {
                 size="md"
                 className="inline-flex items-center gap-2"
                 onClick={() => {
-                  if (stats?.active_trip) {
-                    navigate(`/trip/${stats.active_trip.id}`);
+                  const targetTrip = activeTrip || primaryScheduledTrip;
+                  if (targetTrip) {
+                    navigate(`/trip/${targetTrip.id}`);
                   } else {
-                    alert("No active trip to issue tickets for.");
+                    alert("No active or scheduled trip to issue tickets for.");
                   }
                 }}
               >
