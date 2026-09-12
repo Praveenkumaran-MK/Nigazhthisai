@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Badge, Button, DataTable, EmptyState, ErrorState, Modal, Input, Select, PlusIcon, AlertTriangleIcon } from "@sbt/ui";
+import { Badge, Button, DataTable, EmptyState, ErrorState, Modal, Input, Select, PlusIcon, AlertTriangleIcon, TrashIcon } from "@sbt/ui";
 import type { Profile, District } from "@sbt/shared-types";
+import { useAdminAuth } from "../hooks/useAdminAuth";
 import { supabase } from "../lib/supabase";
 
 interface AdminUser extends Profile {
@@ -8,6 +9,7 @@ interface AdminUser extends Profile {
 }
 
 export function AdminUsersPage() {
+  const { profile } = useAdminAuth();
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [districts, setDistricts] = useState<Pick<District, "id" | "name">[]>([]);
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
@@ -17,9 +19,15 @@ export function AdminUsersPage() {
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
   const [editName, setEditName] = useState("");
   const [editDistrictId, setEditDistrictId] = useState("");
+  const [editRole, setEditRole] = useState("admin");
   const [editStatus, setEditStatus] = useState<"active" | "suspended">("active");
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Delete Admin State
+  const [deletingAdmin, setDeletingAdmin] = useState<AdminUser | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Add District Admin Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -65,6 +73,7 @@ export function AdminUsersPage() {
     setEditingAdmin(admin);
     setEditName(admin.display_name ?? admin.full_name ?? "");
     setEditDistrictId(admin.district_id ?? "");
+    setEditRole(admin.role || "admin");
     setEditStatus((admin.status as "active" | "suspended") || "active");
     setSaveError(null);
   };
@@ -74,14 +83,30 @@ export function AdminUsersPage() {
     setIsSaving(true);
     setSaveError(null);
     try {
+      // 1. Try update_district_admin_profile with role parameter
       const { error: rpcErr } = await supabase.rpc("update_district_admin_profile", {
         p_user_id: editingAdmin.id,
         p_display_name: editName.trim() || null,
         p_district_id: editDistrictId ? editDistrictId : null,
         p_is_active: editStatus === "active",
-      });
+        p_role: editRole,
+      } as any);
 
-      if (rpcErr) throw new Error(rpcErr.message);
+      if (rpcErr) {
+        // Fallback: update profiles table directly
+        const { error: updateErr } = await supabase
+          .from("profiles")
+          .update({
+            display_name: editName.trim() || null,
+            full_name: editName.trim() || null,
+            district_id: editDistrictId ? editDistrictId : null,
+            role: editRole,
+            status: editStatus === "active" ? "ACTIVE" : "INACTIVE",
+          })
+          .eq("id", editingAdmin.id);
+
+        if (updateErr) throw new Error(updateErr.message);
+      }
 
       setEditingAdmin(null);
       await load();
@@ -89,6 +114,38 @@ export function AdminUsersPage() {
       setSaveError(err instanceof Error ? err.message : "Failed to update admin profile");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteAdmin = async () => {
+    if (!deletingAdmin) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      // 1. Try delete_admin_user RPC
+      const { error: rpcErr } = await supabase.rpc("delete_admin_user", {
+        p_user_id: deletingAdmin.id,
+      });
+
+      if (rpcErr) {
+        // Fallback: unlink district, then delete from profiles
+        await supabase.from("districts").update({ admin_id: null }).eq("admin_id", deletingAdmin.id);
+        const { error: delErr } = await supabase.from("profiles").delete().eq("id", deletingAdmin.id);
+        if (delErr) {
+          // If foreign keys prevent delete, demote to passenger and deactivate
+          await supabase
+            .from("profiles")
+            .update({ role: "passenger", status: "INACTIVE", district_id: null })
+            .eq("id", deletingAdmin.id);
+        }
+      }
+
+      setDeletingAdmin(null);
+      await load();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete administrator");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -239,11 +296,34 @@ export function AdminUsersPage() {
           {
             key: "actions",
             header: "Actions",
-            render: (a) => (
-              <Button size="sm" variant="outline" onClick={() => openEditModal(a)}>
-                Edit
-              </Button>
-            ),
+            render: (a) => {
+              const isSelf = profile?.id === a.id;
+              return (
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => openEditModal(a)}>
+                    Edit & Role
+                  </Button>
+                  {isSelf ? (
+                    <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                      Current User
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 p-1.5 h-auto inline-flex items-center gap-1 text-xs font-semibold"
+                      onClick={() => {
+                        setDeleteError(null);
+                        setDeletingAdmin(a);
+                      }}
+                    >
+                      <TrashIcon className="h-3.5 w-3.5 text-rose-500" />
+                      <span>Delete</span>
+                    </Button>
+                  )}
+                </div>
+              );
+            },
           },
         ]}
         rows={admins}
@@ -379,13 +459,31 @@ export function AdminUsersPage() {
 
             <div>
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">
+                Administrative Role & Permissions *
+              </label>
+              <Select
+                value={editRole}
+                onChange={(e) => setEditRole(e.target.value)}
+                options={[
+                  { value: "admin", label: "District Administrator (Jurisdiction Bound)" },
+                  { value: "master_admin", label: "Master Authority Administrator (Full Fleet Access)" },
+                  { value: "passenger", label: "Revoke Role (Demote to Regular User / Passenger)" },
+                ]}
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Select "Revoke Role" to remove all administrative dashboard access for this user account.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">
                 District Jurisdiction
               </label>
               <Select
                 value={editDistrictId}
                 onChange={(e) => setEditDistrictId(e.target.value)}
                 options={[
-                  { value: "", label: editingAdmin.role === "master_admin" ? "All Districts (Master Admin)" : "None / Unassigned" },
+                  { value: "", label: editRole === "master_admin" ? "All Districts (Master Admin)" : "None / Unassigned" },
                   ...districts.map((d) => ({ value: d.id, label: d.name })),
                 ]}
               />
@@ -414,6 +512,65 @@ export function AdminUsersPage() {
               </Button>
               <Button onClick={handleSave} disabled={isSaving}>
                 {isSaving ? "Saving…" : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete Admin User Confirmation Modal */}
+      {deletingAdmin && (
+        <Modal
+          open={true}
+          onClose={() => !isDeleting && setDeletingAdmin(null)}
+          title="Delete Administrator Account"
+        >
+          <div className="flex flex-col gap-4 py-2">
+            {deleteError && (
+              <div className="flex items-center gap-2 rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 font-medium">
+                <AlertTriangleIcon className="h-4 w-4 shrink-0" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <p className="text-sm text-slate-700 dark:text-slate-300">
+              Are you sure you want to permanently delete administrator{" "}
+              <span className="font-bold text-slate-900 dark:text-slate-100">
+                "{deletingAdmin.display_name ?? deletingAdmin.full_name ?? "User"}"
+              </span>{" "}
+              ({roleLabel(deletingAdmin.role)})?
+            </p>
+
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:border-amber-900/60 dark:text-amber-300 flex flex-col gap-1.5">
+              <div className="flex items-center gap-1.5 font-bold">
+                <AlertTriangleIcon className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>Access Revocation Notice</span>
+              </div>
+              <p>
+                Deleting this account will permanently revoke their access to the Nigazhthisai Administrative Control Center
+                {deletingAdmin.districtName ? (
+                  <> and unassign them from the <strong className="font-bold">{deletingAdmin.districtName}</strong> district</>
+                ) : null}
+                . If you only wish to temporarily disable or demote this user, use the "Edit & Role" option instead.
+              </p>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setDeletingAdmin(null)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                onClick={handleDeleteAdmin}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting Admin…" : "Delete Administrator"}
               </Button>
             </div>
           </div>

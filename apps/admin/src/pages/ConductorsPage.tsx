@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Button, DataTable, Dialog, Input, Alert, Badge, useToast, ErrorState } from "@sbt/ui";
+import { Button, DataTable, Dialog, Input, Alert, Badge, useToast, ErrorState, TrashIcon } from "@sbt/ui";
 import type { Conductor } from "@sbt/shared-types";
 import { toAppError } from "@sbt/supabase-client";
 import { useCrudResource } from "../hooks/useCrudResource";
@@ -29,6 +29,11 @@ export function ConductorsPage() {
   const [editGovId, setEditGovId] = useState("");
   const [editActive, setEditActive] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Delete Conductor state
+  const [deletingConductor, setDeletingConductor] = useState<Conductor | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,6 +142,43 @@ export function ConductorsPage() {
     }
   };
 
+  const handleDeleteConductor = async () => {
+    if (!deletingConductor) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      // 1. Try delete_conductor RPC
+      const { error: rpcErr } = await supabase.rpc("delete_conductor", {
+        p_conductor_id: deletingConductor.id,
+      });
+
+      if (rpcErr) {
+        // Fallback: unassign trips, unassign ETMs, delete from conductors and profiles
+        await supabase.from("trips").update({ conductor_id: null }).eq("conductor_id", deletingConductor.id);
+        await supabase
+          .from("etm_assignments")
+          .update({ unassigned_at: new Date().toISOString() })
+          .eq("conductor_id", deletingConductor.id)
+          .is("unassigned_at", null);
+
+        const { error: delErr } = await supabase.from("conductors").delete().eq("id", deletingConductor.id);
+        if (delErr) throw new Error(delErr.message);
+
+        if (deletingConductor.user_id) {
+          await supabase.from("profiles").delete().eq("id", deletingConductor.user_id);
+        }
+      }
+
+      setDeletingConductor(null);
+      await reload();
+      push({ tone: "success", title: `Conductor ${deletingConductor.display_name} deleted` });
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete conductor");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const closeDialog = useCallback(() => {
     setOpen(false);
     setIssuedCredentials(null);
@@ -171,21 +213,35 @@ export function ConductorsPage() {
             { key: "linked", header: "Login", render: (c) => (c.user_id ? <Badge tone="brand">Linked</Badge> : <Badge tone="warning">Not linked</Badge>) },
             {
               key: "actions",
-              header: "",
+              header: "Actions",
               render: (c) => (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingConductor(c);
-                    setEditName(c.display_name);
-                    setEditPhone(c.phone ?? "");
-                    setEditGovId(c.government_id);
-                    setEditActive(c.is_active);
-                  }}
-                  className="text-xs font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400"
-                >
-                  Edit Profile
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingConductor(c);
+                      setEditName(c.display_name);
+                      setEditPhone(c.phone ?? "");
+                      setEditGovId(c.government_id);
+                      setEditActive(c.is_active);
+                    }}
+                    className="text-xs font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400"
+                  >
+                    Edit Profile
+                  </button>
+                  <span className="text-slate-300 dark:text-slate-700">·</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteError(null);
+                      setDeletingConductor(c);
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400"
+                  >
+                    <TrashIcon className="h-3.5 w-3.5" />
+                    <span>Delete</span>
+                  </button>
+                </div>
               ),
             },
           ]}
@@ -256,6 +312,52 @@ export function ConductorsPage() {
             </Button>
           </div>
         </form>
+      </Dialog>
+
+      {/* Delete Conductor Confirmation Dialog */}
+      <Dialog
+        open={Boolean(deletingConductor)}
+        onClose={() => !isDeleting && setDeletingConductor(null)}
+        title="Delete Conductor Account"
+      >
+        <div className="flex flex-col gap-4 py-2">
+          {deleteError && (
+            <Alert tone="danger" title="Could not delete conductor">
+              {deleteError}
+            </Alert>
+          )}
+
+          <p className="text-sm text-slate-700 dark:text-slate-300">
+            Are you sure you want to delete conductor{" "}
+            <span className="font-bold text-slate-900 dark:text-slate-100">
+              "{deletingConductor?.display_name}"
+            </span>{" "}
+            (Gov ID: <span className="font-mono font-semibold">{deletingConductor?.government_id}</span>)?
+          </p>
+
+          <Alert tone="warning" title="Operational Impact">
+            Deleting this conductor will unassign them from any active or scheduled trips, release their assigned ETM hardware device, and remove their mobile login credentials.
+          </Alert>
+
+          <div className="flex justify-end gap-2 mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeletingConductor(null)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+              onClick={handleDeleteConductor}
+              isLoading={isDeleting}
+            >
+              Delete Conductor
+            </Button>
+          </div>
+        </div>
       </Dialog>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Badge, Button, Card, EmptyState, ErrorState, Modal, Input, PlusIcon, AlertTriangleIcon, MapPinIcon } from "@sbt/ui";
+import { Badge, Button, Card, EmptyState, ErrorState, Modal, Input, PlusIcon, AlertTriangleIcon, MapPinIcon, TrashIcon } from "@sbt/ui";
 import type { District } from "@sbt/shared-types";
 import { supabase } from "../lib/supabase";
 
@@ -22,6 +22,11 @@ export function DistrictsPage() {
   const [stateName, setStateName] = useState("Tamil Nadu");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Delete District State
+  const [deletingDistrict, setDeletingDistrict] = useState<DistrictWithAdmin | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const load = async () => {
     setStatus("loading");
@@ -89,6 +94,35 @@ export function DistrictsPage() {
       setCreateError(err instanceof Error ? err.message : "Failed to create district");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleDeleteDistrict = async () => {
+    if (!deletingDistrict) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      // 1. Try delete_district RPC
+      const { error: rpcErr } = await supabase.rpc("delete_district", {
+        p_district_id: deletingDistrict.id,
+      });
+
+      if (rpcErr) {
+        // Fallback: manually unlink profiles, conductors, buses, routes then delete district
+        await supabase.from("profiles").update({ district_id: null }).eq("district_id", deletingDistrict.id);
+        await supabase.from("conductors").update({ district_id: null }).eq("district_id", deletingDistrict.id);
+        await supabase.from("buses").update({ district_id: null }).eq("district_id", deletingDistrict.id);
+        await supabase.from("routes").update({ district_id: null }).eq("district_id", deletingDistrict.id);
+        const { error: delErr } = await supabase.from("districts").delete().eq("id", deletingDistrict.id);
+        if (delErr) throw new Error(delErr.message);
+      }
+
+      setDeletingDistrict(null);
+      await load();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete district");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -171,6 +205,18 @@ export function DistrictsPage() {
                       <Badge tone="warning">Unassigned</Badge>
                     )}
                   </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 p-1.5 h-auto inline-flex items-center gap-1 text-xs font-semibold"
+                    onClick={() => {
+                      setDeleteError(null);
+                      setDeletingDistrict(d);
+                    }}
+                  >
+                    <TrashIcon className="h-3.5 w-3.5 text-rose-500" />
+                    <span>Delete</span>
+                  </Button>
                 </div>
               </Card>
             );
@@ -243,6 +289,69 @@ export function DistrictsPage() {
               </Button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Delete District Confirmation Modal */}
+      {deletingDistrict && (
+        <Modal
+          open={true}
+          onClose={() => !isDeleting && setDeletingDistrict(null)}
+          title="Delete Transit District"
+        >
+          <div className="flex flex-col gap-4 py-2">
+            {deleteError && (
+              <div className="flex items-center gap-2 rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 font-medium">
+                <AlertTriangleIcon className="h-4 w-4 shrink-0" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <p className="text-sm text-slate-700 dark:text-slate-300">
+              Are you sure you want to delete the transit district{" "}
+              <span className="font-bold text-slate-900 dark:text-slate-100">
+                "{deletingDistrict.name}" ({deletingDistrict.code})
+              </span>
+              ?
+            </p>
+
+            {(deletingDistrict.busCount > 0 || deletingDistrict.conductorCount > 0 || deletingDistrict.adminName) && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:border-amber-900/60 dark:text-amber-300 flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <AlertTriangleIcon className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>District Resources Notice</span>
+                </div>
+                <p>
+                  This district currently has{" "}
+                  <strong className="font-bold">{deletingDistrict.busCount} buses</strong> and{" "}
+                  <strong className="font-bold">{deletingDistrict.conductorCount} conductors</strong>
+                  {deletingDistrict.adminName ? (
+                    <> with assigned administrator <strong className="font-bold">{deletingDistrict.adminName}</strong></>
+                  ) : null}
+                  . Deleting the district will safely unlink these records by clearing their district association.
+                </p>
+              </div>
+            )}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setDeletingDistrict(null)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                onClick={handleDeleteDistrict}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting District…" : "Delete District"}
+              </Button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>
