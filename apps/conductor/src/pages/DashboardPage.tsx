@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Card, LoadingState, StatusIndicator, StatCard, Badge } from "@sbt/ui";
+import { QrCode, Ticket } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useConductorAuth } from "../hooks/useConductorAuth";
 
@@ -185,6 +186,7 @@ export function DashboardPage() {
               <Button
                 variant="secondary"
                 size="md"
+                className="inline-flex items-center gap-2"
                 onClick={() => {
                   if (stats?.active_trip) {
                     navigate(`/trip/${stats.active_trip.id}/scan`);
@@ -193,11 +195,13 @@ export function DashboardPage() {
                   }
                 }}
               >
-                📷 Open Scanner
+                <QrCode className="h-4 w-4 text-sky-500" />
+                <span>Open Scanner</span>
               </Button>
               <Button
                 variant="secondary"
                 size="md"
+                className="inline-flex items-center gap-2"
                 onClick={() => {
                   if (stats?.active_trip) {
                     navigate(`/trip/${stats.active_trip.id}`);
@@ -206,7 +210,8 @@ export function DashboardPage() {
                   }
                 }}
               >
-                🎟️ Issue Cash Ticket
+                <Ticket className="h-4 w-4 text-emerald-500" />
+                <span>Issue Cash Ticket</span>
               </Button>
             </div>
           </div>

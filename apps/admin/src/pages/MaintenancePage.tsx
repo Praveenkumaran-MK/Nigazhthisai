@@ -155,7 +155,7 @@ export function MaintenancePage() {
                 : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >
-            {tab === "ALL" ? "All Activity Logs" : tab === "BUS" ? "🚌 Bus Logs" : "📟 ETM Logs"}
+            {tab === "ALL" ? "All Activity Logs" : tab === "BUS" ? "Bus Fleet Logs" : "ETM Device Logs"}
           </button>
         ))}
       </div>
@@ -234,8 +234,8 @@ export function MaintenancePage() {
               if (val === "ETM" && etms.length > 0 && etms[0]) setResourceId(etms[0].id);
             }}
             options={[
-              { value: "BUS", label: "🚌 Bus Vehicle" },
-              { value: "ETM", label: "📟 ETM Device" },
+              { value: "BUS", label: "Bus Vehicle" },
+              { value: "ETM", label: "ETM Device" },
             ]}
           />
 

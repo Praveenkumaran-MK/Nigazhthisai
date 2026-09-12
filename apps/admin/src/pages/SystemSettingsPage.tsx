@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Alert, Card, useToast } from "@sbt/ui";
+import { Button, Alert, Card, useToast, BusIcon, UserIcon, RouteIcon, MapPinIcon, FileTextIcon, ActivityIcon } from "@sbt/ui";
 import { supabase } from "../lib/supabase";
 
 interface AuthorityConfig {
@@ -29,77 +29,78 @@ export function SystemSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Editable fields
+  // Form state
   const [authorityName, setAuthorityName] = useState("");
   const [upiId, setUpiId] = useState("");
-  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+  const [isPaymentsEnabled, setIsPaymentsEnabled] = useState(true);
   const [supportPhone, setSupportPhone] = useState("");
   const [supportEmail, setSupportEmail] = useState("");
 
-  useEffect(() => {
-    const loadAll = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [configRes, distRes, busRes, condRes, routeRes, stopRes, ticketRes] = await Promise.all([
-          supabase.from("transport_authority_config").select("*").maybeSingle(),
-          supabase.from("districts").select("id", { count: "exact", head: true }),
-          supabase.from("buses").select("id", { count: "exact", head: true }),
-          supabase.from("conductors").select("id", { count: "exact", head: true }),
-          supabase.from("routes").select("id", { count: "exact", head: true }),
-          supabase.from("stops").select("id", { count: "exact", head: true }),
-          supabase.from("tickets").select("id", { count: "exact", head: true }),
-        ]);
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [cfgRes, distRes, busRes, condRes, routeRes, stopRes, tktRes] = await Promise.all([
+        supabase.from("transport_authority_config").select("*").limit(1).maybeSingle(),
+        supabase.from("districts").select("id", { count: "exact", head: true }),
+        supabase.from("buses").select("id", { count: "exact", head: true }),
+        supabase.from("conductors").select("id", { count: "exact", head: true }),
+        supabase.from("routes").select("id", { count: "exact", head: true }),
+        supabase.from("stops").select("id", { count: "exact", head: true }),
+        supabase.from("tickets").select("id", { count: "exact", head: true }),
+      ]);
 
-        const cfg = configRes.data as AuthorityConfig | null;
-        setConfig(cfg);
-        if (cfg) {
-          setAuthorityName(cfg.authority_name ?? "");
-          setUpiId(cfg.upi_id ?? "");
-          setPaymentsEnabled(cfg.is_payments_enabled ?? false);
-          setSupportPhone(cfg.support_phone ?? "");
-          setSupportEmail(cfg.support_email ?? "");
-        }
+      if (cfgRes.error) throw new Error(cfgRes.error.message);
 
-        setStats({
-          totalDistricts: distRes.count ?? 0,
-          totalBuses: busRes.count ?? 0,
-          totalConductors: condRes.count ?? 0,
-          totalRoutes: routeRes.count ?? 0,
-          totalStops: stopRes.count ?? 0,
-          totalTickets: ticketRes.count ?? 0,
-        });
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load settings");
-      } finally {
-        setLoading(false);
+      const c = cfgRes.data as AuthorityConfig | null;
+      if (c) {
+        setConfig(c);
+        setAuthorityName(c.authority_name ?? "");
+        setUpiId(c.upi_id ?? "");
+        setIsPaymentsEnabled(c.is_payments_enabled ?? true);
+        setSupportPhone(c.support_phone ?? "");
+        setSupportEmail(c.support_email ?? "");
       }
-    };
-    void loadAll();
-  }, []);
+
+      setStats({
+        totalDistricts: distRes.count ?? 0,
+        totalBuses: busRes.count ?? 0,
+        totalConductors: condRes.count ?? 0,
+        totalRoutes: routeRes.count ?? 0,
+        totalStops: stopRes.count ?? 0,
+        totalTickets: tktRes.count ?? 0,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load configuration");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void load(); }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setError(null);
     try {
       const payload = {
         authority_name: authorityName.trim() || null,
         upi_id: upiId.trim(),
-        is_payments_enabled: paymentsEnabled,
+        is_payments_enabled: isPaymentsEnabled,
         support_phone: supportPhone.trim() || null,
         support_email: supportEmail.trim() || null,
       };
 
-      const { error: saveErr } = config?.id
+      const { error: err } = config?.id
         ? await supabase.from("transport_authority_config").update(payload).eq("id", config.id)
         : await supabase.from("transport_authority_config").insert(payload);
 
-      if (saveErr) throw new Error(saveErr.message);
-      push({ tone: "success", title: "Settings saved", description: "System configuration updated." });
+      if (err) throw new Error(err.message);
+
+      push({ tone: "success", title: "Configuration saved", description: "System settings updated successfully." });
+      await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save settings");
-      push({ tone: "danger", title: "Save failed" });
+      push({ tone: "danger", title: "Save failed", description: e instanceof Error ? e.message : "Unknown error" });
     } finally {
       setSaving(false);
     }
@@ -107,12 +108,12 @@ export function SystemSettingsPage() {
 
   const statCards = stats
     ? [
-        { label: "Districts", value: stats.totalDistricts, icon: "🗺️" },
-        { label: "Buses", value: stats.totalBuses, icon: "🚌" },
-        { label: "Conductors", value: stats.totalConductors, icon: "👤" },
-        { label: "Routes", value: stats.totalRoutes, icon: "🛣️" },
-        { label: "Stops", value: stats.totalStops, icon: "📍" },
-        { label: "Tickets Issued", value: stats.totalTickets, icon: "🎫" },
+        { label: "Districts", value: stats.totalDistricts, icon: MapPinIcon },
+        { label: "Buses", value: stats.totalBuses, icon: BusIcon },
+        { label: "Conductors", value: stats.totalConductors, icon: UserIcon },
+        { label: "Routes", value: stats.totalRoutes, icon: RouteIcon },
+        { label: "Stops", value: stats.totalStops, icon: MapPinIcon },
+        { label: "Tickets Issued", value: stats.totalTickets, icon: FileTextIcon },
       ]
     : [];
 
@@ -121,7 +122,7 @@ export function SystemSettingsPage() {
       <div>
         <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">System Settings</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          State Transit Authority configuration. Changes apply system-wide.
+          Nigazhthisai Transit Authority configuration. Changes apply system-wide.
         </p>
       </div>
 
@@ -131,13 +132,18 @@ export function SystemSettingsPage() {
           System Overview
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {statCards.map((s) => (
-            <Card key={s.label} className="flex flex-col items-center gap-1 p-4 text-center">
-              <span className="text-2xl">{s.icon}</span>
-              <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{s.value.toLocaleString("en-IN")}</p>
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{s.label}</p>
-            </Card>
-          ))}
+          {statCards.map((s) => {
+            const Icon = s.icon;
+            return (
+              <Card key={s.label} className="flex flex-col items-center gap-2 p-4 text-center">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-brand-600 dark:text-brand-400">
+                  <Icon className="h-4 w-4" />
+                </div>
+                <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{s.value.toLocaleString("en-IN")}</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{s.label}</p>
+              </Card>
+            );
+          })}
         </div>
       </div>
 
@@ -217,7 +223,7 @@ export function SystemSettingsPage() {
                 <div>
                   <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Online Ticket Payments</p>
                   <p className="text-xs text-slate-500">
-                    {paymentsEnabled
+                    {isPaymentsEnabled
                       ? "Passengers can buy digital tickets via UPI."
                       : "Payments are disabled — conductors issue cash tickets only."}
                   </p>
@@ -225,15 +231,15 @@ export function SystemSettingsPage() {
                 <button
                   type="button"
                   role="switch"
-                  aria-checked={paymentsEnabled}
-                  onClick={() => setPaymentsEnabled((v) => !v)}
+                  aria-checked={isPaymentsEnabled}
+                  onClick={() => setIsPaymentsEnabled((v: boolean) => !v)}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
-                    paymentsEnabled ? "bg-brand-600" : "bg-slate-300 dark:bg-slate-600"
+                    isPaymentsEnabled ? "bg-brand-600" : "bg-slate-300 dark:bg-slate-600"
                   }`}
                 >
                   <span
                     className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
-                      paymentsEnabled ? "translate-x-5" : "translate-x-0.5"
+                      isPaymentsEnabled ? "translate-x-5" : "translate-x-0.5"
                     }`}
                   />
                 </button>

@@ -45,7 +45,7 @@ const strings = {
     full: "Full",
     currentlyNear: "Currently near",
     enRoute: "En route",
-    accessible: "♿ Accessible",
+    accessible: "Accessible",
     direct: "Direct",
     // Checkout
     checkout: "Checkout",
@@ -159,7 +159,7 @@ const strings = {
     full: "நிரம்பியது",
     currentlyNear: "தற்போது அருகில்",
     enRoute: "வழியில்",
-    accessible: "♿ அணுகல் வசதி",
+    accessible: "அணுகல் வசதி",
     direct: "நேரடி",
     checkout: "கட்டண படிவம்",
     numberOfPassengers: "பயணிகள் எண்ணிக்கை",

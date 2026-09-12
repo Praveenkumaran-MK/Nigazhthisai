@@ -1,28 +1,97 @@
 import { useEffect, useState, useCallback } from "react";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  BusIcon,
+  RouteIcon,
+  UserIcon,
+  AlertTriangleIcon,
+  ShieldAlertIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  DollarSignIcon,
+  UsersIcon,
+  FileTextIcon,
+  FilterIcon,
+} from "@sbt/ui";
 import { supabase } from "../lib/supabase";
 import type { Complaint, District } from "@sbt/shared-types";
 
-const TYPES = ["CLEANLINESS", "DRIVER_BEHAVIOR", "OVERCROWDING", "SAFETY", "OVERCHARGING", "OTHER"] as const;
+interface EnrichedComplaint extends Complaint {
+  buses?: {
+    id: string;
+    bus_number: string;
+    bus_type?: string;
+  } | null;
+  trips?: {
+    id: string;
+    conductor_id?: string | null;
+    routes?: {
+      id: string;
+      name: string;
+      route_number: string;
+    } | null;
+    conductors?: {
+      id: string;
+      display_name: string;
+      phone?: string | null;
+    } | null;
+  } | null;
+  districts?: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
+}
+
+const TYPES = [
+  "SAFETY",
+  "OVERCROWDING",
+  "OVERCHARGING",
+  "DRIVER_BEHAVIOR",
+  "CLEANLINESS",
+  "OTHER",
+] as const;
+
 const STATUSES = ["OPEN", "IN_REVIEW", "RESOLVED", "DISMISSED"] as const;
 
 const statusColor: Record<string, string> = {
-  OPEN:       "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-  IN_REVIEW:  "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-  RESOLVED:   "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
-  DISMISSED:  "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400",
+  OPEN: "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300",
+  IN_REVIEW: "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300",
+  RESOLVED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300",
+  DISMISSED: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
 };
 
 const typeLabel: Record<string, string> = {
-  CLEANLINESS:     "🧹 Cleanliness",
-  DRIVER_BEHAVIOR: "🚗 Driver Behavior",
-  OVERCROWDING:    "👥 Overcrowding",
-  SAFETY:          "⚠️ Safety",
-  OVERCHARGING:    "💸 Overcharging",
-  OTHER:           "📝 Other",
+  SAFETY: "Safety & Security",
+  OVERCROWDING: "Overcrowding",
+  OVERCHARGING: "Fare Overcharging",
+  DRIVER_BEHAVIOR: "Driver / Crew Conduct",
+  CLEANLINESS: "Cleanliness & Hygiene",
+  OTHER: "General Grievance",
 };
 
+function TypeBadgeIcon({ type }: { type: string }) {
+  switch (type) {
+    case "SAFETY":
+      return <ShieldAlertIcon className="h-3.5 w-3.5 text-rose-600" />;
+    case "OVERCROWDING":
+      return <UsersIcon className="h-3.5 w-3.5 text-amber-600" />;
+    case "OVERCHARGING":
+      return <DollarSignIcon className="h-3.5 w-3.5 text-indigo-600" />;
+    case "DRIVER_BEHAVIOR":
+      return <AlertTriangleIcon className="h-3.5 w-3.5 text-orange-600" />;
+    case "CLEANLINESS":
+      return <CheckCircleIcon className="h-3.5 w-3.5 text-teal-600" />;
+    default:
+      return <FileTextIcon className="h-3.5 w-3.5 text-slate-500" />;
+  }
+}
+
 export function ComplaintsPage() {
-  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [complaints, setComplaints] = useState<EnrichedComplaint[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("");
@@ -37,20 +106,46 @@ export function ComplaintsPage() {
     try {
       const query = supabase
         .from("complaints")
-        .select("*")
+        .select(`
+          *,
+          buses (
+            id,
+            bus_number,
+            bus_type
+          ),
+          trips (
+            id,
+            conductor_id,
+            routes (
+              id,
+              name,
+              route_number
+            ),
+            conductors (
+              id,
+              display_name,
+              phone
+            )
+          ),
+          districts (
+            id,
+            name,
+            code
+          )
+        `)
         .order("created_at", { ascending: false })
         .limit(200);
 
       const { data, error: err } = await query;
       if (err) throw err;
-      setComplaints(data ?? []);
+      setComplaints((data as unknown as EnrichedComplaint[]) ?? []);
 
       const { data: distData } = await supabase
         .from("districts")
         .select("*")
         .eq("is_active", true)
         .order("name");
-      setDistricts(distData ?? []);
+      setDistricts((distData as District[]) ?? []);
     } catch (e: any) {
       setError(e.message ?? "Failed to load complaints");
     } finally {
@@ -58,9 +153,11 @@ export function ComplaintsPage() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  const handleStatusChange = async (complaint: Complaint, newStatus: Complaint["status"]) => {
+  const handleStatusChange = async (complaint: EnrichedComplaint, newStatus: Complaint["status"]) => {
     setUpdatingId(complaint.id);
     try {
       const { error: err } = await supabase
@@ -72,8 +169,8 @@ export function ComplaintsPage() {
         })
         .eq("id", complaint.id);
       if (err) throw err;
-      setComplaints(prev =>
-        prev.map(c => c.id === complaint.id ? { ...c, status: newStatus } : c)
+      setComplaints((prev) =>
+        prev.map((c) => (c.id === complaint.id ? { ...c, status: newStatus } : c))
       );
     } catch (e: any) {
       alert("Update failed: " + (e.message ?? "Unknown error"));
@@ -82,7 +179,7 @@ export function ComplaintsPage() {
     }
   };
 
-  const filtered = complaints.filter(c => {
+  const filtered = complaints.filter((c) => {
     if (filterStatus && c.status !== filterStatus) return false;
     if (filterType && c.type !== filterType) return false;
     if (filterDistrict && c.district_id !== filterDistrict) return false;
@@ -90,133 +187,257 @@ export function ComplaintsPage() {
   });
 
   const counts = STATUSES.reduce((acc, s) => {
-    acc[s] = complaints.filter(c => c.status === s).length;
+    acc[s] = complaints.filter((c) => c.status === s).length;
     return acc;
   }, {} as Record<string, number>);
 
+  const safetyCount = complaints.filter((c) => c.type === "SAFETY" && (c.status === "OPEN" || c.status === "IN_REVIEW")).length;
+
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Passenger Complaints</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Review and resolve complaints filed by passengers.</p>
+    <div className="flex flex-col gap-5">
+      {/* Header */}
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <FileTextIcon className="h-5 w-5 text-brand-600" />
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              Passenger Grievances & Service Audits
+            </h1>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Investigate reported incidents, evaluate crew conduct, and cross-reference bus and route telemetry.
+          </p>
+        </div>
+        <Button size="sm" variant="outline" onClick={load} disabled={loading}>
+          Refresh Grievances
+        </Button>
       </div>
 
-      {/* Summary pills */}
-      <div className="flex flex-wrap gap-2">
-        {STATUSES.map(s => (
+      {/* Top Overview KPI Dashboard Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-[#112240]">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total Grievances</span>
+          <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{complaints.length}</p>
+          <span className="text-[10px] text-slate-500">Across all transit districts</span>
+        </div>
+        <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-4 shadow-xs dark:border-rose-950/60 dark:bg-rose-950/20">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">Open & Unresolved</span>
+          <p className="mt-1 text-2xl font-black text-rose-600 dark:text-rose-400">{counts.OPEN ?? 0}</p>
+          <span className="text-[10px] text-rose-500">{safetyCount} flagged as safety concerns</span>
+        </div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 shadow-xs dark:border-amber-950/60 dark:bg-amber-950/20">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">Under Review</span>
+          <p className="mt-1 text-2xl font-black text-amber-700 dark:text-amber-400">{counts.IN_REVIEW ?? 0}</p>
+          <span className="text-[10px] text-amber-600">Active investigator assigned</span>
+        </div>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-xs dark:border-emerald-950/60 dark:bg-emerald-950/20">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Resolved Grievances</span>
+          <p className="mt-1 text-2xl font-black text-emerald-600 dark:text-emerald-400">{counts.RESOLVED ?? 0}</p>
+          <span className="text-[10px] text-emerald-600">Remediation closed</span>
+        </div>
+      </div>
+
+      {/* Filter Toolbar */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-y border-slate-100 py-3 dark:border-slate-800">
+        {/* Status Pills */}
+        <div className="flex flex-wrap gap-1.5">
           <button
-            key={s}
-            onClick={() => setFilterStatus(filterStatus === s ? "" : s)}
+            onClick={() => setFilterStatus("")}
             className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors border ${
-              filterStatus === s
-                ? statusColor[s] + " border-current"
-                : "border-slate-200 bg-white text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400"
+              filterStatus === ""
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent"
+                : "border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
             }`}
           >
-            {s} ({counts[s]})
+            All ({complaints.length})
           </button>
-        ))}
-      </div>
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilterStatus(filterStatus === s ? "" : s)}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors border ${
+                filterStatus === s
+                  ? statusColor[s] + " border-current"
+                  : "border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+              }`}
+            >
+              {s.replace("_", " ")} ({counts[s] ?? 0})
+            </button>
+          ))}
+        </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        <select
-          value={filterType}
-          onChange={e => setFilterType(e.target.value)}
-          className="rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-        >
-          <option value="">All Types</option>
-          {TYPES.map(t => <option key={t} value={t}>{typeLabel[t]}</option>)}
-        </select>
-        {districts.length > 0 && (
-          <select
-            value={filterDistrict}
-            onChange={e => setFilterDistrict(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white text-slate-900 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-          >
-            <option value="">All Districts</option>
-            {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
-        )}
+        {/* Dropdowns */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 dark:border-slate-800 dark:bg-slate-900">
+            <FilterIcon className="h-3.5 w-3.5 text-slate-400" />
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none dark:text-slate-300"
+            >
+              <option value="">All Categories</option>
+              {TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {typeLabel[t]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {districts.length > 0 && (
+            <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 dark:border-slate-800 dark:bg-slate-900">
+              <select
+                value={filterDistrict}
+                onChange={(e) => setFilterDistrict(e.target.value)}
+                className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none dark:text-slate-300"
+              >
+                <option value="">All Districts</option>
+                {districts.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 font-semibold">
+          {error}
+        </div>
       )}
 
       {loading ? (
-        <div className="text-sm text-slate-500">Loading complaints…</div>
+        <p className="text-xs text-slate-500">Loading complaints and telemetry logs…</p>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-600 dark:text-slate-400">
-          No complaints match the current filter.
-        </div>
+        <EmptyState
+          title="No grievances match the filter"
+          description="Try changing the category, status, or district filters above."
+        />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-700 text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-700/50">
-              <tr>
-                {["Filed", "Type", "Description", "Status", "Actions"].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-              {filtered.map(c => (
-                <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                  <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                    {new Date(c.created_at).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="font-medium text-slate-700 dark:text-slate-300">{typeLabel[c.type] ?? c.type}</span>
-                  </td>
-                  <td className="px-4 py-3 max-w-xs">
-                    <p className="truncate text-slate-600 dark:text-slate-400">{c.description ?? "—"}</p>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${statusColor[c.status]}`}>
-                      {c.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {c.status === "OPEN" && (
-                      <div className="flex gap-2">
-                        <button
-                          disabled={updatingId === c.id}
-                          onClick={() => handleStatusChange(c, "IN_REVIEW")}
-                          className="rounded px-2 py-1 text-xs font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200 disabled:opacity-60"
-                        >
-                          Review
-                        </button>
-                        <button
-                          disabled={updatingId === c.id}
-                          onClick={() => handleStatusChange(c, "DISMISSED")}
-                          className="rounded px-2 py-1 text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-60"
-                        >
-                          Dismiss
-                        </button>
+        <div className="flex flex-col gap-3">
+          {filtered.map((c) => {
+            const busNo = c.buses?.bus_number;
+            const route = c.trips?.routes;
+            const conductor = c.trips?.conductors;
+            const districtName = c.districts?.name;
+
+            return (
+              <Card key={c.id} className="p-4 transition hover:border-brand-500/50">
+                <div className="flex flex-col gap-3">
+                  {/* Top Bar: Type, Time, District, Status */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 dark:bg-slate-800">
+                        <TypeBadgeIcon type={c.type} />
                       </div>
-                    )}
-                    {c.status === "IN_REVIEW" && (
-                      <button
-                        disabled={updatingId === c.id}
-                        onClick={() => handleStatusChange(c, "RESOLVED")}
-                        className="rounded px-2 py-1 text-xs font-semibold bg-emerald-100 text-emerald-800 hover:bg-emerald-200 disabled:opacity-60"
-                      >
-                        {updatingId === c.id ? "…" : "Mark Resolved"}
-                      </button>
-                    )}
-                    {(c.status === "RESOLVED" || c.status === "DISMISSED") && (
-                      <span className="text-xs text-slate-400">
-                        {c.resolved_at ? new Date(c.resolved_at).toLocaleDateString() : "—"}
+                      <div>
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                          {typeLabel[c.type] ?? c.type}
+                        </span>
+                        {districtName && (
+                          <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                            {districtName}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1 text-[11px] text-slate-400">
+                        <ClockIcon className="h-3 w-3" />
+                        {new Date(c.created_at).toLocaleString("en-IN", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${statusColor[c.status]}`}>
+                        {c.status.replace("_", " ")}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Complaint Description */}
+                  <div className="rounded-lg bg-slate-50/70 p-3 dark:bg-slate-800/40">
+                    <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
+                      {c.description || "No written statement provided."}
+                    </p>
+                  </div>
+
+                  {/* Metadata Chips: Bus, Route, Conductor */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                      {busNo && (
+                        <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 font-bold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                          <BusIcon className="h-3 w-3 text-blue-500" />
+                          <span>Bus: {busNo}</span>
+                        </span>
+                      )}
+                      {route && (
+                        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          <RouteIcon className="h-3 w-3 text-slate-400" />
+                          <span>Route: {route.route_number || route.name}</span>
+                        </span>
+                      )}
+                      {conductor && (
+                        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          <UserIcon className="h-3 w-3 text-slate-400" />
+                          <span>Conductor: {conductor.display_name} {conductor.phone ? `(${conductor.phone})` : ""}</span>
+                        </span>
+                      )}
+                      {c.trip_id && (
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          Trip: #{c.trip_id.slice(0, 8)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2">
+                      {c.status === "OPEN" && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={updatingId === c.id}
+                            onClick={() => handleStatusChange(c, "IN_REVIEW")}
+                          >
+                            Mark In Review
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={updatingId === c.id}
+                            onClick={() => handleStatusChange(c, "DISMISSED")}
+                          >
+                            Dismiss
+                          </Button>
+                        </>
+                      )}
+                      {c.status === "IN_REVIEW" && (
+                        <Button
+                          size="sm"
+                          disabled={updatingId === c.id}
+                          onClick={() => handleStatusChange(c, "RESOLVED")}
+                        >
+                          {updatingId === c.id ? "Updating…" : "Mark Resolved"}
+                        </Button>
+                      )}
+                      {(c.status === "RESOLVED" || c.status === "DISMISSED") && (
+                        <span className="text-[11px] text-slate-400">
+                          Closed on {c.resolved_at ? new Date(c.resolved_at).toLocaleDateString() : "—"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

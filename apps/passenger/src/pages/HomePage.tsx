@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Select, Alert, Spinner, AppHeader, CommuterHero } from "@sbt/ui";
+import { Button, Select, Alert, Spinner, AppHeader, CommuterHero, MapPinIcon } from "@sbt/ui";
 import type { Route, RouteWithStops } from "@sbt/shared-types";
 import { listRoutes, getRouteWithStops } from "@sbt/supabase-client";
 import { supabase } from "../lib/supabase";
@@ -28,8 +28,7 @@ function LangToggle() {
       onClick={() => setLang((lang === "en" ? "ta" : "en") as Language)}
       className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur transition-colors hover:bg-white/20"
     >
-      <span className="text-[10px] leading-none">🌐</span>
-      {lang === "en" ? "தமிழ்" : "EN"}
+      <span className="font-bold tracking-wider">{lang === "en" ? "தமிழ்" : "EN"}</span>
     </button>
   );
 }
@@ -148,7 +147,7 @@ export function HomePage() {
             {routes.length > 0 && !selectedRouteId && (
               <div className="flex flex-col gap-1.5 pt-1">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                  ⚡ Popular Routes
+                  Popular Corridors
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {routes.slice(0, 4).map((r) => (
@@ -178,7 +177,7 @@ export function HomePage() {
                   disabled={detectingGps}
                   className="flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 transition"
                 >
-                  <span>📍</span>
+                  <MapPinIcon className="h-3 w-3 text-brand-600" />
                   {detectingGps ? "Locating..." : "Find Nearest Stop"}
                 </button>
               </div>

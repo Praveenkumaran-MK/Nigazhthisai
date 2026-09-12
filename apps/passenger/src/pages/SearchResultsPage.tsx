@@ -113,7 +113,7 @@ export function SearchResultsPage() {
                       {originStop.name} <span className="text-slate-400">→</span> {destStop.name}
                     </span>
                     <span className="shrink-0 font-semibold text-brand-600 dark:text-brand-400">
-                      {bus.is_wheelchair_accessible ? "♿ Accessible" : "Direct"}
+                      {bus.is_wheelchair_accessible ? "Accessible" : "Direct"}
                     </span>
                   </div>
                 )}
@@ -150,7 +150,7 @@ export function SearchResultsPage() {
                       className="rounded-xl px-3 font-semibold text-slate-700 dark:text-slate-200"
                       onClick={() => navigate(`/bus/${bus.trip_id}?routeId=${routeId}`)}
                     >
-                      <span className="mr-1">🧭</span> Track
+                      Track
                     </Button>
                     <Button
                       size="sm"
@@ -162,7 +162,7 @@ export function SearchResultsPage() {
                         )
                       }
                     >
-                      <span className="mr-1">🎟️</span> {bus.available_seats > 0 ? "Book Now" : "Full"}
+                      {bus.available_seats > 0 ? "Book Now" : "Full"}
                     </Button>
                   </div>
                 </div>

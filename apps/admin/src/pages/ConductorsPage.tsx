@@ -35,6 +35,13 @@ export function ConductorsPage() {
     setIsSubmitting(true);
     setFormError(null);
 
+    const cleanedPhone = phone.trim().replace(/\D/g, "");
+    if (!cleanedPhone || cleanedPhone.length < 10) {
+      setFormError("A valid 10-digit contact phone number is mandatory for conductor safety and duty communications.");
+      setIsSubmitting(false);
+      return;
+    }
+
     let conductorRowId: string | null = null;
     try {
       const { data: conductorRow, error: insertError } = await supabase
@@ -42,7 +49,7 @@ export function ConductorsPage() {
         .insert({
           government_id: governmentId.trim(),
           display_name: displayName.trim(),
-          phone: phone.trim() || null,
+          phone: cleanedPhone,
           district_id: profile?.district_id ?? null,
         })
         .select()
@@ -206,7 +213,7 @@ export function ConductorsPage() {
           <form onSubmit={handleCreate} className="flex flex-col gap-4">
             <Input label="Government ID" required value={governmentId} onChange={(e) => setGovernmentId(e.target.value)} placeholder="TN-MTC-8492" />
             <Input label="Display name" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-            <Input label="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <Input label="Phone Number *" required type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile number" />
             {formError && <Alert tone="danger" title="Could not create conductor">{formError}</Alert>}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
@@ -225,7 +232,7 @@ export function ConductorsPage() {
         <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
           <Input label="Display Name" required value={editName} onChange={(e) => setEditName(e.target.value)} />
           <Input label="Government ID" required value={editGovId} onChange={(e) => setEditGovId(e.target.value)} />
-          <Input label="Phone Number" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+          <Input label="Phone Number *" required type="tel" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
 
           <div className="flex items-center gap-2 pt-1">
             <input

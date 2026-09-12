@@ -97,12 +97,16 @@ export interface RouteStop {
   route_id: string;
   stop_id: string;
   sequence_order: number;
+  expected_arrival_time?: string | null;
+  eta_offset_minutes?: number | null;
 }
 
 export interface RouteStopInsert {
   route_id: string;
   stop_id: string;
   sequence_order: number;
+  expected_arrival_time?: string | null;
+  eta_offset_minutes?: number | null;
 }
 
 /** A route with its stops resolved and ordered by sequence_order ascending. */
@@ -224,6 +228,8 @@ export interface TripStop {
   sequence_order: number;
   arrival_time: string | null;
   departure_time: string | null;
+  expected_arrival_time?: string | null;
+  actual_arrival_time?: string | null;
   status: TripStopStatus;
 }
 

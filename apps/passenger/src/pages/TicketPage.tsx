@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { BoardingPassCard, Badge, LoadingState, Alert, TicketCountdown, Dialog, Button, Input } from "@sbt/ui";
+import { BoardingPassCard, Badge, LoadingState, Alert, TicketCountdown, Dialog, Button, Input, ShieldAlertIcon } from "@sbt/ui";
 import type { Stop, Bus } from "@sbt/shared-types";
 import { supabase } from "../lib/supabase";
 import { useLoadTicket } from "../hooks/useTicket";
@@ -17,7 +17,6 @@ const statusTone = {
 } as const;
 
 const STAR_LABELS = ["", "Terrible", "Poor", "Average", "Good", "Excellent"] as const;
-const STAR_EMOJIS = ["", "😡", "😕", "😐", "😊", "🤩"] as const;
 
 function StarRating({
   value,
@@ -37,7 +36,7 @@ function StarRating({
             type="button"
             aria-label={`Rate ${star}`}
             className={`text-3xl transition-transform duration-100 ${
-              star <= (hovered || value) ? "scale-110" : "scale-100 opacity-30"
+              star <= (hovered || value) ? "scale-110 text-amber-500" : "scale-100 opacity-30 text-slate-400"
             }`}
             onMouseEnter={() => setHovered(star)}
             onMouseLeave={() => setHovered(0)}
@@ -48,8 +47,8 @@ function StarRating({
         ))}
       </div>
       {(hovered || value) > 0 && (
-        <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-          {STAR_EMOJIS[hovered || value]} {STAR_LABELS[hovered || value]}
+        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          {hovered || value} / 5 Stars — {STAR_LABELS[hovered || value]}
         </p>
       )}
     </div>
@@ -197,7 +196,7 @@ export function TicketPage() {
         {
           id: "init",
           sender_role: "passenger",
-          message: `🚨 Emergency reported (${type}). Awaiting control room response...`,
+          message: `Emergency reported (${type}). Awaiting control room response...`,
           created_at: new Date().toISOString(),
         },
       ]);
@@ -275,7 +274,7 @@ export function TicketPage() {
           }}
           className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-500/40 bg-rose-950/30 p-3 text-sm font-bold text-rose-400 shadow-md shadow-rose-950/20 backdrop-blur transition hover:bg-rose-900/40 active:scale-[0.99]"
         >
-          <span className="text-base">🚨</span>
+          <ShieldAlertIcon className="h-4 w-4 text-rose-500" />
           <span>Emergency Assistance / SOS Chat</span>
         </button>
       )}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button, Alert, Badge, Card, Input } from "@sbt/ui";
+import { Camera, Keyboard, ArrowLeft } from "lucide-react";
 import { validateTicket } from "@sbt/supabase-client";
 import { supabase } from "../lib/supabase";
 import { useCameraScanner } from "../hooks/useCameraScanner";
@@ -140,27 +141,30 @@ export function ScannerPage() {
     <div className="flex min-h-dvh flex-col bg-slate-950 text-slate-100">
       {/* Top Bar */}
       <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 p-4 backdrop-blur">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-          ← Back
+        <Button variant="ghost" size="sm" className="inline-flex items-center gap-1.5" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back</span>
         </Button>
         <div className="flex gap-1 rounded-lg bg-slate-800 p-1">
           <button
             type="button"
-            className={`rounded px-3 py-1 text-xs font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 rounded px-3 py-1 text-xs font-semibold transition ${
               mode === "camera" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-slate-200"
             }`}
             onClick={() => setMode("camera")}
           >
-            📷 QR Camera
+            <Camera className="h-3.5 w-3.5" />
+            <span>QR Camera</span>
           </button>
           <button
             type="button"
-            className={`rounded px-3 py-1 text-xs font-semibold transition ${
+            className={`inline-flex items-center gap-1.5 rounded px-3 py-1 text-xs font-semibold transition ${
               mode === "pnr" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-slate-200"
             }`}
             onClick={() => setMode("pnr")}
           >
-            ⌨️ Manual PNR
+            <Keyboard className="h-3.5 w-3.5" />
+            <span>Manual PNR</span>
           </button>
         </div>
         <Badge tone={mode === "camera" ? (status === "scanning" ? "success" : "neutral") : "brand"}>

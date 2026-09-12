@@ -108,8 +108,10 @@ export function GrievancePage() {
       {step === "success" ? (
         <Card className="flex flex-col items-center gap-4 py-10 text-center">
           {/* Success checkmark */}
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl dark:bg-emerald-900/30">
-            ✅
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
           </div>
           <div>
             <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
@@ -166,13 +168,13 @@ export function GrievancePage() {
           <div className="flex flex-wrap gap-2">
             {(
               [
-                { label: "🧹 " + t("cleanliness"), color: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400" },
-                { label: "🚨 " + t("safety"), color: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400" },
-                { label: "💰 " + t("overcharging"), color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
-                { label: "🧑‍✈️ " + t("driverBehavior"), color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400" },
+                { label: t("cleanliness"), color: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400" },
+                { label: t("safety"), color: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400" },
+                { label: t("overcharging"), color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+                { label: t("driverBehavior"), color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400" },
               ] as const
             ).map((chip) => (
-              <span key={chip.label} className={`rounded-full px-3 py-1 text-xs font-medium ${chip.color}`}>
+              <span key={chip.label} className={`rounded-full px-3 py-1 text-xs font-semibold ${chip.color}`}>
                 {chip.label}
               </span>
             ))}

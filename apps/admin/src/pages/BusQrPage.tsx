@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import type { Bus, BusQrResult, District } from "@sbt/shared-types";
 import QRCode from "qrcode";
+import { BusIcon, DownloadIcon } from "@sbt/ui";
+import { Printer } from "lucide-react";
 
 interface BusWithQr extends Bus {
   district_name?: string;
@@ -103,7 +105,7 @@ export function BusQrPage() {
       <html><head><title>Bus QR — ${bus.bus_number}</title>
       <style>body{font-family:sans-serif;text-align:center;padding:2rem}h2{margin-bottom:.5rem}p{font-size:.85rem;color:#555}</style>
       </head><body>
-        <h2>🚌 Bus ${bus.bus_number}</h2>
+        <h2>Bus ${bus.bus_number}</h2>
         <p>${bus.registration_number ?? ""} · ${bus.district_name ?? ""} · ${bus.type}</p>
         <img src="${dataUrl}" style="width:200px;height:200px"/>
         <p style="margin-top:.5rem;font-size:.75rem;color:#999">Scan to verify bus identity before starting a trip</p>
@@ -152,7 +154,7 @@ export function BusQrPage() {
             onChange={e => setFilterWheelchair(e.target.checked)}
             className="rounded"
           />
-          ♿ Accessible only
+          Wheelchair Accessible only
         </label>
       </div>
 
@@ -178,12 +180,13 @@ export function BusQrPage() {
               {/* Bus header */}
               <div className="flex items-start justify-between p-4 pb-2">
                 <div>
-                  <p className="font-bold text-slate-900 dark:text-slate-100 text-base">
-                    🚌 {bus.bus_number}
+                  <p className="font-bold text-slate-900 dark:text-slate-100 text-base flex items-center gap-1.5">
+                    <BusIcon className="h-4 w-4 text-brand-600" />
+                    <span>{bus.bus_number}</span>
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {bus.registration_number ?? "No Reg"} · {bus.type}
-                    {bus.is_wheelchair_accessible && <span className="ml-1">♿</span>}
+                    {bus.is_wheelchair_accessible && <span className="ml-1 text-[10px] font-semibold text-emerald-600">Accessible</span>}
                   </p>
                   <p className="text-xs text-slate-400 dark:text-slate-500">{bus.district_name ?? "—"}</p>
                 </div>
@@ -229,16 +232,16 @@ export function BusQrPage() {
                     <button
                       onClick={() => handleDownload(bus)}
                       title="Download PNG"
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                      className="rounded-lg border border-slate-300 p-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                     >
-                      ⬇
+                      <DownloadIcon className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handlePrint(bus)}
                       title="Print"
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                      className="rounded-lg border border-slate-300 p-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                     >
-                      🖨
+                      <Printer className="h-4 w-4" />
                     </button>
                   </>
                 )}

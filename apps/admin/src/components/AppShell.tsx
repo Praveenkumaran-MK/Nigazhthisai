@@ -38,9 +38,9 @@ const navGroups: NavGroup[] = [
     label: "Monitoring",
     masterOnly: false,
     items: [
-      { to: "/fleet",       label: "Live Fleet",    masterOnly: false, featureKey: "live_monitoring" },
-      { to: "/alerts",      label: "🆘 Alerts",     masterOnly: false, featureKey: "operational_alerts" },
-      { to: "/complaints",  label: "📋 Complaints", masterOnly: false, featureKey: "support_faq" },
+      { to: "/fleet",       label: "Live Pipeline Tracking", masterOnly: false, featureKey: "live_monitoring" },
+      { to: "/alerts",      label: "Operational Alerts",     masterOnly: false, featureKey: "operational_alerts" },
+      { to: "/complaints",  label: "Passenger Complaints",   masterOnly: false, featureKey: "support_faq" },
     ],
   },
   {
@@ -54,9 +54,9 @@ const navGroups: NavGroup[] = [
     label: "Maintenance",
     masterOnly: false,
     items: [
-      { to: "/maintenance", label: "🛠️ Fleet & ETM Maint", masterOnly: false, featureKey: "shops_management" },
-      { to: "/etm",         label: "📟 ETM Devices",       masterOnly: false, featureKey: "shops_management" },
-      { to: "/bus-qr",      label: "Bus QR Codes",         masterOnly: false, featureKey: "shops_management" },
+      { to: "/maintenance", label: "Fleet & ETM Maintenance", masterOnly: false, featureKey: "shops_management" },
+      { to: "/etm",         label: "ETM Devices",             masterOnly: false, featureKey: "shops_management" },
+      { to: "/bus-qr",      label: "Bus QR Codes",            masterOnly: false, featureKey: "shops_management" },
     ],
   },
   // ─── Master Admin exclusive ───────────────────────────────────────────────
@@ -64,10 +64,10 @@ const navGroups: NavGroup[] = [
     label: "System Control",
     masterOnly: true,
     items: [
-      { to: "/districts",       label: "🗺️ Districts",     masterOnly: true },
-      { to: "/admin-users",     label: "👥 Admin Users",   masterOnly: true },
-      { to: "/system-settings", label: "⚙️ System Settings", masterOnly: true },
-      { to: "/import",          label: "📥 CSV Import",    masterOnly: true },
+      { to: "/districts",       label: "Districts",       masterOnly: true },
+      { to: "/admin-users",     label: "Admin Users",     masterOnly: true },
+      { to: "/system-settings", label: "System Settings", masterOnly: true },
+      { to: "/import",          label: "CSV Import",      masterOnly: true },
     ],
   },
 ];

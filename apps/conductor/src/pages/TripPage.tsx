@@ -23,6 +23,7 @@ import { useGpsTelemetry } from "../hooks/useGpsTelemetry";
 import { useSosLongPress } from "../hooks/useSosLongPress";
 import { createAlert } from "@sbt/supabase-client";
 import { PocketMode } from "../components/PocketMode";
+import { Play, Ticket, Camera, Lock, AlertTriangle } from "lucide-react";
 
 interface StopRow extends TripStop {
   stop: Stop;
@@ -307,8 +308,9 @@ export function TripPage() {
         {trip.status === "SCHEDULED" && (
           <div className="flex flex-col gap-4">
             <ConductorHero className="h-44 w-full rounded-2xl shadow-xl" />
-            <Button size="lg" className="h-14 text-base font-extrabold shadow-lg" isLoading={isStarting} onClick={handleStartService}>
-              🚀 Start Transit Service →
+            <Button size="lg" className="h-14 text-base font-extrabold shadow-lg inline-flex items-center justify-center gap-2" isLoading={isStarting} onClick={handleStartService}>
+              <Play className="h-5 w-5 fill-current" />
+              <span>Start Transit Service</span>
             </Button>
           </div>
         )}
@@ -316,7 +318,7 @@ export function TripPage() {
         {/* PROMINENT CONDUCTOR HERO ACTIONS (Unmissable, High-Contrast, Thumb-Friendly) */}
         {trip.status === "ACTIVE" && (
           <div className="grid grid-cols-2 gap-3.5">
-            {/* 🎟️ Issue Cash Ticket Card Button */}
+            {/* Issue Cash Ticket Card Button */}
             <button
               type="button"
               onClick={() => {
@@ -327,7 +329,7 @@ export function TripPage() {
             >
               <div className="flex w-full items-center justify-between">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-xl backdrop-blur-sm shadow-inner">
-                  🎟️
+                  <Ticket className="h-5 w-5 text-white" />
                 </span>
                 <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
                   Cash POS
@@ -343,7 +345,7 @@ export function TripPage() {
               </div>
             </button>
 
-            {/* 📷 Scan Passenger QR Card Button */}
+            {/* Scan Passenger QR Card Button */}
             <button
               type="button"
               onClick={() => navigate(`/trip/${trip.id}/scan`)}
@@ -351,7 +353,7 @@ export function TripPage() {
             >
               <div className="flex w-full items-center justify-between">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-xl backdrop-blur-sm shadow-inner">
-                  📷
+                  <Camera className="h-5 w-5 text-white" />
                 </span>
                 <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
                   Validator
@@ -455,7 +457,7 @@ export function TripPage() {
               }}
               className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-orange-950/50 active:scale-98 transition-transform"
             >
-              <span>🎟️</span>
+              <Ticket className="h-4 w-4" />
               <span>Issue Ticket</span>
             </button>
 
@@ -464,27 +466,27 @@ export function TripPage() {
               onClick={() => navigate(`/trip/${trip.id}/scan`)}
               className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-blue-950/50 active:scale-98 transition-transform"
             >
-              <span>📷</span>
+              <Camera className="h-4 w-4" />
               <span>Scan QR</span>
             </button>
 
             <button
               type="button"
               onClick={() => setPocketMode(true)}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-lg text-slate-300 hover:text-white"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 hover:text-white"
               title="Pocket Lock"
             >
-              🔒
+              <Lock className="h-5 w-5" />
             </button>
 
             <button
               type="button"
               {...sos.handlers}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-600 text-lg font-bold text-white shadow-lg shadow-rose-950/60 active:scale-95 select-none"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-600 font-bold text-white shadow-lg shadow-rose-950/60 active:scale-95 select-none"
               title="Hold for SOS"
               style={{ backgroundImage: `linear-gradient(90deg, rgba(0,0,0,0.4) ${sos.progress * 100}%, transparent ${sos.progress * 100}%)` }}
             >
-              🆘
+              <AlertTriangle className="h-5 w-5" />
             </button>
           </div>
         </div>

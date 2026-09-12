@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Button, Card, DataTable, Dialog, Select, DateTimePicker, Badge, Alert, useToast, ErrorState, Input } from "@sbt/ui";
+import { Button, Card, DataTable, Dialog, Select, DateTimePicker, Badge, Alert, useToast, ErrorState, Input, ClockIcon, CalendarIcon } from "@sbt/ui";
 import type { Route, Bus, Conductor, Schedule } from "@sbt/shared-types";
 import { listRoutes, confirmScheduleAndCreateTrip } from "@sbt/supabase-client";
 import { supabase } from "../lib/supabase";
@@ -235,24 +235,26 @@ export function SchedulesPage() {
         <button
           type="button"
           onClick={() => setTab("trips")}
-          className={`px-4 py-2 text-sm font-semibold border-b-2 transition ${
+          className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition ${
             tab === "trips"
               ? "border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400"
               : "border-transparent text-slate-500 hover:text-slate-700"
           }`}
         >
-          ⏱️ Active Trip Schedules
+          <ClockIcon className="h-4 w-4" />
+          <span>Active Trip Schedules</span>
         </button>
         <button
           type="button"
           onClick={() => setTab("templates")}
-          className={`px-4 py-2 text-sm font-semibold border-b-2 transition ${
+          className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold border-b-2 transition ${
             tab === "templates"
               ? "border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400"
               : "border-transparent text-slate-500 hover:text-slate-700"
           }`}
         >
-          📅 Weekday Departure Templates
+          <CalendarIcon className="h-4 w-4" />
+          <span>Weekday Departure Templates</span>
         </button>
       </div>
 

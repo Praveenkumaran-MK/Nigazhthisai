@@ -32,3 +32,4 @@ export * from "./components/AppHeader";
 export * from "./components/LogoLoader";
 export * from "./components/TransitBusRunner";
 export * from "./components/HeroScenes";
+export * from "./components/Icons";
