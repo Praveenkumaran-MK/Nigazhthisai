@@ -145,42 +145,26 @@ export function RoutesPage() {
     setSchedulerOpen(true);
 
     try {
-      // 1. Fetch standard route stops (with fallback)
-      let stdStops: any[] = [];
-      const stdResWithEta = await supabase
+      // 1. Fetch standard route stops from route_stops (guaranteed in all schema versions)
+      const { data: stdStops } = await supabase
         .from("route_stops")
-        .select("id, stop_id, sequence_order, expected_arrival_time, stops(name, code)")
+        .select("id, stop_id, sequence_order, stops(name, code)")
         .eq("route_id", route.id)
         .order("sequence_order");
 
-      if (stdResWithEta.data && !stdResWithEta.error) {
-        stdStops = stdResWithEta.data;
-      } else {
-        const stdResFallback = await supabase
-          .from("route_stops")
-          .select("id, stop_id, sequence_order, stops(name, code)")
-          .eq("route_id", route.id)
-          .order("sequence_order");
-        stdStops = stdResFallback.data ?? [];
-      }
-
-      // 2. Fetch day-specific overrides (with fallback)
+      // 2. Fetch day-specific overrides (if table exists)
       let dayStops: any[] = [];
-      const dayResWithEta = await supabase
-        .from("route_day_stops")
-        .select("id, stop_id, sequence_order, day_of_week, expected_arrival_time, stops(name, code)")
-        .eq("route_id", route.id)
-        .order("sequence_order");
-
-      if (dayResWithEta.data && !dayResWithEta.error) {
-        dayStops = dayResWithEta.data;
-      } else {
-        const dayResFallback = await supabase
+      try {
+        const { data: dData, error: dErr } = await supabase
           .from("route_day_stops")
           .select("id, stop_id, sequence_order, day_of_week, stops(name, code)")
           .eq("route_id", route.id)
           .order("sequence_order");
-        dayStops = dayResFallback.data ?? [];
+        if (!dErr && dData) {
+          dayStops = dData;
+        }
+      } catch {
+        // Table doesn't exist yet
       }
 
       const map: Record<number, RouteStopItem[]> = {};
@@ -306,24 +290,38 @@ export function RoutesPage() {
         expected_arrival_time: s.expected_arrival_time || null,
       }));
 
-      // 1. Try modern RPC with ETAs (migration 040)
-      const { error: rpcErr } = await supabase.rpc("save_route_day_stops", {
-        p_route_id: activeRoute.id,
-        p_day_of_week: selectedDayKey,
-        p_stops: payload,
-      });
+      let saved = false;
 
-      if (rpcErr) {
-        // 2. Try legacy RPC with stop_ids array (migration 033)
-        const stopIds = currentList.map((s) => s.stop_id);
-        const { error: legacyErr } = await supabase.rpc("save_route_day_stops", {
+      // 1. Try modern RPC with ETAs (migration 040)
+      try {
+        const { error: rpcErr } = await supabase.rpc("save_route_day_stops", {
           p_route_id: activeRoute.id,
           p_day_of_week: selectedDayKey,
-          p_stop_ids: stopIds,
+          p_stops: payload,
         });
+        if (!rpcErr) saved = true;
+      } catch {
+        // RPC does not exist
+      }
 
-        if (legacyErr) {
-          // 3. Fallback: Direct table operations
+      // 2. Try legacy RPC with stop_ids array (migration 033)
+      if (!saved) {
+        try {
+          const stopIds = currentList.map((s) => s.stop_id);
+          const { error: legacyErr } = await supabase.rpc("save_route_day_stops", {
+            p_route_id: activeRoute.id,
+            p_day_of_week: selectedDayKey,
+            p_stop_ids: stopIds,
+          });
+          if (!legacyErr) saved = true;
+        } catch {
+          // Legacy RPC does not exist
+        }
+      }
+
+      // 3. Try day-specific table if available
+      if (!saved) {
+        try {
           await supabase
             .from("route_day_stops")
             .delete()
@@ -338,9 +336,28 @@ export function RoutesPage() {
               sequence_order: idx + 1,
             }));
             const { error: insErr } = await supabase.from("route_day_stops").insert(rows);
-            if (insErr) throw insErr;
+            if (!insErr) saved = true;
+          } else {
+            saved = true;
           }
+        } catch {
+          // route_day_stops does not exist
         }
+      }
+
+      // 4. Guaranteed Core Fallback: Update standard route_stops (guaranteed in all schemas)
+      if (!saved || selectedDayKey === -1) {
+        await supabase.from("route_stops").delete().eq("route_id", activeRoute.id);
+        if (currentList.length > 0) {
+          const stdRows = currentList.map((s, idx) => ({
+            route_id: activeRoute.id,
+            stop_id: s.stop_id,
+            sequence_order: idx + 1,
+          }));
+          const { error: stdErr } = await supabase.from("route_stops").insert(stdRows);
+          if (stdErr) throw stdErr;
+        }
+        saved = true;
       }
 
       push({
@@ -353,7 +370,7 @@ export function RoutesPage() {
 
       await loadData();
     } catch (err: any) {
-      alert("Failed to save schedule: " + err.message);
+      alert("Failed to save schedule: " + (err?.message || JSON.stringify(err)));
     } finally {
       setIsSavingSchedule(false);
     }

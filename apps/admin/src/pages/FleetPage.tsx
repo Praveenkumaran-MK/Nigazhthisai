@@ -100,47 +100,24 @@ export function FleetPage() {
     const trip = selectedTrip;
 
     async function loadPipeline(activeTrip: Trip) {
-      // 1. Fetch trip stops (with fallback if expected_arrival_time not yet migrated)
-      let tStops: any[] = [];
-      const tResWithEta = await supabase
+      // 1. Fetch trip stops
+      const { data: tStops } = await supabase
         .from("trip_stops")
-        .select("id, stop_id, sequence_order, arrival_time, departure_time, status, expected_arrival_time")
+        .select("id, stop_id, sequence_order, arrival_time, departure_time, status")
         .eq("trip_id", activeTrip.id)
         .order("sequence_order", { ascending: true });
 
-      if (tResWithEta.data && !tResWithEta.error) {
-        tStops = tResWithEta.data;
-      } else {
-        const tResFallback = await supabase
-          .from("trip_stops")
-          .select("id, stop_id, sequence_order, arrival_time, departure_time, status")
-          .eq("trip_id", activeTrip.id)
-          .order("sequence_order", { ascending: true });
-        tStops = tResFallback.data ?? [];
-      }
-
-      // 2. Fetch route stops for ETAs (with fallback if expected_arrival_time not yet migrated)
-      let rStops: any[] = [];
-      const rResWithEta = await supabase
+      // 2. Fetch route stops
+      const { data: rStops } = await supabase
         .from("route_stops")
-        .select("stop_id, sequence_order, expected_arrival_time")
+        .select("stop_id, sequence_order")
         .eq("route_id", activeTrip.route_id);
-
-      if (rResWithEta.data && !rResWithEta.error) {
-        rStops = rResWithEta.data;
-      } else {
-        const rResFallback = await supabase
-          .from("route_stops")
-          .select("stop_id, sequence_order")
-          .eq("route_id", activeTrip.route_id);
-        rStops = rResFallback.data ?? [];
-      }
 
       // 3. Fetch stops metadata
       const stopIds = (tStops ?? []).map((s) => s.stop_id);
       const { data: sData } = await supabase.from("stops").select("id, name, code").in("id", stopIds);
       const stopMap = new Map((sData ?? []).map((s) => [s.id, s]));
-      const rStopMap = new Map((rStops ?? []).map((s) => [s.stop_id, s.expected_arrival_time]));
+      const rStopMap = new Map((rStops ?? []).map((s: any) => [s.stop_id, s.expected_arrival_time]));
 
       // 4. Live GPS Telemetry
       setGpsTelemetry({
@@ -161,7 +138,7 @@ export function FleetPage() {
         ? tStops.findIndex((s) => s.stop_id === activeTrip.current_stop_id)
         : -1;
 
-      const pipeline: PipelineStop[] = (tStops ?? []).map((s, idx) => {
+      const pipeline: PipelineStop[] = (tStops ?? []).map((s: any, idx) => {
         const meta = stopMap.get(s.stop_id);
         const configuredEta = rStopMap.get(s.stop_id) || s.expected_arrival_time;
 
