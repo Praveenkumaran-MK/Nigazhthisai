@@ -86,6 +86,19 @@ export function useGpsTelemetry({ busId, tripId, routeId, conductorId, enabled }
         lastBroadcastRef.current = { at: now, latitude: point.latitude, longitude: point.longitude };
         setLastTelemetry(telemetry);
         void channel.broadcastPosition(telemetry);
+
+        // Persist GPS telemetry to central cloud PostgreSQL gps_logs table
+        void supabase.from("gps_logs").insert({
+          trip_id: tripId,
+          bus_id: busId,
+          conductor_id: conductorId,
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          speed: pos.coords.speed,
+          heading: pos.coords.heading,
+          accuracy: pos.coords.accuracy,
+          recorded_at: new Date(now).toISOString(),
+        });
       },
       (err) => setStatus(err.code === err.PERMISSION_DENIED ? "denied" : "error"),
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 },
