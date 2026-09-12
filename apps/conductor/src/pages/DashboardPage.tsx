@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Card, LoadingState, StatusIndicator, StatCard, Badge } from "@sbt/ui";
 import { QrCode, Ticket, Play, Clock, Bus as BusIcon } from "lucide-react";
@@ -55,6 +55,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [refreshing, setRefreshing] = useState(false);
+  const rpcStatsAvailable = useRef<boolean>(true);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -113,16 +114,93 @@ export function DashboardPage() {
       }
 
       // 2. Fetch stats for financial metrics
-      try {
-        const { data: statsData } = await supabase.rpc("get_conductor_stats", {
-          p_conductor_id: conductor.id,
-          p_target_date: new Date().toISOString().split("T")[0],
-        });
-        if (statsData) {
-          setStats(statsData as ConductorStats);
+      let loadedStats: ConductorStats | null = null;
+      if (rpcStatsAvailable.current) {
+        try {
+          const { data: statsData, error: statsErr } = await supabase.rpc("get_conductor_stats", {
+            p_conductor_id: conductor.id,
+            p_target_date: new Date().toISOString().slice(0, 10),
+          });
+          if (!statsErr && statsData) {
+            loadedStats = statsData as ConductorStats;
+          } else if (statsErr) {
+            console.warn(
+              "[Dashboard] get_conductor_stats RPC returned error, switching to direct client query fallback:",
+              statsErr.message
+            );
+            rpcStatsAvailable.current = false;
+          }
+        } catch (err) {
+          console.warn("[Dashboard] get_conductor_stats invocation failed, using direct query fallback:", err);
+          rpcStatsAvailable.current = false;
         }
-      } catch {
-        // Fallback if RPC fails
+      }
+
+      // Direct fallback if RPC is unmigrated or unavailable: calculate directly from DB tables
+      if (!loadedStats) {
+        try {
+          const todayStr: string = new Date().toISOString().slice(0, 10);
+          const { data: allConductorTrips } = await supabase
+            .from("trips")
+            .select("id, status, scheduled_departure, started_at, created_at")
+            .eq("conductor_id", conductor.id);
+
+          const todayTrips = (allConductorTrips || []).filter((t) => {
+            const dateStr = (t.scheduled_departure || t.started_at || t.created_at || "").slice(0, 10);
+            return dateStr === todayStr;
+          });
+          const allTripIds = (allConductorTrips || []).map((t) => t.id);
+
+          let ticketsIssued = 0;
+          let cashRevenue = 0;
+          let digitalRevenue = 0;
+          let passengersCarried = 0;
+
+          if (allTripIds.length > 0) {
+            const { data: tickets } = await supabase
+              .from("tickets")
+              .select("id, total_fare, channel, passenger_count, created_at, status")
+              .in("trip_id", allTripIds)
+              .in("status", ["PAID", "VALIDATED", "EXPIRED"]);
+
+            if (tickets) {
+              const todayTickets = tickets.filter((tk) => {
+                const dateStr = (tk.created_at || "").slice(0, 10);
+                return dateStr === todayStr;
+              });
+
+              ticketsIssued = todayTickets.length;
+              for (const tk of todayTickets) {
+                const fare = Number(tk.total_fare || 0);
+                const isCash = tk.channel === "CASH" || tk.channel === "ETM";
+                if (isCash) {
+                  cashRevenue += fare;
+                } else {
+                  digitalRevenue += fare;
+                }
+                passengersCarried += tk.passenger_count || 1;
+              }
+            }
+          }
+
+          loadedStats = {
+            conductor_id: conductor.id,
+            date: todayStr,
+            trips_count: todayTrips.length,
+            active_trip: null,
+            tickets_issued: ticketsIssued,
+            cash_revenue: cashRevenue,
+            digital_revenue: digitalRevenue,
+            total_revenue: cashRevenue + digitalRevenue,
+            passengers_carried: passengersCarried,
+          };
+        } catch (calcErr) {
+          console.warn("[Dashboard] Direct stats calculation error:", calcErr);
+        }
+      }
+
+      if (loadedStats) {
+        setStats(loadedStats);
       }
     } catch (err) {
       console.error("Failed to load conductor dashboard data:", err);
@@ -161,6 +239,7 @@ export function DashboardPage() {
   }, [conductor?.id, loadData]);
 
   const handleRefresh = () => {
+    rpcStatsAvailable.current = true;
     setRefreshing(true);
     void loadData();
   };
