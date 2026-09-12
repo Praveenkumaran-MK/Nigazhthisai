@@ -14,8 +14,8 @@ import {
   Select,
   QRDisplay,
 } from "@sbt/ui";
-import type { Trip, TripStop, TripOccupancy, Stop } from "@sbt/shared-types";
-import { startTrip, departStopAndExpireTickets, listTripStops, getTripOccupancy } from "@sbt/supabase-client";
+import type { Trip, TripStop, TripOccupancy, Stop, Bus, Route } from "@sbt/shared-types";
+import { startTrip, departStopAndExpireTickets, listTripStops, getTripOccupancy, verifyBusQr } from "@sbt/supabase-client";
 import { supabase } from "../lib/supabase";
 import { useConductorAuth } from "../hooks/useConductorAuth";
 import { useWakeLock } from "../hooks/useWakeLock";
@@ -23,7 +23,8 @@ import { useGpsTelemetry } from "../hooks/useGpsTelemetry";
 import { useSosLongPress } from "../hooks/useSosLongPress";
 import { createAlert } from "@sbt/supabase-client";
 import { PocketMode } from "../components/PocketMode";
-import { Play, Ticket, Camera, Lock, AlertTriangle } from "lucide-react";
+import { BusQrScannerModal } from "../components/BusQrScannerModal";
+import { Play, Ticket, Camera, Lock, AlertTriangle, QrCode, Bus as BusIcon } from "lucide-react";
 
 interface StopRow extends TripStop {
   stop: Stop;
@@ -47,6 +48,9 @@ export function TripPage() {
   const { push } = useToast();
 
   const [trip, setTrip] = useState<Trip | null>(null);
+  const [assignedBus, setAssignedBus] = useState<Bus | null>(null);
+  const [assignedRoute, setAssignedRoute] = useState<Route | null>(null);
+  const [showBusScanner, setShowBusScanner] = useState(false);
   const [stops, setStops] = useState<StopRow[]>([]);
   const [occupancy, setOccupancy] = useState<TripOccupancy | null>(null);
   const [isStarting, setIsStarting] = useState(false);
@@ -68,7 +72,18 @@ export function TripPage() {
   const loadTrip = useCallback(async () => {
     if (!tripId) return;
     const { data } = await supabase.from("trips").select("*").eq("id", tripId).single();
-    setTrip(data as Trip);
+    const t = data as Trip;
+    setTrip(t);
+
+    if (t?.bus_id) {
+      const { data: bData } = await supabase.from("buses").select("*").eq("id", t.bus_id).single();
+      if (bData) setAssignedBus(bData as Bus);
+    }
+    if (t?.route_id) {
+      const { data: rData } = await supabase.from("routes").select("*").eq("id", t.route_id).single();
+      if (rData) setAssignedRoute(rData as Route);
+    }
+
     const tripStops = await listTripStops(supabase, tripId);
     const { data: stopRows } = await supabase.from("stops").select("*").in(
       "id",
@@ -187,16 +202,29 @@ export function TripPage() {
     enabled: trip?.status === "ACTIVE" && Boolean(conductor),
   });
 
-  const handleStartService = async () => {
-    if (!tripId) return;
+  const handleVerifyAndStart = async (scannedValue: string) => {
+    if (!tripId || !trip) return;
     setIsStarting(true);
-    void wakeLock.request();
     try {
-      const updated = await startTrip(supabase, tripId);
+      // 1. Verify bus QR against assigned bus
+      await verifyBusQr(supabase, scannedValue, trip.bus_id);
+
+      // 2. Haptic buzz on valid bus identity
+      if ("vibrate" in navigator) {
+        navigator.vibrate([120]);
+      }
+
+      // 3. Start trip and transition status to ACTIVE
+      void wakeLock.request();
+      const updated = await startTrip(supabase, tripId, scannedValue);
       setTrip(updated);
-      push({ tone: "success", title: "Service started", description: "Broadcasting your live location." });
-    } catch (e) {
-      push({ tone: "danger", title: "Could not start service", description: e instanceof Error ? e.message : undefined });
+      setShowBusScanner(false);
+      push({
+        tone: "success",
+        title: "Bus Verified — Service Live!",
+        description: `Bus #${assignedBus?.bus_number ?? "assigned vehicle"} is now broadcasting GPS and visible to passengers.`,
+      });
+      await loadTrip();
     } finally {
       setIsStarting(false);
     }
@@ -307,11 +335,73 @@ export function TripPage() {
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 pb-36">
         {trip.status === "SCHEDULED" && (
           <div className="flex flex-col gap-4">
-            <ConductorHero className="h-44 w-full rounded-2xl shadow-xl" />
-            <Button size="lg" className="h-14 text-base font-extrabold shadow-lg inline-flex items-center justify-center gap-2" isLoading={isStarting} onClick={handleStartService}>
-              <Play className="h-5 w-5 fill-current" />
-              <span>Start Transit Service</span>
-            </Button>
+            <ConductorHero className="h-36 w-full rounded-2xl shadow-xl" />
+
+            {/* Vehicle Verification & Activation Gate */}
+            <Card className="border-amber-500/50 bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-900 shadow-xl shadow-amber-950/30 p-5">
+              <div className="flex items-center justify-between">
+                <Badge tone="warning" className="animate-pulse font-extrabold uppercase tracking-wider text-[11px]">
+                  ACTION REQUIRED • SERVICE OFFLINE
+                </Badge>
+                <span className="text-xs font-mono font-bold text-amber-400">
+                  {assignedBus?.bus_number ? `Bus #${assignedBus.bus_number}` : "Bus Unassigned"}
+                </span>
+              </div>
+
+              <div className="mt-3.5">
+                <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                  <BusIcon className="h-5 w-5 text-amber-400" />
+                  <span>Verify Assigned Vehicle</span>
+                </h2>
+                <div className="mt-2.5 rounded-xl bg-slate-950/60 border border-slate-800 p-3 space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Assigned Bus:</span>
+                    <span className="font-bold text-slate-200">
+                      {assignedBus?.bus_number ?? "Loading…"}
+                      {assignedBus?.registration_number ? ` (${assignedBus.registration_number})` : ""}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Vehicle Type & Seats:</span>
+                    <span className="font-medium text-slate-300">
+                      {assignedBus?.type ?? "Standard"} · {assignedBus?.capacity ?? 50} Passengers
+                    </span>
+                  </div>
+                  {assignedRoute && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Route:</span>
+                      <span className="font-medium text-slate-300">
+                        {assignedRoute.route_number ? `Route ${assignedRoute.route_number}: ` : ""}{assignedRoute.name}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <p className="mt-3 text-xs text-amber-200/90 leading-relaxed bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+                  This transit service is currently <strong>offline and hidden from passengers</strong>. To begin broadcasting live GPS location and allow passengers to book seats, scan the official QR code located on Bus #{assignedBus?.bus_number ?? "the assigned vehicle"}.
+                </p>
+              </div>
+
+              <div className="mt-5 flex flex-col gap-2.5">
+                <Button
+                  size="lg"
+                  className="h-14 w-full text-base font-black shadow-xl bg-emerald-600 hover:bg-emerald-500 text-white inline-flex items-center justify-center gap-2.5 rounded-2xl"
+                  isLoading={isStarting}
+                  onClick={() => setShowBusScanner(true)}
+                >
+                  <QrCode className="h-5 w-5" />
+                  <span>Scan Bus QR to Start Service</span>
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowBusScanner(true)}
+                  className="text-xs text-slate-400 hover:text-slate-200 underline text-center py-1 transition-colors"
+                >
+                  Cannot scan with camera? Enter verification code manually
+                </button>
+              </div>
+            </Card>
           </div>
         )}
 
@@ -637,6 +727,14 @@ export function TripPage() {
           </div>
         )}
       </Dialog>
+
+      {/* Bus QR Scanner & Vehicle Verification Modal */}
+      <BusQrScannerModal
+        isOpen={showBusScanner}
+        onClose={() => setShowBusScanner(false)}
+        assignedBus={assignedBus}
+        onVerify={handleVerifyAndStart}
+      />
     </div>
   );
 }

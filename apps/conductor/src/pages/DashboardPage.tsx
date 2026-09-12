@@ -236,7 +236,7 @@ export function DashboardPage() {
               </div>
             </Card>
           ) : primaryScheduledTrip ? (
-            /* Prominent Scheduled Trip Banner (Asking to Start) */
+            /* Prominent Scheduled Trip Banner (Asking to Start with Bus QR verification) */
             <Card className="border-amber-500/50 bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-900 shadow-xl shadow-amber-950/30">
               <div className="flex items-center justify-between">
                 <Badge tone="warning" className="animate-pulse font-extrabold uppercase tracking-wider">
@@ -260,6 +260,12 @@ export function DashboardPage() {
                       : "Immediate / On Demand"}
                   </span>
                 </div>
+                <p className="mt-2.5 text-xs text-amber-200/90 bg-amber-500/15 border border-amber-500/30 rounded-lg p-2.5 font-medium flex items-center gap-2">
+                  <QrCode className="h-4 w-4 text-amber-400 shrink-0" />
+                  <span>
+                    Scan the QR sticker on Bus #{primaryScheduledTrip.buses?.bus_number ?? "assigned vehicle"} to verify vehicle identity and activate this bus for passengers.
+                  </span>
+                </p>
               </div>
               <div className="mt-4">
                 <Button
@@ -267,8 +273,8 @@ export function DashboardPage() {
                   className="w-full h-13 text-base font-extrabold shadow-lg bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center justify-center gap-2"
                   onClick={() => navigate(`/trip/${primaryScheduledTrip.id}`)}
                 >
-                  <Play className="h-5 w-5 fill-current" />
-                  <span>Start Transit Service →</span>
+                  <QrCode className="h-5 w-5" />
+                  <span>Scan Bus QR to Start Service →</span>
                 </Button>
               </div>
             </Card>

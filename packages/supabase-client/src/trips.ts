@@ -2,8 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Trip, TripOccupancy, TripStop } from "@sbt/shared-types";
 import { toAppError } from "./errors";
 
-export async function startTrip(client: SupabaseClient, tripId: string): Promise<Trip> {
-  const { data, error } = await client.rpc("start_trip", { p_trip_id: tripId });
+export async function startTrip(
+  client: SupabaseClient,
+  tripId: string,
+  busQr?: string,
+): Promise<Trip> {
+  const { data, error } = await client.rpc("start_trip", {
+    p_trip_id: tripId,
+    p_bus_qr: busQr ?? null,
+  });
   if (error) throw toAppError(error);
   return data as unknown as Trip;
 }

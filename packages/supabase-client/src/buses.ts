@@ -19,3 +19,20 @@ export async function listEligibleBuses(
   if (error) throw toAppError(error);
   return (data ?? []) as EligibleBus[];
 }
+
+/**
+ * Validates a scanned bus QR code against the assigned bus identity.
+ */
+export async function verifyBusQr(
+  client: SupabaseClient,
+  qrString: string,
+  busId: string,
+): Promise<boolean> {
+  const { data, error } = await client.rpc("verify_bus_qr", {
+    p_qr_string: qrString,
+    p_bus_id: busId,
+  });
+  if (error) throw toAppError(error);
+  return Boolean(data);
+}
+
