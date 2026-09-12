@@ -279,6 +279,9 @@ export function TripPage() {
     if (!tripId || !originStopId || !destStopId) return;
     setIsIssuing(true);
     try {
+      let ticketData: IssuedTicket | null = null;
+
+      // 1. Attempt generate_passenger_cash_ticket (migration 038/039)
       const { data, error } = await supabase.rpc("generate_passenger_cash_ticket", {
         p_trip_id: tripId,
         p_origin_stop_id: originStopId,
@@ -287,12 +290,41 @@ export function TripPage() {
         p_concession_type: concessionType,
       });
 
-      if (error) throw error;
-      setIssuedTicket(data as IssuedTicket);
-      push({ tone: "success", title: "Ticket Issued", description: `PNR: ${data.pnr} • ₹${data.fare}` });
+      if (!error && data) {
+        ticketData = data as IssuedTicket;
+      } else {
+        console.warn("[CashTicket] generate_passenger_cash_ticket failed, falling back to issue_cash_ticket:", error);
+
+        // 2. Fallback to issue_cash_ticket (migration 024)
+        const { data: fbData, error: fbErr } = await supabase.rpc("issue_cash_ticket", {
+          p_trip_id: tripId,
+          p_origin_stop_id: originStopId,
+          p_dest_stop_id: destStopId,
+          p_passenger_count: passengerCount,
+        });
+
+        if (fbErr) {
+          throw error || fbErr;
+        }
+
+        ticketData = {
+          ticket_id: fbData.id,
+          pnr: fbData.pnr,
+          fare: Number(fbData.total_fare ?? fbData.fare ?? estimatedFare),
+          passenger_count: fbData.passenger_count ?? passengerCount,
+          concession_type: fbData.concession_type ?? concessionType,
+          qr_payload: fbData.qr_payload,
+          qr_signature: fbData.qr_signature,
+          created_at: fbData.created_at || new Date().toISOString(),
+        };
+      }
+
+      setIssuedTicket(ticketData);
+      push({ tone: "success", title: "Ticket Issued", description: `PNR: ${ticketData.pnr} • ₹${ticketData.fare}` });
       await loadTrip();
     } catch (err: any) {
-      push({ tone: "danger", title: "Issuance failed", description: err.message });
+      console.error("[CashTicket] Cash ticket issuance failed:", err);
+      push({ tone: "danger", title: "Issuance failed", description: err.message || "Failed to issue ticket." });
     } finally {
       setIsIssuing(false);
     }
