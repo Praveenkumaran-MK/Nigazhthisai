@@ -1290,8 +1290,82 @@ $$;
 grant execute on function public.compute_route_demand_analytics(uuid, date) to authenticated, anon;
 grant execute on function public.compute_route_demand_analytics() to authenticated, anon;
 
--- 17. Reload PostgREST schema cache
+-- 18. Automated Continuous GPS Stop Tracking (Arrival & Departure Progression)
+create or replace function public.auto_advance_trip_on_gps()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_trip_status       text;
+  v_curr_stop         record;
+  v_dist_meters       numeric;
+begin
+  if new.trip_id is null or new.latitude is null or new.longitude is null then
+    return new;
+  end if;
+
+  select status into v_trip_status from public.trips where id = new.trip_id;
+  if v_trip_status <> 'ACTIVE' then
+    return new;
+  end if;
+
+  -- Find the current stop or first upcoming/arrived stop
+  select ts.id as trip_stop_id, ts.stop_id, ts.sequence_order, ts.status,
+         st_y(s.location::geometry) as lat,
+         st_x(s.location::geometry) as lon
+  into v_curr_stop
+  from public.trip_stops ts
+  join public.stops s on s.id = ts.stop_id
+  where ts.trip_id = new.trip_id
+    and ts.status in ('UPCOMING', 'ARRIVED')
+  order by ts.sequence_order asc
+  limit 1;
+
+  if not found then
+    return new;
+  end if;
+
+  -- Calculate distance in meters using Haversine formula
+  v_dist_meters := 6371000 * 2 * asin(sqrt(
+    power(sin(radians(new.latitude - v_curr_stop.lat) / 2), 2) +
+    cos(radians(v_curr_stop.lat)) * cos(radians(new.latitude)) *
+    power(sin(radians(new.longitude - v_curr_stop.lon) / 2), 2)
+  ));
+
+  -- 1. If within 150m and status is UPCOMING, mark stop as ARRIVED
+  if v_dist_meters <= 150 and v_curr_stop.status = 'UPCOMING' then
+    update public.trip_stops
+    set status = 'ARRIVED',
+        arrival_time = coalesce(arrival_time, now())
+    where id = v_curr_stop.trip_stop_id;
+
+    update public.trips
+    set current_stop_id = v_curr_stop.stop_id,
+        updated_at = now()
+    where id = new.trip_id;
+
+  -- 2. If stop was already ARRIVED and bus has moved away (> 200m), auto-depart
+  elsif v_dist_meters > 200 and v_curr_stop.status = 'ARRIVED' then
+    perform public.depart_stop_and_expire_tickets(new.trip_id, v_curr_stop.stop_id);
+  end if;
+
+  return new;
+exception
+  when others then
+    return new;
+end;
+$$;
+
+drop trigger if exists trg_auto_advance_trip_on_gps on public.gps_logs;
+create trigger trg_auto_advance_trip_on_gps
+  after insert on public.gps_logs
+  for each row execute function public.auto_advance_trip_on_gps();
+
+-- 19. Reload PostgREST schema cache
 notify pgrst, 'reload schema';
+
 
 
 

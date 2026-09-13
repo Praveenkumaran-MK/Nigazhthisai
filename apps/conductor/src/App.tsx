@@ -4,7 +4,6 @@ import { useConductorAuth } from "./hooks/useConductorAuth";
 import { useConductorI18n } from "./lib/i18n";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
-import { TripPage } from "./pages/TripPage";
 import { ScannerPage } from "./pages/ScannerPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -61,7 +60,7 @@ export function App() {
           path="/trip/:tripId"
           element={
             <ProtectedRoute>
-              <TripPage />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />

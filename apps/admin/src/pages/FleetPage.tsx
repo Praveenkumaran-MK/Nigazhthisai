@@ -268,42 +268,7 @@ export function FleetPage() {
   const isTripOverallOnTime = currentStopNode ? currentStopNode.isOnTime : true;
   const overallDelayMins = currentStopNode ? currentStopNode.delayMinutes : 0;
 
-  const [isActionLoading, setIsActionLoading] = useState(false);
 
-  const handleAdvanceStop = async () => {
-    if (!selectedTrip) return;
-    setIsActionLoading(true);
-    try {
-      await supabase.rpc("admin_advance_trip_stop", { p_trip_id: selectedTrip.id });
-      const { data: updated } = await supabase.from("trips").select("*").eq("id", selectedTrip.id).single();
-      if (updated) {
-        setActiveTrips((prev) => prev.map((t) => (t.id === selectedTrip.id ? (updated as Trip) : t)));
-      }
-    } catch (err) {
-      console.error("Failed to advance stop:", err);
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleDepartCurrentStop = async () => {
-    if (!selectedTrip || !currentStopNode?.stopId) return;
-    setIsActionLoading(true);
-    try {
-      await supabase.rpc("depart_stop_and_expire_tickets", {
-        p_trip_id: selectedTrip.id,
-        p_stop_id: currentStopNode.stopId,
-      });
-      const { data: updated } = await supabase.from("trips").select("*").eq("id", selectedTrip.id).single();
-      if (updated) {
-        setActiveTrips((prev) => prev.map((t) => (t.id === selectedTrip.id ? (updated as Trip) : t)));
-      }
-    } catch (err) {
-      console.error("Failed to depart stop:", err);
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -446,23 +411,14 @@ export function FleetPage() {
                 </span>
 
                 {selectedTrip && (
-                  <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
-                    <button
-                      type="button"
-                      onClick={handleDepartCurrentStop}
-                      disabled={isActionLoading || !currentStopNode}
-                      className="rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-3 py-1.5 text-xs font-bold transition disabled:opacity-50"
-                    >
-                      Depart Current Stop
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAdvanceStop}
-                      disabled={isActionLoading}
-                      className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 text-xs font-bold transition disabled:opacity-50 shadow-sm"
-                    >
-                      Advance Next Stop →
-                    </button>
+                  <div className="flex items-center gap-2 pl-3 border-l border-slate-200 dark:border-slate-800">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-extrabold text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      Continuous GPS Tracking
+                    </span>
                   </div>
                 )}
               </div>

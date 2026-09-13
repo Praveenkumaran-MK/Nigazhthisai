@@ -10,7 +10,7 @@ interface BusQrScannerModalProps {
     id: string;
     bus_number: string;
     registration_number?: string | null;
-    type?: string;
+    type?: string | null;
   } | null;
   onVerify: (scannedValue: string) => Promise<void>;
 }

@@ -210,8 +210,6 @@ export function ScannerPage() {
           onClick={() => {
             if (window.history.length > 1) {
               navigate(-1);
-            } else if (effectiveTripId) {
-              navigate(`/trip/${effectiveTripId}`);
             } else {
               navigate("/dashboard");
             }
