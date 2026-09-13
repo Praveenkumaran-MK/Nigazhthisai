@@ -1,4 +1,5 @@
 import { cn } from "../utils/cn";
+import { BRAND_LOGO_NAVY, BRAND_LOGO_LIGHT } from "../assets/logoData";
 
 export type BrandLogoVariant = "mark" | "lockup" | "lockup-stacked";
 export type BrandLogoTone = "navy" | "light";
@@ -15,61 +16,19 @@ export interface BrandLogoProps {
 }
 
 /**
- * ────────────────────────────────────────────────────────────────────────
- * NOTE ON THIS ASSET
- * This is a hand-built geometric RECONSTRUCTION of the supplied raster
- * logo — a Tamil-inspired navy letterform with an amber map-pin terminal.
- * It is not traced from the original vector, so curve-for-curve it will
- * differ from the brand master.
- *
- * To swap in the real artwork: replace the <path> geometry inside
- * `LogoMark` below (keep the 0 0 64 64 viewBox and the `currentColor` /
- * `--logo-accent` conventions) and everything downstream — AppHeader,
- * LogoLoader, favicons, app icons — picks it up automatically. That is the
- * only file that needs to change.
- * ────────────────────────────────────────────────────────────────────────
+ * Official Nigazhthisai Brand Logo Mark (Raster Asset from Brand Master)
  */
 function LogoMark({ tone, className, title }: { tone: BrandLogoTone; className?: string; title?: string }) {
-  const body = tone === "light" ? "#FFFFFF" : "#0D2A5D";
-  const accent = "#D97F00";
-  const labelled = Boolean(title);
+  const src = tone === "light" ? BRAND_LOGO_LIGHT : BRAND_LOGO_NAVY;
+  const alt = title || "Nigazhthisai";
 
   return (
-    <svg
-      viewBox="0 0 64 64"
-      fill="none"
-      className={className}
-      role={labelled ? "img" : undefined}
-      aria-label={labelled ? title : undefined}
-      aria-hidden={labelled ? undefined : true}
-      focusable="false"
-    >
-      {/* Left stem + top crossbar (the "ⴖ" mass of the glyph) */}
-      <path
-        d="M5 25.5h30.5v8.5H14.5V60H5V25.5Z"
-        fill={body}
-      />
-      {/* Sweeping arch rising from the crossbar and curving right */}
-      <path
-        d="M24.5 30V13.5C24.5 8.25 29 4 34.5 4S44.5 8.25 44.5 13.5v9"
-        stroke={body}
-        strokeWidth="8.5"
-        strokeLinecap="square"
-      />
-      {/* Lower bowl/loop */}
-      <path
-        d="M24.5 38.5h9.75c6.9 0 12.5 5.6 12.5 12.5S41.15 63.5 34.25 63.5H21l7.5-9h5.75a3.5 3.5 0 1 0 0-7H24.5v-9Z"
-        fill={body}
-      />
-      {/* Right terminal stroke */}
-      <rect x="51" y="29" width="8.5" height="31" fill={body} />
-      {/* Amber map pin capping the terminal */}
-      <path
-        d="M55.25 12c-3.73 0-6.75 3.02-6.75 6.75 0 4.6 5.03 9.9 6.2 11.05a.78.78 0 0 0 1.1 0c1.17-1.15 6.2-6.45 6.2-11.05 0-3.73-3.02-6.75-6.75-6.75Z"
-        fill={accent}
-      />
-      <circle cx="55.25" cy="18.75" r="2.9" fill="#FFFFFF" />
-    </svg>
+    <img
+      src={src}
+      alt={alt}
+      className={cn("object-contain select-none shrink-0", className)}
+      draggable={false}
+    />
   );
 }
 

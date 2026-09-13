@@ -145,6 +145,10 @@ export const dictionary: Record<string, string> = {
   // Emergency & SOS
   "SOS EMERGENCY": "அவசர SOS",
   "SOS Emergency": "அவசர SOS",
+  "Helpline & SOS": "உதவி எண் & SOS",
+  "Toll-Free Helpline": "கட்டணமில்லா உதவி எண்",
+  "Live Assistant": "நேரலை உதவியாளர்",
+  "Trip Guide & FAQ": "பயண வழிகாட்டி & கேள்வி-பதில்",
   "HOLD FOR 3 SECONDS TO TRIGGER SOS": "SOS சமிக்ஞைக்கு 3 வினாடிகள் அழுத்தவும்",
   "Hold for 3 seconds to trigger SOS": "SOS சமிக்ஞைக்கு 3 வினாடிகள் அழுத்தவும்",
   "SOS ALARM SENT TO COMMAND CENTER": "கட்டளை மையத்திற்கு SOS எச்சரிக்கை அனுப்பப்பட்டது",

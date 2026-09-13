@@ -105,15 +105,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div key={lang} className="flex min-h-dvh bg-[#F8FAFC]">
       {/* ── Left Sidebar (Solid Deep Navy #0D2A5D matching reference) ── */}
-      <aside className="hidden w-64 shrink-0 bg-[#0D2A5D] text-white flex-col justify-between md:flex border-r border-[#0D2A5D]">
+      <aside className="hidden w-[260px] shrink-0 bg-[#0D2A5D] text-white flex-col justify-between md:flex border-r border-white/10">
         <div className="flex flex-col flex-1 overflow-y-auto">
           {/* Brand Header */}
-          <div className="flex items-center gap-2.5 px-6 py-6 border-b border-white/10">
-            <BrandLogo variant="mark" tone="light" className="h-8 w-8 shrink-0" />
-            <div className="flex items-baseline gap-1.5 leading-none">
-              <span className="font-extrabold tracking-wider text-base text-white">{t("NIGAZHTHISAI")}</span>
-              <span className="font-extrabold tracking-wider text-base text-[#D97F00]">
-                {isMasterAdmin ? t("MASTER") : t("ADMIN")}
+          <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
+            <BrandLogo variant="mark" tone="light" className="h-9 w-9 shrink-0" />
+            <div className="flex flex-col min-w-0">
+              <span className="font-black tracking-wider text-sm text-white leading-tight">
+                {t("NIGAZHTHISAI")}
+              </span>
+              <span className="font-bold tracking-widest text-[10px] text-[#D97F00] uppercase leading-tight mt-1">
+                {isMasterAdmin ? t("MASTER ADMIN") : t("DISTRICT ADMIN")}
               </span>
             </div>
           </div>

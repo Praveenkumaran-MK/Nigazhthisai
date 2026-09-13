@@ -11,60 +11,41 @@ export interface LogoLoaderProps {
   className?: string;
 }
 
-const sizeClasses: Record<LogoLoaderSize, string> = {
-  sm: "h-6 w-6",
-  md: "h-10 w-10",
-  lg: "h-16 w-16",
+const sizeClasses: Record<LogoLoaderSize, { container: string; spinner: string }> = {
+  sm: { container: "gap-1.5", spinner: "h-5 w-5 border-2" },
+  md: { container: "gap-2.5", spinner: "h-8 w-8 border-2" },
+  lg: { container: "gap-3", spinner: "h-12 w-12 border-[3px]" },
 };
 
 /**
- * Brand loading indicator: the logo's skeleton draws itself via
- * stroke-dashoffset while the amber pin pulses.
- *
- * Implementation detail worth knowing: the BrandLogo mark is *fill*-based,
- * and fills cannot be stroke-drawn. So this traces a single-stroke
- * SKELETON of the same geometry (stem → crossbar → arch → terminal)
- * rather than reusing BrandLogo directly. If you replace the logo artwork
- * in BrandLogo.tsx, update this skeleton path to match, or the loader will
- * drift from the brand mark.
- *
- * `pathLength={1}` normalizes the path so the dash animation is
- * length-independent — no measuring the path in JS, and it keeps working
- * if the geometry changes.
- *
- * Motion is `transform`/`opacity`-only (GPU-composited) and fully disabled
- * under `prefers-reduced-motion`, where it degrades to a static mark with
- * an accessible busy state.
+ * Standard simple circular loader for all data states across Nigazhthisai apps.
  */
 export function LogoLoader({ size = "md", label, tone = "navy", className }: LogoLoaderProps) {
-  const body = tone === "light" ? "#FFFFFF" : "#0D2A5D";
+  const conf = sizeClasses[size];
+  const borderTone = tone === "light"
+    ? "border-white/20 border-t-white"
+    : "border-brand-500/20 border-t-brand-500 dark:border-brand-400/20 dark:border-t-brand-400";
 
   return (
     <div
-      className={cn("inline-flex flex-col items-center gap-2.5", className)}
+      className={cn("inline-flex flex-col items-center justify-center", conf.container, className)}
       role="status"
       aria-live="polite"
       aria-busy="true"
     >
-      <svg viewBox="0 0 64 64" fill="none" className={cn(sizeClasses[size], "sbt-logo-loader")} aria-hidden="true">
-        <path
-          d="M9 60V29.5h26.5M24.5 33V13.5C24.5 8.25 29 4 34.5 4S44.5 8.25 44.5 13.5V33M55.25 33v25"
-          stroke={body}
-          strokeWidth="7"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          pathLength={1}
-          className="sbt-logo-loader__trace"
-        />
-        <g className="sbt-logo-loader__pin">
-          <path
-            d="M55.25 12c-3.73 0-6.75 3.02-6.75 6.75 0 4.6 5.03 9.9 6.2 11.05a.78.78 0 0 0 1.1 0c1.17-1.15 6.2-6.45 6.2-11.05 0-3.73-3.02-6.75-6.75-6.75Z"
-            fill="#D97F00"
-          />
-          <circle cx="55.25" cy="18.75" r="2.9" fill="#FFFFFF" />
-        </g>
-      </svg>
-      {label && <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</span>}
+      <div
+        className={cn(
+          "animate-spin rounded-full transition-all",
+          conf.spinner,
+          borderTone
+        )}
+        aria-hidden="true"
+      />
+      {label && (
+        <span className={cn("text-xs font-medium", tone === "light" ? "text-white/80" : "text-slate-500 dark:text-slate-400")}>
+          {label}
+        </span>
+      )}
       <span className="sr-only">{label ?? "Loading"}</span>
     </div>
   );

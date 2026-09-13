@@ -56,43 +56,6 @@
 }
 
 @layer components {
-  /* ── LogoLoader ──────────────────────────────────────────────────────
-     The trace path carries pathLength="1", so a dasharray/offset of 1
-     spans the whole path regardless of its real length. */
-  .sbt-logo-loader__trace {
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    animation: sbt-logo-draw 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
-
-  .sbt-logo-loader__pin {
-    transform-box: fill-box;
-    transform-origin: center;
-    will-change: transform, opacity;
-    animation: sbt-pin-pulse 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
-
-  @keyframes sbt-logo-draw {
-    0% {
-      stroke-dashoffset: 1;
-    }
-    55%,
-    100% {
-      stroke-dashoffset: 0;
-    }
-  }
-
-  @keyframes sbt-pin-pulse {
-    0%,
-    100% {
-      opacity: 1;
-      transform: translate3d(0, 0, 0) scale(1);
-    }
-    50% {
-      opacity: 0.5;
-      transform: translate3d(0, -8%, 0) scale(1.1);
-    }
-  }
 
   /* ── TransitBusRunner ───────────────────────────────────────────── */
   .sbt-road-dashes {
@@ -210,11 +173,6 @@
    animation defined here. Tailwind's motion-safe: variant covers the
    utility-driven ones; this covers the component classes above. */
 @media (prefers-reduced-motion: reduce) {
-  .sbt-logo-loader__trace {
-    animation: none;
-    stroke-dashoffset: 0;
-  }
-  .sbt-logo-loader__pin,
   .sbt-road-dashes,
   .sbt-bus-loop,
   .sbt-iso-layer {

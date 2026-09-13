@@ -29,6 +29,7 @@ import {
   CheckCircle2,
   Navigation,
   Radio,
+  PhoneCall,
 } from "lucide-react";
 import type { TripStop, TripOccupancy, Stop } from "@sbt/shared-types";
 import {
@@ -46,6 +47,7 @@ import { useGpsTelemetry } from "../hooks/useGpsTelemetry";
 import { useSosLongPress } from "../hooks/useSosLongPress";
 import { PocketMode } from "../components/PocketMode";
 import { BusQrScannerModal } from "../components/BusQrScannerModal";
+import { EmergencySosModal } from "../components/EmergencySosModal";
 
 interface AssignedTrip {
   id: string;
@@ -110,7 +112,7 @@ interface IssuedTicket {
   created_at: string;
 }
 
-interface SosChatMessage {
+export interface SosChatMessage {
   id: string;
   alert_id: string;
   sender_id: string;
@@ -161,10 +163,26 @@ export function DashboardPage() {
 
   // SOS & Dispatch Chat State
   const [activeAlertId, setActiveAlertId] = useState<string | null>(null);
-  const [showSosChat, setShowSosChat] = useState(false);
+  const [showSosModal, setShowSosModal] = useState(false);
+  const [sosModalTab, setSosModalTab] = useState<"helpline" | "chat" | "guide">("helpline");
+  const [districtName, setDistrictName] = useState<string>("Krishnagiri");
   const [sosMessages, setSosMessages] = useState<SosChatMessage[]>([]);
   const [sosMsgInput, setSosMsgInput] = useState("");
   const [isSendingSosMsg, setIsSendingSosMsg] = useState(false);
+
+  useEffect(() => {
+    if (!conductor?.district_id) return;
+    supabase
+      .from("districts")
+      .select("name")
+      .eq("id", conductor.district_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.name) {
+          setDistrictName(data.name);
+        }
+      });
+  }, [conductor?.district_id]);
 
   const wakeLock = useWakeLock();
 
@@ -734,11 +752,12 @@ export function DashboardPage() {
   };
 
   const handleSos = async () => {
-    if (!conductor || !activeTrip) return;
+    if (!conductor) return;
+    const targetTrip = activeTrip || primaryScheduledTrip;
     try {
       const alert = await createAlert(supabase, {
-        trip_id: activeTrip.id,
-        bus_id: activeTrip.bus_id,
+        trip_id: targetTrip?.id ?? null,
+        bus_id: targetTrip?.bus_id ?? null,
         conductor_id: conductor.id,
         severity: "SOS",
         message: "SOS triggered by conductor from dashboard",
@@ -746,7 +765,8 @@ export function DashboardPage() {
         longitude: telemetry.lastTelemetry?.longitude ?? null,
       });
       setActiveAlertId(alert.id);
-      setShowSosChat(true);
+      setSosModalTab("chat");
+      setShowSosModal(true);
       push({ tone: "danger", title: "SOS sent", description: "Admin alerted. Emergency dispatcher chat opened." });
     } catch (e: any) {
       push({ tone: "danger", title: "SOS failed to send", description: e instanceof Error ? e.message : undefined });
@@ -1246,6 +1266,19 @@ export function DashboardPage() {
                 <Ticket className="h-4 w-4 text-emerald-500" />
                 <span>{t("Issue Cash Ticket")}</span>
               </Button>
+
+              <Button
+                variant="secondary"
+                size="md"
+                className="inline-flex items-center gap-2 border-rose-500/30 text-rose-300 hover:bg-rose-950/40"
+                onClick={() => {
+                  setSosModalTab(activeAlertId ? "chat" : "helpline");
+                  setShowSosModal(true);
+                }}
+              >
+                <PhoneCall className="h-4 w-4 text-rose-400" />
+                <span>{t("Helpline & SOS")}</span>
+              </Button>
             </div>
           </div>
         </>
@@ -1281,7 +1314,10 @@ export function DashboardPage() {
             {activeAlertId && (
               <button
                 type="button"
-                onClick={() => setShowSosChat(true)}
+                onClick={() => {
+                  setSosModalTab("chat");
+                  setShowSosModal(true);
+                }}
                 className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-950 border border-rose-500/50 text-rose-400 hover:text-rose-200 animate-pulse"
                 title={t("Open SOS Dispatch Chat")}
               >
@@ -1300,6 +1336,10 @@ export function DashboardPage() {
 
             <button
               type="button"
+              onClick={() => {
+                setSosModalTab("helpline");
+                setShowSosModal(true);
+              }}
               {...sos.handlers}
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-600 font-bold text-white shadow-lg shadow-rose-950/60 active:scale-95 select-none"
               title={t("Hold for SOS")}
@@ -1476,107 +1516,20 @@ export function DashboardPage() {
         onVerify={handleVerifyAndStart}
       />
 
-      {/* Emergency SOS & Dispatch Control Room Chat Drawer */}
-      <Dialog
-        open={showSosChat}
-        onClose={() => setShowSosChat(false)}
-        title="Emergency Dispatch & Control Room Chat"
-      >
-        <div className="flex flex-col gap-4 py-1">
-          {/* Header Alert Strip */}
-          <div className="flex items-center justify-between rounded-xl bg-rose-500/10 border border-rose-500/30 p-3">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-rose-400" />
-              <div>
-                <p className="text-xs font-bold text-white uppercase tracking-wider">Live Control Room Channel</p>
-                <p className="text-[11px] text-rose-300">Central transit dispatchers are monitoring this trip.</p>
-              </div>
-            </div>
-            <Badge tone="danger" className="font-extrabold uppercase text-[10px]">
-              SOS ACTIVE
-            </Badge>
-          </div>
-
-          {/* Messages Feed */}
-          <div className="flex flex-col gap-2.5 max-h-[300px] min-h-[160px] overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/70 p-3">
-            {sosMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full py-8 text-center text-xs text-slate-400">
-                <MessageSquare className="h-8 w-8 text-slate-600 mb-1" />
-                <p>No messages yet.</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Control room operators have received your SOS.</p>
-              </div>
-            ) : (
-              sosMessages.map((msg) => {
-                const isConductor = msg.sender_role === "conductor";
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex flex-col max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed ${
-                      isConductor
-                        ? "self-end bg-amber-600/90 text-white rounded-tr-none"
-                        : "self-start bg-indigo-950/80 border border-indigo-500/40 text-indigo-100 rounded-tl-none"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-3 text-[10px] font-bold opacity-80 mb-1">
-                      <span>{isConductor ? "You (Conductor)" : "Control Room (Admin)"}</span>
-                      <span>
-                        {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                    <p className="font-medium">{msg.message}</p>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Quick Reply Preset Chips */}
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              "Medical assistance needed",
-              "Traffic roadblock / delayed",
-              "Vehicle mechanical issue",
-              "Patrol / Security requested",
-              "Situation under control",
-            ].map((chip) => (
-              <button
-                key={chip}
-                type="button"
-                onClick={() => handleSendSosMsg(chip)}
-                className="rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold px-2.5 py-1 transition-colors border border-slate-700"
-              >
-                + {chip}
-              </button>
-            ))}
-          </div>
-
-          {/* Message Input Bar */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void handleSendSosMsg();
-            }}
-            className="flex items-center gap-2 pt-1"
-          >
-            <input
-              type="text"
-              placeholder="Type message to central dispatch..."
-              value={sosMsgInput}
-              onChange={(e) => setSosMsgInput(e.target.value)}
-              className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs text-white placeholder:text-slate-500 focus:border-brand-500 focus:outline-none"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              className="h-10 px-4 bg-brand-600 hover:bg-brand-500 font-bold rounded-xl shrink-0"
-              disabled={!sosMsgInput.trim() || isSendingSosMsg}
-              isLoading={isSendingSosMsg}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
-        </div>
-      </Dialog>
+      {/* Emergency SOS & Helpline Modal (Replicating Image 3 with Live Assistant, Helpline & SOS, and Trip Guide) */}
+      <EmergencySosModal
+        open={showSosModal}
+        onClose={() => setShowSosModal(false)}
+        activeAlertId={activeAlertId}
+        sosMessages={sosMessages}
+        sosMsgInput={sosMsgInput}
+        setSosMsgInput={setSosMsgInput}
+        onSendSosMsg={handleSendSosMsg}
+        isSendingSosMsg={isSendingSosMsg}
+        onTriggerSos={handleSos}
+        districtName={districtName}
+        initialTab={sosModalTab}
+      />
     </div>
   );
 }
