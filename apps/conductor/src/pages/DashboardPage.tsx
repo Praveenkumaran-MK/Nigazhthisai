@@ -56,6 +56,9 @@ interface AssignedTrip {
   scheduled_arrival?: string | null;
   started_at?: string | null;
   current_stop_id?: string | null;
+  schedule_adherence?: "ON_TIME" | "DELAYED" | "EARLY" | null;
+  delay_minutes?: number | null;
+  distance_to_next_stop_meters?: number | null;
   buses?: {
     id: string;
     bus_number: string;
@@ -203,6 +206,9 @@ export function DashboardPage() {
           scheduled_arrival,
           started_at,
           current_stop_id,
+          schedule_adherence,
+          delay_minutes,
+          distance_to_next_stop_meters,
           buses (
             id,
             bus_number,
@@ -230,6 +236,9 @@ export function DashboardPage() {
           scheduled_arrival: t.scheduled_arrival,
           started_at: t.started_at,
           current_stop_id: t.current_stop_id,
+          schedule_adherence: t.schedule_adherence,
+          delay_minutes: t.delay_minutes,
+          distance_to_next_stop_meters: t.distance_to_next_stop_meters,
           buses: Array.isArray(t.buses) ? t.buses[0] : t.buses,
           routes: Array.isArray(t.routes) ? t.routes[0] : t.routes,
         }));
@@ -822,9 +831,19 @@ export function DashboardPage() {
               {/* Active Trip Hero Banner */}
               <Card className="border-emerald-500/40 bg-gradient-to-br from-emerald-950/50 via-slate-900 to-slate-900 shadow-xl shadow-emerald-950/30">
                 <div className="flex items-center justify-between">
-                  <Badge tone="success" className="font-extrabold uppercase tracking-wider">
-                    TRIP IN PROGRESS
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge tone="success" className="font-extrabold uppercase tracking-wider">
+                      TRIP IN PROGRESS
+                    </Badge>
+                    <Badge
+                      tone={activeTrip.schedule_adherence === "DELAYED" ? "warning" : "success"}
+                      className="font-extrabold uppercase tracking-wider"
+                    >
+                      {activeTrip.schedule_adherence === "DELAYED"
+                        ? `DELAYED (+${activeTrip.delay_minutes ?? 0}m)`
+                        : "ON-TIME"}
+                    </Badge>
+                  </div>
                   <span className="text-xs font-mono font-bold text-emerald-400">
                     Bus #{activeTrip.buses?.bus_number ?? "N/A"}
                   </span>
@@ -856,11 +875,16 @@ export function DashboardPage() {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                     </span>
-                    <span className="font-bold text-emerald-300">Continuous GPS Tracking</span>
+                    <span className="font-bold text-emerald-300">Continuous GPS Telemetry</span>
                   </div>
-                  <span className="text-[11px] font-mono text-slate-400">
-                    Status: {telemetry.status}
-                  </span>
+                  <div className="flex items-center gap-2 text-[11px] font-mono">
+                    {activeTrip.distance_to_next_stop_meters != null && (
+                      <span className="text-amber-300 font-bold">
+                        {Math.round(activeTrip.distance_to_next_stop_meters)}m to stop
+                      </span>
+                    )}
+                    <span className="text-slate-400">({telemetry.status})</span>
+                  </div>
                 </div>
 
                 {/* Route Visual Progress Runner */}

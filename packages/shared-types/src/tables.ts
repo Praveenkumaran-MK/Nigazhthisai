@@ -210,6 +210,14 @@ export interface Trip {
   ended_at: string | null;
   status: TripStatus;
   current_stop_id: string | null;
+  schedule_adherence?: "ON_TIME" | "DELAYED" | "EARLY" | null;
+  delay_minutes?: number | null;
+  current_latitude?: number | null;
+  current_longitude?: number | null;
+  current_speed?: number | null;
+  distance_to_next_stop_meters?: number | null;
+  estimated_arrival_at_next_stop?: string | null;
+  last_telemetry_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -232,6 +240,8 @@ export interface TripStop {
   departure_time: string | null;
   expected_arrival_time?: string | null;
   actual_arrival_time?: string | null;
+  delay_minutes?: number | null;
+  adherence_status?: "ON_TIME" | "DELAYED" | "EARLY" | null;
   status: TripStopStatus;
 }
 

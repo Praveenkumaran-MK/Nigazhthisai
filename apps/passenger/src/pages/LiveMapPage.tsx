@@ -162,6 +162,13 @@ export function LiveMapPage() {
               <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">
                 {bus?.type.replace("_", "-") ?? ""}
               </span>
+              {trip?.schedule_adherence && (
+                <Badge tone={trip.schedule_adherence === "DELAYED" ? "warning" : "success"}>
+                  {trip.schedule_adherence === "DELAYED"
+                    ? `Delayed (+${trip.delay_minutes ?? 0}m)`
+                    : "On-Time"}
+                </Badge>
+              )}
             </div>
             <StatusIndicator status={isLive ? "online" : "connecting"} label={isLive ? "Live" : "Connecting…"} />
           </div>

@@ -13,6 +13,17 @@ import {
 } from "@sbt/ui";
 import { supabase } from "../lib/supabase";
 
+function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 interface PipelineStop {
   id: string;
   stopId: string;
@@ -24,6 +35,7 @@ interface PipelineStop {
   status: "DEPARTED" | "CURRENT" | "NEXT" | "UPCOMING";
   delayMinutes: number; // positive = late, negative = early
   isOnTime: boolean; // within [-5, +5] minutes of scheduled ETA
+  distanceMeters?: number | null;
 }
 
 export function FleetPage() {
@@ -100,26 +112,26 @@ export function FleetPage() {
     const trip = selectedTrip;
 
     async function loadPipeline(activeTrip: Trip) {
-      // 1. Fetch trip stops
+      // 1. Fetch trip stops with server-computed delay_minutes & adherence_status
       const { data: tStops } = await supabase
         .from("trip_stops")
-        .select("id, stop_id, sequence_order, arrival_time, departure_time, status")
+        .select("id, stop_id, sequence_order, arrival_time, departure_time, status, delay_minutes, adherence_status")
         .eq("trip_id", activeTrip.id)
         .order("sequence_order", { ascending: true });
 
       // 2. Fetch route stops
       const { data: rStops } = await supabase
         .from("route_stops")
-        .select("stop_id, sequence_order")
+        .select("stop_id, sequence_order, eta_offset_minutes")
         .eq("route_id", activeTrip.route_id);
 
-      // 3. Fetch stops metadata
+      // 3. Fetch stops metadata including geographic coordinates
       const stopIds = (tStops ?? []).map((s) => s.stop_id);
-      const { data: sData } = await supabase.from("stops").select("id, name, code").in("id", stopIds);
-      const stopMap = new Map((sData ?? []).map((s) => [s.id, s]));
-      const rStopMap = new Map((rStops ?? []).map((s: any) => [s.stop_id, s.expected_arrival_time]));
+      const { data: sData } = await supabase.from("stops").select("id, name, code, location").in("id", stopIds);
+      const stopMap = new Map((sData ?? []).map((s: any) => [s.id, s]));
+      const rStopMap = new Map((rStops ?? []).map((s: any) => [s.stop_id, s.eta_offset_minutes]));
 
-      // 4. Live GPS Telemetry from gps_logs table
+      // 4. Live GPS Telemetry from gps_logs table (polled from conductor phone)
       const { data: latestGps } = await supabase
         .from("gps_logs")
         .select("speed, latitude, longitude, recorded_at")
@@ -139,7 +151,18 @@ export function FleetPage() {
         setGpsTelemetry(null);
       }
 
-      // 5. Build pipeline representation with accurate stop status and ±5 minutes on-time rule
+      // 5. Trigger server-side Schedule Adherence & Delay Classification Engine
+      if (activeTrip.status === "ACTIVE") {
+        void supabase.rpc("evaluate_trip_schedule_adherence", {
+          p_trip_id: activeTrip.id,
+          p_lat: latestGps?.latitude ?? null,
+          p_lon: latestGps?.longitude ?? null,
+          p_speed: latestGps?.speed ?? null,
+          p_timestamp: latestGps?.recorded_at ?? null,
+        });
+      }
+
+      // 6. Build pipeline representation comparing conductor GPS against stop coordinates
       const baseStart = activeTrip.started_at
         ? new Date(activeTrip.started_at)
         : activeTrip.scheduled_departure
@@ -152,13 +175,12 @@ export function FleetPage() {
 
       const pipeline: PipelineStop[] = (tStops ?? []).map((s: any, idx) => {
         const meta = stopMap.get(s.stop_id);
-        const configuredEta = rStopMap.get(s.stop_id) || s.expected_arrival_time;
+        const offsetMins = rStopMap.get(s.stop_id);
+        const scheduledEtaDate = offsetMins != null
+          ? new Date(baseStart.getTime() + offsetMins * 60 * 1000)
+          : new Date(baseStart.getTime() + idx * 14 * 60 * 1000);
 
-        let scheduledEtaStr = configuredEta;
-        if (!scheduledEtaStr) {
-          const etaDate = new Date(baseStart.getTime() + idx * 14 * 60 * 1000);
-          scheduledEtaStr = etaDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        }
+        const scheduledEtaStr = scheduledEtaDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
         // Accurately determine node status from DB stop status first, then trip current_stop_id
         let nodeStatus: PipelineStop["status"] = "UPCOMING";
@@ -176,23 +198,37 @@ export function FleetPage() {
           nodeStatus = "UPCOMING";
         }
 
-        // Delay Calculation:
+        // Delay Calculation Engine: compares polled conductor phone GPS with stop coordinates
         let delayMinutes = 0;
         let actualArrivalStr: string | null = null;
+        let distMeters: number | null = null;
 
         if (s.arrival_time) {
           const act = new Date(s.arrival_time);
           actualArrivalStr = act.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-          const expectedMs = baseStart.getTime() + idx * 14 * 60 * 1000;
-          delayMinutes = Math.round((act.getTime() - expectedMs) / 60000);
-        } else if (nodeStatus === "CURRENT") {
-          delayMinutes = 2; // on time
-        } else if (nodeStatus === "DEPARTED") {
-          delayMinutes = 1; // departed on time
+          delayMinutes = Math.round((act.getTime() - scheduledEtaDate.getTime()) / 60000);
+        } else if (s.delay_minutes !== null && s.delay_minutes !== undefined && s.delay_minutes !== 0) {
+          delayMinutes = s.delay_minutes;
+        } else if (latestGps && meta?.location?.latitude && meta?.location?.longitude) {
+          // Real spatial comparison between conductor GPS and stop coordinates
+          distMeters = Math.round(
+            computeDistanceMeters(
+              latestGps.latitude,
+              latestGps.longitude,
+              meta.location.latitude,
+              meta.location.longitude
+            )
+          );
+          const speedMps = (latestGps.speed ?? 0) > 10 ? ((latestGps.speed ?? 0) * 1000) / 3600 : 6.94;
+          const etaSeconds = distMeters / speedMps;
+          const projectedArrivalMs = new Date(latestGps.recorded_at).getTime() + etaSeconds * 1000;
+          delayMinutes = Math.round((projectedArrivalMs - scheduledEtaDate.getTime()) / 60000);
         }
 
-        // ±5 minutes threshold
-        const isOnTime = delayMinutes >= -5 && delayMinutes <= 5;
+        // Classification: ON_TIME if within [-5, +5] minutes, DELAYED if > 5 minutes
+        const isOnTime = s.adherence_status
+          ? s.adherence_status === "ON_TIME"
+          : delayMinutes >= -5 && delayMinutes <= 5;
 
         return {
           id: s.id,
@@ -205,6 +241,7 @@ export function FleetPage() {
           status: nodeStatus,
           delayMinutes,
           isOnTime,
+          distanceMeters: distMeters,
         };
       });
 
@@ -376,6 +413,17 @@ export function FleetPage() {
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-1.5 dark:border-slate-800 dark:bg-slate-900/60">
+                  <p className="text-[10px] text-slate-400 uppercase font-mono">Target Stop Distance</p>
+                  <p className="font-bold text-slate-900 dark:text-slate-100">
+                    {selectedTrip?.distance_to_next_stop_meters != null
+                      ? `${Math.round(selectedTrip.distance_to_next_stop_meters)} m`
+                      : currentStopNode?.distanceMeters != null
+                      ? `${currentStopNode.distanceMeters} m`
+                      : "Live GPS"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-1.5 dark:border-slate-800 dark:bg-slate-900/60">
                   <p className="text-[10px] text-slate-400 uppercase font-mono">Conductor</p>
                   <p className="font-bold text-slate-900 dark:text-slate-100">
                     {activeConductor?.display_name ?? "Assigned"} ({activeConductor?.phone ?? "N/A"})
@@ -488,6 +536,9 @@ export function FleetPage() {
                               Scheduled ETA: <span className="font-mono font-semibold">{stop.scheduledEta}</span>
                               {stop.actualArrival && (
                                 <> · Actual: <span className="font-mono font-bold">{stop.actualArrival}</span></>
+                              )}
+                              {stop.distanceMeters != null && (stop.status === "CURRENT" || stop.status === "NEXT") && (
+                                <span className="text-emerald-500 font-semibold font-mono"> · {stop.distanceMeters}m away</span>
                               )}
                             </p>
                           </div>
