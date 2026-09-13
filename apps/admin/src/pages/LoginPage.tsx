@@ -13,6 +13,10 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const isMasterAdminHost = typeof window !== "undefined" && window.location.hostname.includes("superadmin");
+  const portalSubtitle = isMasterAdminHost ? "MASTER ADMIN PORTAL" : "DISTRICT ADMIN PORTAL";
+  const emailPlaceholder = isMasterAdminHost ? "admin@nigazhthisai.com" : "shobin@admin.internal";
+
   useEffect(() => {
     if (status === "signed-in") {
       navigate("/dashboard", { replace: true });
@@ -69,7 +73,7 @@ export function LoginPage() {
             {t("NIGAZHTHISAI")}
           </h1>
           <p className="mt-0.5 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
-            {t("MANAGEMENT PORTAL")}
+            {t(portalSubtitle)}
           </p>
         </div>
 
@@ -85,7 +89,7 @@ export function LoginPage() {
                 type="email"
                 required
                 autoComplete="username"
-                placeholder="admin@nigazhthisai.com"
+                placeholder={emailPlaceholder}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#D97F00] focus:ring-4 focus:ring-[#D97F00]/10 focus:outline-none transition-all"
