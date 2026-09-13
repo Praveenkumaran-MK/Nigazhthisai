@@ -19,6 +19,7 @@ export function GrievancePage() {
 
   const [complaintType, setComplaintType] = useState<ComplaintType>("OTHER");
   const [description, setDescription] = useState("");
+  const [contactInfo, setContactInfo] = useState("");
   const [selectedTripId, setSelectedTripId] = useState("none");
   const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
   const [step, setStep] = useState<"idle" | "submitting" | "success" | "error">("idle");
@@ -54,10 +55,17 @@ export function GrievancePage() {
         throw new Error("Please link a trip to your complaint — or travel first and then file.");
       }
 
+      const fullDescription = [
+        description.trim(),
+        contactInfo.trim() ? `Contact: ${contactInfo.trim()}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
       const { data, error } = await supabase.rpc("file_complaint", {
         p_trip_id: resolvedTripId,
         p_type: complaintType,
-        p_description: description.trim() || null,
+        p_description: fullDescription || null,
       });
 
       if (error) throw error;
@@ -150,7 +158,7 @@ export function GrievancePage() {
 
             {/* Free-text description */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                 {t("description")}
               </label>
               <textarea
@@ -160,6 +168,21 @@ export function GrievancePage() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder={t("descPlaceholder")}
                 className="w-full resize-none rounded-xl border border-border-light bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-border-dark dark:bg-surface-dark dark:text-slate-100 dark:placeholder-slate-600"
+              />
+            </div>
+
+            {/* Optional contact details */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                Contact Phone / Email (Optional — for resolution updates)
+              </label>
+              <input
+                id="grievance-contact"
+                type="text"
+                value={contactInfo}
+                onChange={(e) => setContactInfo(e.target.value)}
+                placeholder="e.g. 9876543210 or your@email.com"
+                className="w-full rounded-xl border border-border-light bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-border-dark dark:bg-surface-dark dark:text-slate-100 dark:placeholder-slate-600"
               />
             </div>
           </Card>

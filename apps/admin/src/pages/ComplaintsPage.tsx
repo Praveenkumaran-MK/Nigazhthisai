@@ -17,6 +17,7 @@ import {
   FilterIcon,
 } from "@sbt/ui";
 import { supabase } from "../lib/supabase";
+import { MessageSquare, AlertCircle } from "lucide-react";
 import type { Complaint, District } from "@sbt/shared-types";
 
 interface EnrichedComplaint extends Complaint {
@@ -326,18 +327,21 @@ export function ComplaintsPage() {
             return (
               <Card key={c.id} className="p-4 transition hover:border-brand-500/50">
                 <div className="flex flex-col gap-3">
-                  {/* Top Bar: Type, Time, District, Status */}
+                  {/* Top Bar: Type, Ref, Time, District, Status */}
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5 dark:border-slate-800">
                     <div className="flex items-center gap-2">
                       <div className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 dark:bg-slate-800">
                         <TypeBadgeIcon type={c.type} />
                       </div>
-                      <div>
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
                           {typeLabel[c.type] ?? c.type}
                         </span>
+                        <span className="font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                          REF #{c.id.slice(0, 8).toUpperCase()}
+                        </span>
                         {districtName && (
-                          <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                             {districtName}
                           </span>
                         )}
@@ -360,30 +364,53 @@ export function ComplaintsPage() {
                     </div>
                   </div>
 
-                  {/* Complaint Description */}
-                  <div className="rounded-lg bg-slate-50/70 p-3 dark:bg-slate-800/40">
-                    <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
-                      {c.description || "No written statement provided."}
-                    </p>
+                  {/* Customer Grievance Statement / Message */}
+                  <div className="rounded-xl border border-amber-300/80 bg-gradient-to-br from-amber-50/80 via-orange-50/40 to-amber-50/30 p-3.5 dark:border-amber-800/60 dark:from-slate-800/90 dark:via-slate-800/70 dark:to-slate-900/80 shadow-xs">
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-amber-200/60 dark:border-slate-700/60">
+                      <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                        <MessageSquare className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                        <span>Customer Complaint Message / Written Statement</span>
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                        Submitted by: {c.passenger_id ? `Passenger #${c.passenger_id.slice(0, 8)}` : "Verified Passenger"}
+                      </span>
+                    </div>
+
+                    {c.description && c.description.trim() ? (
+                      <div className="relative pl-3 border-l-2 border-amber-500 dark:border-amber-400 bg-white/70 dark:bg-slate-900/60 p-2.5 rounded-r-lg">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 whitespace-pre-wrap leading-relaxed">
+                          "{c.description.trim()}"
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-xs italic text-slate-500 dark:text-slate-400 pl-1">
+                        <AlertCircle className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span>No written message was entered by the customer. (Categorized as {typeLabel[c.type] ?? c.type})</span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Metadata Chips: Bus, Route, Conductor */}
+                  {/* Metadata Chips: Customer, Bus, Route, Conductor */}
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                      <span className="inline-flex items-center gap-1 rounded bg-purple-50 px-2.5 py-0.5 font-bold text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/40">
+                        <UserIcon className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+                        <span>Customer: {c.passenger_id ? `Passenger #${c.passenger_id.slice(0, 8)}` : "Verified Rider"}</span>
+                      </span>
                       {busNo && (
-                        <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 font-bold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                        <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 font-bold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/40">
                           <BusIcon className="h-3 w-3 text-blue-500" />
                           <span>Bus: {busNo}</span>
                         </span>
                       )}
                       {route && (
-                        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                           <RouteIcon className="h-3 w-3 text-slate-400" />
-                          <span>Route: {route.route_number || route.name}</span>
+                          <span>Route: {route.route_number || route.name} {route.name && route.route_number && route.name !== route.route_number ? `(${route.name})` : ""}</span>
                         </span>
                       )}
                       {conductor && (
-                        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                           <UserIcon className="h-3 w-3 text-slate-400" />
                           <span>Conductor: {conductor.display_name} {conductor.phone ? `(${conductor.phone})` : ""}</span>
                         </span>
