@@ -135,6 +135,9 @@ $$;
 
 grant execute on function public.log_maintenance_entry(text, uuid, text, int, text) to authenticated, anon;
 
+-- Drop legacy 4-param overload to prevent PostgREST PGRST203 / 300 Multiple Choices
+drop function if exists public.create_secure_ticket(uuid, uuid, uuid, int);
+
 -- 4. Hardened create_secure_ticket with calculate_fare fallback
 create or replace function public.create_secure_ticket(
   p_trip_id         uuid,
@@ -235,13 +238,20 @@ begin
   end if;
 
   -- 4. Segment Capacity Check
-  select coalesce(max(occupied_seats), 0)
-  into v_max_occupied
+  -- Split row-level locking from aggregate calculation because FOR UPDATE cannot be used with aggregate functions
+  perform 1
   from public.trip_seat_segments
   where trip_id = p_trip_id
     and sequence_order >= v_origin_seq
     and sequence_order < v_dest_seq
   for update;
+
+  select coalesce(max(occupied_seats), 0)
+  into v_max_occupied
+  from public.trip_seat_segments
+  where trip_id = p_trip_id
+    and sequence_order >= v_origin_seq
+    and sequence_order < v_dest_seq;
 
   if (v_max_occupied + p_passenger_count) > v_capacity then
     raise exception 'BUS_CAPACITY_EXCEEDED: insufficient seats available on this segment';
@@ -302,7 +312,6 @@ end;
 $$;
 
 grant execute on function public.create_secure_ticket(uuid, uuid, uuid, int, text) to anon, authenticated;
-grant execute on function public.create_secure_ticket(uuid, uuid, uuid, int) to anon, authenticated;
 
 -- 5. Relational District Matching for get_revenue_analytics
 create or replace function public.get_revenue_analytics(

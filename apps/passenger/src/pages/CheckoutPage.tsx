@@ -115,8 +115,16 @@ export function CheckoutPage() {
       const ticket = data as { id: string } | null;
       if (!ticket) throw new Error("Ticket creation failed — no data returned.");
       navigate(`/ticket/${ticket.id}`, { replace: true });
-    } catch (e) {
-      setErrorMessage(e instanceof Error ? e.message : "Something went wrong");
+    } catch (e: any) {
+      console.error("Ticket purchase error:", e);
+      const msg =
+        e?.message ||
+        e?.details ||
+        e?.error_description ||
+        (typeof e === "string" ? e : null) ||
+        (e instanceof Error ? e.message : null) ||
+        "Something went wrong";
+      setErrorMessage(msg);
       setPaymentStep("error");
     }
   };
