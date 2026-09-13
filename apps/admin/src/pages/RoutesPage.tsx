@@ -839,6 +839,7 @@ export function RoutesPage() {
 
       {/* ─── VISUAL JOURNEY & DAY-WISE SCHEDULER MODAL ─── */}
       <Dialog
+        size="lg"
         open={schedulerOpen}
         onClose={() => setSchedulerOpen(false)}
         title={activeRoute ? `Transit Stops & Sequence: ${activeRoute.name}` : "Configure Corridor"}
@@ -882,38 +883,43 @@ export function RoutesPage() {
             </div>
 
             {/* Add Stop Strip */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-900/60">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 block">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5 dark:border-slate-800 dark:bg-slate-900/60">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 block">
                 Add Stop to Corridor:
               </label>
-              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-                <select
-                  value={selectedStopId}
-                  onChange={(e) => setSelectedStopId(e.target.value)}
-                  className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                >
-                  <option value="">Select bus stop to insert…</option>
-                  {stops.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.code}) — {s.district}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                <div className="min-w-0 flex-1">
+                  <select
+                    value={selectedStopId}
+                    onChange={(e) => setSelectedStopId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  >
+                    <option value="">Select bus stop to insert…</option>
+                    {stops.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.code}) — {s.district}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                <input
-                  type="time"
-                  value={stopEta}
-                  onChange={(e) => setStopEta(e.target.value)}
-                  placeholder="ETA"
-                  title="Expected Time of Arrival (Optional)"
-                  className="w-24 rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                />
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">ETA:</span>
+                  <input
+                    type="time"
+                    value={stopEta}
+                    onChange={(e) => setStopEta(e.target.value)}
+                    placeholder="ETA"
+                    title="Expected Time of Arrival (Optional)"
+                    className="w-28 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
 
                 <Button
                   size="sm"
                   onClick={handleAddStopToSchedule}
                   disabled={!selectedStopId}
-                  className="h-9 font-bold shrink-0 bg-brand-600 hover:bg-brand-500 text-white rounded-xl"
+                  className="h-9 px-4 font-bold shrink-0 bg-brand-600 hover:bg-brand-500 text-white rounded-xl shadow-sm"
                 >
                   + Add Stop
                 </Button>

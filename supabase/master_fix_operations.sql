@@ -26,6 +26,8 @@ set status = case when is_active = false then 'INACTIVE' else 'ACTIVE' end
 where status is null;
 
 alter table public.trip_stops
+  add column if not exists expected_arrival_time timestamptz,
+  add column if not exists actual_arrival_time timestamptz,
   add column if not exists delay_minutes integer default 0,
   add column if not exists adherence_status text default 'ON_TIME';
 
@@ -1515,6 +1517,13 @@ begin
     'target_stop_status', v_target_stop.status,
     'projected_arrival', v_projected_arrival,
     'scheduled_arrival', v_scheduled_arrival
+  );
+exception when others then
+  return jsonb_build_object(
+    'trip_id', p_trip_id,
+    'schedule_adherence', 'ON_TIME',
+    'delay_minutes', 0,
+    'error', SQLERRM
   );
 end;
 $$;

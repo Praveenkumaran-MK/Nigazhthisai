@@ -192,15 +192,19 @@ export function FleetPage() {
         setGpsTelemetry(null);
       }
 
-      // 5. Trigger server-side Schedule Adherence & Delay Classification Engine
-      if (activeTrip.status === "ACTIVE") {
-        void supabase.rpc("evaluate_trip_schedule_adherence", {
-          p_trip_id: activeTrip.id,
-          p_lat: latestGps?.latitude ?? null,
-          p_lon: latestGps?.longitude ?? null,
-          p_speed: latestGps?.speed ?? null,
-          p_timestamp: latestGps?.recorded_at ?? null,
-        }).then(null, () => {});
+      // 5. Trigger server-side Schedule Adherence & Delay Classification Engine (only with valid GPS)
+      if (activeTrip.status === "ACTIVE" && activeTrip.id && latestGps?.latitude && latestGps?.longitude) {
+        try {
+          void supabase.rpc("evaluate_trip_schedule_adherence", {
+            p_trip_id: activeTrip.id,
+            p_lat: Number(latestGps.latitude),
+            p_lon: Number(latestGps.longitude),
+            p_speed: Number(latestGps.speed ?? 0),
+            p_timestamp: latestGps.recorded_at ? new Date(latestGps.recorded_at).toISOString() : new Date().toISOString(),
+          }).then(null, () => {});
+        } catch {
+          // ignore RPC errors
+        }
       }
 
       // 6. Build pipeline representation comparing conductor GPS against stop coordinates

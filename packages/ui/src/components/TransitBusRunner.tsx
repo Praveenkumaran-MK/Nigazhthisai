@@ -106,18 +106,23 @@ export function TransitBusRunner({
           </div>
         ))}
 
-        {/* Bus rides the right edge of a full-width translated layer */}
+        {/* Bus rides along the road without overflowing track edges */}
         <div
           className={cn(
-            "pointer-events-none absolute inset-x-0 bottom-1.5 will-change-transform",
-            indeterminate ? "sbt-bus-loop" : "transition-transform duration-700 ease-transit",
+            "pointer-events-none absolute bottom-2 will-change-transform",
+            indeterminate ? "sbt-bus-loop" : "transition-all duration-700 ease-transit",
           )}
-          style={indeterminate ? undefined : { transform: `translate3d(${clamped - 100}%, 0, 0)` }}
+          style={
+            indeterminate
+              ? undefined
+              : {
+                  left: `${clamped}%`,
+                  transform: `translateX(-${clamped}%)`,
+                }
+          }
           aria-hidden="true"
         >
-          <div className="flex justify-end">
-            <BusGlyph className="h-7 w-11 translate-x-1/2 motion-safe:animate-bus-bob" />
-          </div>
+          <BusGlyph className="h-6 w-10 motion-safe:animate-bus-bob" />
         </div>
       </div>
     </div>
