@@ -428,37 +428,10 @@ export function HomePage() {
               )}
             </div>
 
-            {/* Quick Popular Destinations Pills */}
-            <div className="pt-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                Popular Destinations
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {allStops
-                  .filter((s) => s.id !== originStop?.id)
-                  .slice(0, 5)
-                  .map((stop) => (
-                    <button
-                      key={stop.id}
-                      type="button"
-                      onClick={() => handleSelectDest(stop)}
-                      className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition border ${
-                        destStop?.id === stop.id
-                          ? "bg-brand-50 text-brand-700 border-brand-300 dark:bg-brand-950/60 dark:text-brand-300 dark:border-brand-700 shadow-xs"
-                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 dark:bg-slate-900/80 dark:text-slate-300 dark:border-slate-800"
-                      }`}
-                    >
-                      <MapPin className="h-3 w-3 text-brand-500 shrink-0" />
-                      <span>{stop.name}</span>
-                    </button>
-                  ))}
-              </div>
-            </div>
-
           </div>
 
           {/* Bottom Action Area with Connecting Line Feedback and CTA */}
-          <div className="flex flex-col gap-3 pt-3">
+          <div className="flex flex-col gap-3 pt-6 mt-auto">
             {/* Connecting Route Status Feedback */}
             {isResolvingRoute && (
               <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
@@ -485,7 +458,7 @@ export function HomePage() {
             {/* Search Buses CTA Button */}
             <Button
               size="lg"
-              className="w-full text-base font-bold shadow-lg shadow-brand-500/20"
+              className="w-full h-12 text-base font-bold shadow-lg shadow-brand-500/20"
               disabled={!canSearch}
               onClick={handleSearchBuses}
             >
