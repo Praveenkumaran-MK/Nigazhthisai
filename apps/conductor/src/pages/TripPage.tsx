@@ -607,13 +607,13 @@ export function TripPage() {
                 setIssuedTicket(null);
                 setShowIssueTicket(true);
               }}
-              className="group relative flex flex-col items-start justify-between overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-br from-[#b45309] to-[#ea580c] p-4 text-left shadow-xl shadow-amber-950/40 transition-all duration-150 active:scale-95 hover:brightness-110"
+              className="group relative flex flex-col items-start justify-between overflow-hidden rounded-2xl border border-[#D97F00]/40 bg-gradient-to-br from-[#0D2A5D] to-[#081A3A] p-4 text-left shadow-xl shadow-navy-950/40 transition-all duration-150 active:scale-95 hover:brightness-110"
             >
               <div className="flex w-full items-center justify-between">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-xl backdrop-blur-sm shadow-inner">
-                  <Ticket className="h-5 w-5 text-white" />
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#D97F00]/20 text-[#D97F00] border border-[#D97F00]/30 backdrop-blur-sm shadow-inner">
+                  <Ticket className="h-5 w-5" />
                 </span>
-                <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                <span className="rounded-md bg-[#D97F00] px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
                   Cash POS
                 </span>
               </div>
@@ -621,7 +621,7 @@ export function TripPage() {
                 <p className="text-base font-black leading-tight text-white uppercase tracking-wide">
                   Issue Ticket
                 </p>
-                <p className="text-[11px] font-semibold text-amber-100/90 mt-0.5">
+                <p className="text-[11px] font-semibold text-white/70 mt-0.5">
                   Walk-in cash fare
                 </p>
               </div>
@@ -631,13 +631,13 @@ export function TripPage() {
             <button
               type="button"
               onClick={() => navigate(`/trip/${trip.id}/scan`)}
-              className="group relative flex flex-col items-start justify-between overflow-hidden rounded-2xl border border-blue-500/40 bg-gradient-to-br from-[#1e40af] to-[#3b82f6] p-4 text-left shadow-xl shadow-blue-950/40 transition-all duration-150 active:scale-95 hover:brightness-110"
+              className="group relative flex flex-col items-start justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br from-slate-900 to-slate-950 p-4 text-left shadow-xl shadow-navy-950/40 transition-all duration-150 active:scale-95 hover:brightness-110"
             >
               <div className="flex w-full items-center justify-between">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-xl backdrop-blur-sm shadow-inner">
-                  <Camera className="h-5 w-5 text-white" />
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white border border-white/10 backdrop-blur-sm shadow-inner">
+                  <Camera className="h-5 w-5" />
                 </span>
-                <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                <span className="rounded-md bg-white/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
                   Validator
                 </span>
               </div>
@@ -645,7 +645,7 @@ export function TripPage() {
                 <p className="text-base font-black leading-tight text-white uppercase tracking-wide">
                   Scan Ticket
                 </p>
-                <p className="text-[11px] font-semibold text-blue-100/90 mt-0.5">
+                <p className="text-[11px] font-semibold text-white/70 mt-0.5">
                   Verify QR tickets
                 </p>
               </div>

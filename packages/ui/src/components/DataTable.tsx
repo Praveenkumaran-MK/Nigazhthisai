@@ -33,26 +33,29 @@ export function DataTable<T>({
   if (rows.length === 0) return <EmptyState title={emptyTitle} description={emptyDescription} />;
 
   return (
-    <div className="overflow-x-auto rounded-card border border-border-light dark:border-border-dark">
+    <div className="overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-surface-dark shadow-sm">
       <table className="w-full min-w-max text-left text-sm">
-        <thead className="border-b border-border-light bg-slate-50 dark:border-border-dark dark:bg-[#0a0a0a]">
+        <thead className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
           <tr>
             {columns.map((col) => (
-              <th key={col.key} className="whitespace-nowrap px-4 py-2.5 font-medium text-slate-600 dark:text-slate-400">
+              <th key={col.key} className="whitespace-nowrap px-6 py-3.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 {col.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-border-light dark:divide-border-dark">
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
           {rows.map((row) => (
             <tr
               key={getRowId(row)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
-              className={cn(onRowClick && "cursor-pointer hover:bg-slate-50 dark:hover:bg-[#0a0a0a]")}
+              className={cn(
+                "transition-colors",
+                onRowClick ? "cursor-pointer hover:bg-slate-50/60 dark:hover:bg-slate-800/40" : "hover:bg-slate-50/30 dark:hover:bg-slate-800/20"
+              )}
             >
               {columns.map((col) => (
-                <td key={col.key} className={cn("whitespace-nowrap px-4 py-2.5 text-slate-700 dark:text-slate-300", col.className)}>
+                <td key={col.key} className={cn("whitespace-nowrap px-6 py-4 text-xs font-semibold text-[#0D2A5D] dark:text-slate-200", col.className)}>
                   {col.render(row)}
                 </td>
               ))}

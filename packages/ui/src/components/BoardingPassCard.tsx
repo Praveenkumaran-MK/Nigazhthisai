@@ -51,7 +51,7 @@ export function BoardingPassCard({
   return (
     <div className={cn("w-full overflow-hidden rounded-3xl shadow-lg shadow-navy-900/10", className)}>
       {/* Navy header: date/time + route strip */}
-      <div className="relative bg-navy-700 bg-dot-grid bg-[length:14px_14px] px-6 pb-8 pt-5 text-white">
+      <div className="relative bg-[#0D2A5D] bg-dot-grid bg-[length:14px_14px] px-6 pb-8 pt-5 text-white">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium">{dateLabel}</span>
           <span className="font-medium">{timeLabel}</span>

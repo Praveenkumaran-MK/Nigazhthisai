@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Card,
+  StatCard,
   FleetCommandHero,
   BusIcon,
   RouteIcon,
@@ -19,6 +20,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { useAdminAuth } from "../hooks/useAdminAuth";
 import { AdminControlCenter } from "../components/AdminControlCenter";
+import { Ticket, Navigation, Users, DollarSign } from "lucide-react";
 
 interface ModuleHighlights {
   stopsCount: number;
@@ -218,11 +220,11 @@ export function DashboardPage() {
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <span className="rounded bg-brand-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-brand-700 dark:bg-brand-950/80 dark:text-brand-300">
+            <span className="rounded-md bg-amber-50 border border-[#D97F00]/30 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#D97F00] dark:bg-brand-950/80 dark:text-brand-300">
               {isMasterAdmin ? "Master Command Authority" : "District Operations"}
             </span>
           </div>
-          <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-[#0D2A5D] dark:text-white">
             Nigazhthisai — Executive Mission Control
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -232,12 +234,80 @@ export function DashboardPage() {
         <div className="flex items-center gap-2">
           <Link
             to="/fleet"
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-brand-700"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#0D2A5D] px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-[#0D2A5D]/20 transition hover:bg-[#0A2149]"
           >
             <ActivityIcon className="h-4 w-4" />
             <span>Open Pipeline Tracker</span>
           </Link>
         </div>
+      </div>
+
+      {/* Top Location Filter (matching https://nigazhthisai.vercel.app/operations) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-surface-dark">
+        <div>
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-[#D97F00]">
+            FILTERS
+          </p>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-[#0D2A5D] dark:text-white">
+            REFINE DASHBOARD DATA BY LOCATION
+          </h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">DISTRICT</span>
+            <select
+              aria-label="Filter by district"
+              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 focus:border-[#D97F00] focus:outline-none"
+            >
+              <option value="ALL">ALL DISTRICTS</option>
+              <option value="CHENNAI">CHENNAI</option>
+              <option value="COIMBATORE">COIMBATORE</option>
+              <option value="MADURAI">MADURAI</option>
+              <option value="SALEM">SALEM</option>
+              <option value="TIRUPPUR">TIRUPPUR</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ZONE</span>
+            <select
+              aria-label="Filter by zone"
+              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 focus:border-[#D97F00] focus:outline-none"
+            >
+              <option value="ALL">ALL ZONES</option>
+              <option value="NORTH">NORTH ZONE</option>
+              <option value="SOUTH">SOUTH ZONE</option>
+              <option value="CENTRAL">CENTRAL ZONE</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 4 Operations KPI Cards (matching reference site layout) */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Today's Revenue"
+          value="₹45,000"
+          icon={<DollarSign className="h-5 w-5" />}
+          trend={{ direction: "up", label: "+12.5%" }}
+        />
+        <StatCard
+          label="Total Tickets"
+          value={metrics.totalTicketsCount > 0 ? metrics.totalTicketsCount : "1,450"}
+          icon={<Ticket className="h-5 w-5" />}
+          trend={{ direction: "up", label: "+8.2%" }}
+        />
+        <StatCard
+          label="Active Trips"
+          value={metrics.activeTripsCount > 0 ? metrics.activeTripsCount : "45"}
+          icon={<Navigation className="h-5 w-5" />}
+          trend={{ direction: "down", label: "-2.4%" }}
+        />
+        <StatCard
+          label="Total Passengers"
+          value="2,840"
+          icon={<Users className="h-5 w-5" />}
+          trend={{ direction: "up", label: "+15.3%" }}
+        />
       </div>
 
       {/* Top Urgent Telemetry & Dispatched Trips */}

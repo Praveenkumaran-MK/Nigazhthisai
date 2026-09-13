@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { Button, DataTable, ConfirmDialog, ErrorState, useToast } from "@sbt/ui";
+import { DataTable, ConfirmDialog, ErrorState, useToast } from "@sbt/ui";
 import { useCrudResource } from "../../hooks/useCrudResource";
 import { ResourceFormDialog } from "./ResourceFormDialog";
 import type { ColumnConfig, FormFieldConfig } from "./types";
+import { Search, Filter, Plus, Pencil, Trash2 } from "lucide-react";
 
 export interface ResourceCrudPageProps<T extends { id: string }> {
   title: string;
@@ -36,6 +37,8 @@ export function ResourceCrudPage<T extends { id: string }>({
   const [editingRow, setEditingRow] = useState<T | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [districtFilter, setDistrictFilter] = useState("ALL");
 
   const openCreate = () => {
     setEditingRow(null);
@@ -72,59 +75,122 @@ export function ResourceCrudPage<T extends { id: string }>({
     }
   };
 
-  // Memoized on `editingRow`'s identity (stable across unrelated parent
-  // re-renders/reloads — it only changes when openCreate/openEdit sets a
-  // new one) so ResourceFormDialog's reset effect doesn't fire on every
-  // render and wipe whatever the admin has typed so far.
   const initialValues = useMemo(
     () => (editingRow ? (toFormValues ? toFormValues(editingRow) : (editingRow as Record<string, unknown>)) : {}),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [editingRow],
+    [editingRow, toFormValues],
   );
+
+  // Filter rows based on search query & district
+  const filteredRows = useMemo(() => {
+    return rows.filter((r) => {
+      const matchSearch =
+        !searchQuery ||
+        JSON.stringify(r).toLowerCase().includes(searchQuery.toLowerCase().trim());
+      const rDistrict = (r as Record<string, unknown>).district;
+      const matchDistrict =
+        districtFilter === "ALL" ||
+        !rDistrict ||
+        String(rDistrict).toLowerCase() === districtFilter.toLowerCase();
+      return matchSearch && matchDistrict;
+    });
+  }, [rows, searchQuery, districtFilter]);
 
   const tableColumns = [
     ...columns,
     {
       key: "__actions",
-      header: "",
+      header: "ACTIONS",
       render: (row: T) => (
-        <div className="flex gap-2">
-          <Button size="sm" variant="ghost" onClick={() => openEdit(row)}>
-            Edit
-          </Button>
-          <Button size="sm" variant="ghost" className="text-danger-600" onClick={() => setPendingDeleteId(row.id)}>
-            Delete
-          </Button>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => openEdit(row)}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-[#0D2A5D] hover:bg-slate-100 transition-colors"
+            title="Edit"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setPendingDeleteId(row.id)}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+            title="Delete"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
         </div>
       ),
     },
   ];
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</h1>
-          {description && <p className="text-sm text-slate-500 dark:text-slate-500">{description}</p>}
+    <div className="flex flex-col gap-6">
+      {/* Top Search & Filter Bar (matching https://nigazhthisai.vercel.app/operations/stops) */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="flex flex-1 items-center gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder={`Search ${title.toLowerCase()}...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#D97F00] focus:ring-2 focus:ring-[#D97F00]/10 focus:outline-none transition-all shadow-sm"
+            />
+          </div>
+
+          {/* District Filter Pill */}
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+            <Filter className="h-3.5 w-3.5 text-[#D97F00]" />
+            <select
+              value={districtFilter}
+              onChange={(e) => setDistrictFilter(e.target.value)}
+              aria-label="Filter district"
+              className="bg-transparent text-xs font-bold text-slate-700 uppercase focus:outline-none"
+            >
+              <option value="ALL">ALL DISTRICTS</option>
+              <option value="CHENNAI">CHENNAI</option>
+              <option value="COIMBATORE">COIMBATORE</option>
+              <option value="MADURAI">MADURAI</option>
+              <option value="SALEM">SALEM</option>
+              <option value="TIRUPPUR">TIRUPPUR</option>
+            </select>
+          </div>
         </div>
-        <Button onClick={openCreate}>Add {title.replace(/s$/, "")}</Button>
+
+        {/* Primary CTA Button */}
+        <button
+          type="button"
+          onClick={openCreate}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0D2A5D] hover:bg-[#0A2149] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-[#0D2A5D]/20 active:scale-[0.98] transition-all"
+        >
+          <Plus className="h-4 w-4" />
+          <span>CREATE NEW {title.replace(/s$/, "").toUpperCase()}</span>
+        </button>
       </div>
+
+      {description && (
+        <p className="text-xs font-medium text-slate-500 -mt-2">
+          {description}
+        </p>
+      )}
 
       {status === "error" ? (
         <ErrorState description={error ?? undefined} onRetry={reload} />
       ) : (
         <DataTable
           columns={tableColumns}
-          rows={rows}
+          rows={filteredRows}
           getRowId={(r) => r.id}
           isLoading={status === "loading"}
-          emptyTitle={emptyTitle ?? `No ${title.toLowerCase()} yet`}
+          emptyTitle={emptyTitle ?? `No ${title.toLowerCase()} found`}
         />
       )}
 
       <ResourceFormDialog
         open={formOpen}
-        title={editingRow ? `Edit ${title.replace(/s$/, "")}` : `Add ${title.replace(/s$/, "")}`}
+        title={editingRow ? `Edit ${title.replace(/s$/, "")}` : `Create New ${title.replace(/s$/, "")}`}
         fields={fields}
         initialValues={initialValues}
         onSubmit={handleSubmit}
@@ -134,7 +200,7 @@ export function ResourceCrudPage<T extends { id: string }>({
       <ConfirmDialog
         open={Boolean(pendingDeleteId)}
         title="Delete this record?"
-        description="This cannot be undone."
+        description="This action cannot be undone."
         destructive
         isLoading={isDeleting}
         onConfirm={handleDelete}

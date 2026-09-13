@@ -37,6 +37,12 @@
     @apply bg-slate-800 text-slate-100;
   }
 
+  /* Selection style matching https://nigazhthisai.vercel.app/operations */
+  ::selection {
+    background-color: rgba(217, 127, 0, 0.15);
+    color: #d97f00;
+  }
+
   /* Amber focus ring: focus indicators are UI components, so the 3:1
      non-text contrast threshold applies — #D97F00 clears it on both the
      light canvas and navy surfaces. */
@@ -130,6 +136,49 @@
   }
   .safe-top {
     padding-top: env(safe-area-inset-top);
+  }
+
+  /* Operations Reference Styles (matching https://nigazhthisai.vercel.app/operations) */
+  .wimt-btn-primary {
+    background-color: #0d2a5d;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.75rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+  .wimt-btn-primary:hover {
+    background-color: #0a2149;
+  }
+  .wimt-btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  .wimt-card {
+    border: 1px solid rgba(228, 228, 231, 0.6);
+    background-color: #ffffff;
+    border-radius: 1rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+  }
+
+  .wimt-input {
+    border: 1px solid #e4e4e7;
+    background-color: #ffffff;
+    width: 100%;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 0.75rem;
+    outline: none;
+    transition: all 0.2s ease;
+  }
+  .wimt-input:focus {
+    border-color: #d97f00;
+    box-shadow: 0 0 0 4px rgba(217, 127, 0, 0.1);
   }
 
   /* Subtle glassmorphic surface — a light frost, not a heavy blur wall.

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Input, Alert, Card, BrandLogo } from "@sbt/ui";
+import { Alert, BrandLogo } from "@sbt/ui";
 import { useAdminAuth } from "../hooks/useAdminAuth";
+import { Mail, Lock, ArrowRight } from "lucide-react";
 
 export function LoginPage() {
   const { login, error, status } = useAdminAuth();
@@ -10,15 +11,11 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Navigate only once `status` has actually settled to "signed-in" — not
-  // immediately after login() resolves. login() only waits for the auth
-  // sign-in call itself; the profile-role lookup that determines `status`
-  // is deferred a tick (setTimeout(...,0), see useAdminAuth — required to
-  // avoid a documented supabase-js deadlock in onAuthStateChange). A bare
-  // `navigate("/dashboard")` right after login() used to race that: it hit
-  // ProtectedRoute while `status` was still "signed-out" from the initial
-  // (pre-login) session check, so it bounced straight back to /login even
-  // though the sign-in had genuinely succeeded — silent, no error shown.
+  // Detect which portal or active role tab is selected
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  const initialRole = hostname.includes("superadmin") ? "master_admin" : "admin";
+  const [selectedRole, setSelectedRole] = useState<"master_admin" | "admin" | "conductor" | "passenger">(initialRole);
+
   useEffect(() => {
     if (status === "signed-in") {
       navigate("/dashboard", { replace: true });
@@ -37,32 +34,133 @@ export function LoginPage() {
     }
   };
 
-  // Detect which portal we're deployed on so the login screen reflects the
-  // correct admin tier. Falls back to a generic "Admin Portal" for local dev
-  // or any unrecognised hostname.
-  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
-  const isMasterAdmin = hostname.includes("superadmin");
-  const portalLabel = isMasterAdmin ? "Master Admin" : hostname.includes("admin") ? "District Admin" : "Admin Portal";
-  const portalSubtitle = isMasterAdmin
-    ? "Sign in with your master admin credentials (full system access)."
-    : "Sign in with your district admin email and password.";
+  const handleRoleSelect = (role: "master_admin" | "admin" | "conductor" | "passenger") => {
+    setSelectedRole(role);
+    if (role === "passenger") {
+      window.location.href = "https://nigazhthisai.vercel.app";
+    } else if (role === "conductor") {
+      window.location.href = "https://nigazhthisai-conductor.vercel.app";
+    }
+  };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-navy-700 bg-dot-grid bg-[length:16px_16px] p-6">
-      <Card className="w-full max-w-sm">
-        <BrandLogo variant="lockup" className="mb-5" />
-        <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{portalLabel}</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-500">{portalSubtitle}</p>
+    <div className="flex min-h-dvh items-center justify-center bg-gradient-to-tr from-slate-100 via-[#F0F4FA] to-slate-200 p-6">
+      <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-2xl shadow-navy-950/10 border border-slate-100 flex flex-col gap-6">
+        {/* Logo & Portal Branding */}
+        <div className="flex flex-col items-center text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0D2A5D]/5 border border-[#0D2A5D]/10 mb-3 shadow-sm">
+            <BrandLogo variant="mark" tone="navy" className="h-9 w-9" />
+          </div>
+          <h1 className="text-xl font-extrabold tracking-wider text-[#0D2A5D]">
+            NIGAZHTHISAI
+          </h1>
+          <p className="mt-0.5 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+            MANAGEMENT PORTAL
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
-          <Input label="Email" type="email" autoComplete="username" placeholder="admin@transit.gov" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <Input label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        {/* 4-Role Grid Switcher (matching reference operations site) */}
+        <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-2xl border border-slate-200/60">
+          <button
+            type="button"
+            onClick={() => handleRoleSelect("master_admin")}
+            className={`py-2 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all ${
+              selectedRole === "master_admin"
+                ? "bg-[#0D2A5D] text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-900"
+            }`}
+          >
+            MASTER ADMIN
+          </button>
+          <button
+            type="button"
+            onClick={() => handleRoleSelect("admin")}
+            className={`py-2 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all ${
+              selectedRole === "admin"
+                ? "bg-[#0D2A5D] text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-900"
+            }`}
+          >
+            ADMIN
+          </button>
+          <button
+            type="button"
+            onClick={() => handleRoleSelect("conductor")}
+            className={`py-2 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all ${
+              selectedRole === "conductor"
+                ? "bg-[#0D2A5D] text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-900"
+            }`}
+          >
+            CONDUCTOR
+          </button>
+          <button
+            type="button"
+            onClick={() => handleRoleSelect("passenger")}
+            className={`py-2 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all ${
+              selectedRole === "passenger"
+                ? "bg-[#0D2A5D] text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-900"
+            }`}
+          >
+            PASSENGER
+          </button>
+        </div>
+
+        {/* Credentials Form */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              EMAIL ADDRESS
+            </label>
+            <div className="relative flex items-center">
+              <Mail className="absolute left-3.5 h-4 w-4 text-slate-400" />
+              <input
+                type="email"
+                required
+                autoComplete="username"
+                placeholder={selectedRole === "master_admin" ? "master@nigazhthisai.com" : "admin@transit.gov"}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#D97F00] focus:ring-4 focus:ring-[#D97F00]/10 focus:outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              PASSWORD
+            </label>
+            <div className="relative flex items-center">
+              <Lock className="absolute left-3.5 h-4 w-4 text-slate-400" />
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#D97F00] focus:ring-4 focus:ring-[#D97F00]/10 focus:outline-none transition-all"
+              />
+            </div>
+          </div>
+
           {error && <Alert tone="danger" title="Login failed">{error}</Alert>}
-          <Button type="submit" size="lg" isLoading={isLoading}>
-            Sign in
-          </Button>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl bg-[#0D2A5D] hover:bg-[#0A2149] text-white font-bold text-xs uppercase tracking-wider py-3 shadow-lg shadow-[#0D2A5D]/20 active:scale-[0.98] transition-all disabled:opacity-60"
+          >
+            <span>{isLoading ? "SIGNING IN…" : "SIGN IN"}</span>
+            {!isLoading && <ArrowRight className="h-4 w-4" />}
+          </button>
         </form>
-      </Card>
+
+        <p className="text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          FORGOT PASSWORD? CONTACT ADMINISTRATOR
+        </p>
+      </div>
     </div>
   );
 }

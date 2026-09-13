@@ -573,9 +573,9 @@ export function RoutesPage() {
             <button
               type="button"
               onClick={() => setViewMode("cards")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all ${
                 viewMode === "cards"
-                  ? "bg-brand-600 text-white shadow-sm"
+                  ? "bg-[#0D2A5D] text-white shadow-sm"
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-400"
               }`}
             >
@@ -585,9 +585,9 @@ export function RoutesPage() {
             <button
               type="button"
               onClick={() => setViewMode("table")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-all ${
                 viewMode === "table"
-                  ? "bg-brand-600 text-white shadow-sm"
+                  ? "bg-[#0D2A5D] text-white shadow-sm"
                   : "text-slate-600 hover:text-slate-900 dark:text-slate-400"
               }`}
             >
@@ -596,13 +596,14 @@ export function RoutesPage() {
             </button>
           </div>
 
-          <Button
+          <button
+            type="button"
             onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md shadow-brand-900/20 hover:brightness-110"
+            className="flex items-center gap-2 rounded-xl bg-[#0D2A5D] hover:bg-[#0A2149] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-md shadow-[#0D2A5D]/20 active:scale-[0.98] transition-all"
           >
             <Plus className="h-4 w-4" />
-            <span>New Route</span>
-          </Button>
+            <span>CREATE ROUTE</span>
+          </button>
         </div>
       </div>
 
