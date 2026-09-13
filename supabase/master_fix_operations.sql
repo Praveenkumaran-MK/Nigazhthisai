@@ -1160,7 +1160,138 @@ grant execute on function public.is_master_admin() to authenticated, anon;
 grant execute on function public.is_admin() to authenticated, anon;
 grant execute on function public.is_conductor() to authenticated, anon;
 
--- 14. Reload PostgREST schema cache
+-- 15. Ensure alert_severity enum contains HIGH as well to prevent casting errors
+alter type public.alert_severity add value if not exists 'HIGH';
+
+-- 16. Route demand analytics computation
+create or replace function public.compute_route_demand_analytics(
+  p_route_id    uuid default null,
+  p_target_date date default current_date
+)
+returns table (
+  route_id                  uuid,
+  route_number              text,
+  route_name                text,
+  total_passengers          bigint,
+  total_trips               bigint,
+  busiest_origin_stop       text,
+  busiest_origin_count      bigint,
+  busiest_dest_stop         text,
+  busiest_dest_count        bigint,
+  avg_trip_utilization_pct  numeric,
+  surge_detected            boolean,
+  suggested_additional_buses int
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return query
+  with route_stats as (
+    select
+      r.id as r_id,
+      r.route_number as r_num,
+      r.name as r_name,
+      coalesce(sum(tk.passenger_count), 0) as total_pax,
+      count(distinct t.id) as trip_cnt,
+      coalesce(avg(b.capacity), 50) as avg_cap
+    from public.routes r
+    left join public.trips t on t.route_id = r.id and t.created_at::date = coalesce(p_target_date, current_date)
+    left join public.buses b on b.id = t.bus_id
+    left join public.tickets tk on tk.trip_id = t.id and tk.status in ('PAID', 'VALIDATED')
+    where (p_route_id is null or r.id = p_route_id)
+    group by r.id, r.route_number, r.name
+  ),
+  origin_ranks as (
+    select
+      r.id as r_id,
+      s.name as stop_name,
+      sum(tk.passenger_count) as pax_count,
+      row_number() over (partition by r.id order by sum(tk.passenger_count) desc) as rn
+    from public.routes r
+    join public.trips t on t.route_id = r.id and t.created_at::date = coalesce(p_target_date, current_date)
+    join public.tickets tk on tk.trip_id = t.id and tk.status in ('PAID', 'VALIDATED')
+    join public.stops s on s.id = tk.origin_stop_id
+    group by r.id, s.name
+  ),
+  dest_ranks as (
+    select
+      r.id as r_id,
+      s.name as stop_name,
+      sum(tk.passenger_count) as pax_count,
+      row_number() over (partition by r.id order by sum(tk.passenger_count) desc) as rn
+    from public.routes r
+    join public.trips t on t.route_id = r.id and t.created_at::date = coalesce(p_target_date, current_date)
+    join public.tickets tk on tk.trip_id = t.id and tk.status in ('PAID', 'VALIDATED')
+    join public.stops s on s.id = tk.dest_stop_id
+    group by r.id, s.name
+  )
+  select
+    rs.r_id,
+    rs.r_num,
+    rs.r_name,
+    rs.total_pax,
+    rs.trip_cnt,
+    coalesce(o.stop_name, 'None'),
+    coalesce(o.pax_count, 0),
+    coalesce(d.stop_name, 'None'),
+    coalesce(d.pax_count, 0),
+    round(
+      case
+        when rs.trip_cnt > 0 and rs.avg_cap > 0 then
+          least(100.0, (rs.total_pax::numeric / (rs.trip_cnt * rs.avg_cap)::numeric) * 100.0)
+        else 0.0
+      end, 1
+    ) as avg_utilization,
+    (case
+      when rs.trip_cnt > 0 and rs.avg_cap > 0 and (rs.total_pax::numeric / (rs.trip_cnt * rs.avg_cap)::numeric) >= 0.85 then true
+      when rs.trip_cnt = 0 and rs.total_pax > 40 then true
+      else false
+    end) as surge_flag,
+    (case
+      when rs.trip_cnt > 0 and (rs.total_pax::numeric / (rs.trip_cnt * rs.avg_cap)::numeric) >= 0.85 then
+        greatest(1, ceil((rs.total_pax - (rs.trip_cnt * rs.avg_cap * 0.85)) / 50.0)::int)
+      when rs.trip_cnt = 0 and rs.total_pax > 40 then 1
+      else 0
+    end) as add_buses
+  from route_stats rs
+  left join origin_ranks o on o.r_id = rs.r_id and o.rn = 1
+  left join dest_ranks d on d.r_id = rs.r_id and d.rn = 1
+  order by rs.total_pax desc;
+end;
+$$;
+
+-- 0-argument overload so calling supabase.rpc("compute_route_demand_analytics") works without body
+create or replace function public.compute_route_demand_analytics()
+returns table (
+  route_id                  uuid,
+  route_number              text,
+  route_name                text,
+  total_passengers          bigint,
+  total_trips               bigint,
+  busiest_origin_stop       text,
+  busiest_origin_count      bigint,
+  busiest_dest_stop         text,
+  busiest_dest_count        bigint,
+  avg_trip_utilization_pct  numeric,
+  surge_detected            boolean,
+  suggested_additional_buses int
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return query select * from public.compute_route_demand_analytics(null, current_date);
+end;
+$$;
+
+grant execute on function public.compute_route_demand_analytics(uuid, date) to authenticated, anon;
+grant execute on function public.compute_route_demand_analytics() to authenticated, anon;
+
+-- 17. Reload PostgREST schema cache
 notify pgrst, 'reload schema';
+
 
 

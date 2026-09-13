@@ -18,6 +18,7 @@ import {
   CheckCircleIcon,
 } from "@sbt/ui";
 import { supabase } from "../lib/supabase";
+import { computeRouteDemandAnalytics } from "@sbt/supabase-client";
 import { useAdminAuth } from "../hooks/useAdminAuth";
 import { AdminControlCenter } from "../components/AdminControlCenter";
 import { Ticket, Navigation, Users, DollarSign } from "lucide-react";
@@ -121,7 +122,7 @@ export function DashboardPage() {
           supabase.from("trips").select("id", { count: "exact", head: true }).eq("status", "SCHEDULED"),
           supabase.from("trips").select("id", { count: "exact", head: true }).eq("status", "COMPLETED"),
           supabase.from("alerts").select("id", { count: "exact", head: true }).in("status", ["ACTIVE", "ACKNOWLEDGED"]),
-          supabase.from("alerts").select("id", { count: "exact", head: true }).in("status", ["ACTIVE", "ACKNOWLEDGED"]).in("severity", ["HIGH", "CRITICAL"]),
+          supabase.from("alerts").select("id", { count: "exact", head: true }).in("status", ["ACTIVE", "ACKNOWLEDGED"]).in("severity", ["CRITICAL", "SOS"]),
           supabase.from("districts").select("id", { count: "exact", head: true }),
           supabase.from("conductors").select("id", { count: "exact", head: true }),
           supabase.from("tickets").select("id", { count: "exact", head: true }),
@@ -156,11 +157,15 @@ export function DashboardPage() {
     void fetchDashboardData();
 
     // Fetch Live Route Demand Analytics
-    supabase.rpc("compute_route_demand_analytics").then(({ data }) => {
-      if (data && Array.isArray(data)) {
-        setDemandInsights(data as RouteDemandInsight[]);
-      }
-    });
+    computeRouteDemandAnalytics(supabase)
+      .then((insights) => {
+        if (insights && Array.isArray(insights)) {
+          setDemandInsights(insights as RouteDemandInsight[]);
+        }
+      })
+      .catch((err) => {
+        console.warn("Route demand analytics not available yet:", err);
+      });
 
     // Fetch Latest Alert
     supabase
