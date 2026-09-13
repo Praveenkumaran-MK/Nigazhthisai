@@ -284,7 +284,7 @@ export function ScannerPage() {
 
               {/* Keypad Shortcuts */}
               <div className="grid grid-cols-4 gap-2 pt-1">
-                {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "ETM", "CLR"].map((k) => (
+                {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "ENT", "CLR"].map((k) => (
                   <button
                     key={k}
                     type="button"

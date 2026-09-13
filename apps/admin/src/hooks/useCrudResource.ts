@@ -9,7 +9,6 @@ const DISTRICT_SCOPED_TABLES = new Set([
   "schedules",
   "fares",
   "conductors",
-  "etm_devices",
   "complaints",
 ]);
 

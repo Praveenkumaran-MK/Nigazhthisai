@@ -779,7 +779,7 @@ export function DashboardPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-slate-100">{conductor?.display_name ?? "Conductor"}</h1>
-            <Badge tone="brand">ETM Active</Badge>
+            <Badge tone="brand">Ticketing Active</Badge>
           </div>
           <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
             <StatusIndicator status={isOnline ? "online" : "offline"} label={isOnline ? "Cloud Sync Active" : "Offline"} />
@@ -1185,7 +1185,7 @@ export function DashboardPage() {
               <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
                 <span className="text-slate-400 flex items-center gap-2">
                   <span className="inline-block h-2 w-2 rounded-full bg-emerald-400"></span>
-                  Cash / ETM Collections
+                  Cash Ticket Collections
                 </span>
                 <span className="font-mono font-semibold text-slate-100">
                   {hideFinancials ? "₹ ••••" : `₹${(stats?.cash_revenue ?? 0).toFixed(2)}`}

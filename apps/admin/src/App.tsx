@@ -17,7 +17,6 @@ import { CsvImportPage } from "./pages/CsvImportPage";
 import { FleetPage } from "./pages/FleetPage";
 import { AlertsPage } from "./pages/AlertsPage";
 import { RevenuePage } from "./pages/RevenuePage";
-import { EtmPage } from "./pages/EtmPage";
 import { MaintenancePage } from "./pages/MaintenancePage";
 import { BusQrPage } from "./pages/BusQrPage";
 import { ComplaintsPage } from "./pages/ComplaintsPage";
@@ -100,7 +99,6 @@ export function App() {
       <Route path="/fleet" element={<ProtectedRoute featureKey="live_monitoring"><FleetPage /></ProtectedRoute>} />
       <Route path="/alerts" element={<ProtectedRoute featureKey="operational_alerts"><AlertsPage /></ProtectedRoute>} />
       <Route path="/revenue" element={<ProtectedRoute featureKey="revenue_analytics"><RevenuePage /></ProtectedRoute>} />
-      <Route path="/etm" element={<ProtectedRoute featureKey="shops_management"><EtmPage /></ProtectedRoute>} />
       <Route path="/maintenance" element={<ProtectedRoute featureKey="shops_management"><MaintenancePage /></ProtectedRoute>} />
       <Route path="/bus-qr" element={<ProtectedRoute featureKey="shops_management"><BusQrPage /></ProtectedRoute>} />
       <Route path="/complaints" element={<ProtectedRoute featureKey="support_faq"><ComplaintsPage /></ProtectedRoute>} />

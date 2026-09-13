@@ -27,7 +27,7 @@ export const dictionary: Record<string, string> = {
   "Gov ID": "அரசு எண்",
 
   // Conductor Dashboard & Status
-  "ETM Active": "இடிஎம் செயலில் உள்ளது",
+  "Ticketing Active": "கட்டணச் சீட்டு செயலில் உள்ளது",
   "Cloud Sync Active": "மேகக்கணி ஒத்திசைவு செயலில் உள்ளது",
   "Offline": "ஆஃப்லைன்",
   "Checking session…": "அமர்வு சரிபார்க்கப்படுகிறது…",
