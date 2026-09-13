@@ -725,5 +725,42 @@ begin
 end;
 $$;
 
--- 9. Reload PostgREST schema cache
+-- 9. Ensure route_day_stops exists with ETA columns
+create table if not exists public.route_day_stops (
+  id              uuid        primary key default gen_random_uuid(),
+  route_id        uuid        not null references public.routes(id) on delete cascade,
+  day_of_week     int         not null check (day_of_week between -1 and 6),
+  stop_id         uuid        not null references public.stops(id) on delete restrict,
+  sequence_order  int         not null,
+  expected_arrival_time text,
+  eta_offset_minutes int,
+  created_at      timestamptz not null default now()
+);
+
+alter table public.route_stops
+  add column if not exists expected_arrival_time text,
+  add column if not exists eta_offset_minutes int;
+
+alter table public.route_day_stops
+  add column if not exists expected_arrival_time text,
+  add column if not exists eta_offset_minutes int;
+
+alter table public.route_day_stops enable row level security;
+
+do $$
+begin
+  if not exists (select 1 from pg_policies where tablename = 'route_day_stops' and policyname = 'route_day_stops_read') then
+    create policy route_day_stops_read on public.route_day_stops for select using (true);
+  end if;
+  if not exists (select 1 from pg_policies where tablename = 'route_day_stops' and policyname = 'route_day_stops_admin_all') then
+    create policy route_day_stops_admin_all on public.route_day_stops for all using (is_any_admin()) with check (is_any_admin());
+  end if;
+end;
+$$;
+
+grant all on public.route_day_stops to authenticated, anon;
+grant all on public.route_stops to authenticated, anon;
+
+-- 10. Reload PostgREST schema cache
 notify pgrst, 'reload schema';
+

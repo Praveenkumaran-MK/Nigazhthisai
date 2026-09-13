@@ -197,20 +197,27 @@ export function RoutesPage() {
         };
       });
 
-      // 2. Load Day-Wise exception schedules
-      const { data: dayData, error: dayErr } = await supabase
-        .from("route_weekly_schedules")
-        .select("id, day_of_week, stop_id, sequence_order, expected_arrival_time")
-        .eq("route_id", route.id)
-        .order("sequence_order", { ascending: true });
+      // 2. Load Day-Wise exception schedules from route_day_stops
+      let dayData: any[] = [];
+      try {
+        const { data, error: dayErr } = await supabase
+          .from("route_day_stops")
+          .select("id, day_of_week, stop_id, sequence_order, expected_arrival_time")
+          .eq("route_id", route.id)
+          .order("sequence_order", { ascending: true });
 
-      if (dayErr) throw dayErr;
+        if (!dayErr && data) {
+          dayData = data;
+        }
+      } catch (err) {
+        console.warn("Could not load day exception stops:", err);
+      }
 
       const map: Record<number, RouteStopItem[]> = {
         [-1]: standardList,
       };
 
-      (dayData ?? []).forEach((row: any) => {
+      dayData.forEach((row: any) => {
         const d = row.day_of_week;
         if (!map[d]) map[d] = [];
         const meta = stopMap.get(row.stop_id);
@@ -226,7 +233,8 @@ export function RoutesPage() {
 
       setDayStopsMap(map);
     } catch (err: any) {
-      alert("Error loading stop schedules: " + err.message);
+      console.error("Error loading stop schedules:", err);
+      push({ tone: "danger", title: "Could not load stops", description: err.message });
     }
   };
 
@@ -319,9 +327,9 @@ export function RoutesPage() {
           if (stdErr) throw stdErr;
         }
       } else {
-        // Day-specific schedule
+        // Day-specific schedule in route_day_stops
         await supabase
-          .from("route_weekly_schedules")
+          .from("route_day_stops")
           .delete()
           .eq("route_id", activeRoute.id)
           .eq("day_of_week", selectedDayKey);
@@ -334,7 +342,7 @@ export function RoutesPage() {
             sequence_order: idx + 1,
             expected_arrival_time: s.expected_arrival_time || null,
           }));
-          const { error: dayErr } = await supabase.from("route_weekly_schedules").insert(dayRows);
+          const { error: dayErr } = await supabase.from("route_day_stops").insert(dayRows);
           if (dayErr) throw dayErr;
         }
       }
