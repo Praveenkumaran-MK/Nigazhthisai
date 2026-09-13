@@ -278,7 +278,7 @@ export function TripPage() {
       .from("alerts")
       .select("id, status")
       .eq("trip_id", tripId)
-      .in("status", ["TRIGGERED", "ACKNOWLEDGED"])
+      .in("status", ["ACTIVE", "ACKNOWLEDGED"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle()
