@@ -21,7 +21,7 @@ import { supabase } from "../lib/supabase";
 import { computeRouteDemandAnalytics } from "@sbt/supabase-client";
 import { useAdminAuth } from "../hooks/useAdminAuth";
 import { AdminControlCenter } from "../components/AdminControlCenter";
-import { Ticket, Navigation, Users, DollarSign, RefreshCw, Calendar } from "lucide-react";
+import { Ticket, Navigation, Users, IndianRupee, RefreshCw, Calendar } from "lucide-react";
 import type { District } from "@sbt/shared-types";
 
 interface ModuleHighlights {
@@ -474,7 +474,7 @@ export function DashboardPage() {
         <StatCard
           label={timeframe === "TODAY" ? "Today's Revenue" : `${timeframe} Revenue`}
           value={`₹${periodRevenue.toLocaleString("en-IN")}`}
-          icon={<DollarSign className="h-5 w-5" />}
+          icon={<IndianRupee className="h-5 w-5" />}
           trend={revenueTrend}
         />
         <StatCard

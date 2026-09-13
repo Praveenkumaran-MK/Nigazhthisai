@@ -206,9 +206,6 @@ export function DashboardPage() {
           scheduled_arrival,
           started_at,
           current_stop_id,
-          schedule_adherence,
-          delay_minutes,
-          distance_to_next_stop_meters,
           buses (
             id,
             bus_number,
@@ -226,6 +223,10 @@ export function DashboardPage() {
         .in("status", ["ACTIVE", "SCHEDULED"])
         .order("created_at", { ascending: false });
 
+      if (tripsErr) {
+        console.error("[Dashboard] Error fetching assigned trips:", tripsErr);
+      }
+
       if (!tripsErr && tripsData) {
         const mapped: AssignedTrip[] = (tripsData as any[]).map((t) => ({
           id: t.id,
@@ -236,9 +237,9 @@ export function DashboardPage() {
           scheduled_arrival: t.scheduled_arrival,
           started_at: t.started_at,
           current_stop_id: t.current_stop_id,
-          schedule_adherence: t.schedule_adherence,
-          delay_minutes: t.delay_minutes,
-          distance_to_next_stop_meters: t.distance_to_next_stop_meters,
+          schedule_adherence: (t as any).schedule_adherence ?? "ON_TIME",
+          delay_minutes: (t as any).delay_minutes ?? 0,
+          distance_to_next_stop_meters: (t as any).distance_to_next_stop_meters ?? null,
           buses: Array.isArray(t.buses) ? t.buses[0] : t.buses,
           routes: Array.isArray(t.routes) ? t.routes[0] : t.routes,
         }));
