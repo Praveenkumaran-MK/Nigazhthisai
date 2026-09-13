@@ -331,6 +331,7 @@ export interface Alert {
   status: AlertStatus;
   source_role: AlertSourceRole;
   passenger_id: string | null;
+  chat_id?: string | null;
   created_at: string;
   resolved_at: string | null;
 }
@@ -347,10 +348,11 @@ export interface AlertInsert {
   longitude?: number | null;
   source_role?: AlertSourceRole;
   passenger_id?: string | null;
+  chat_id?: string | null;
 }
 
 // -----------------------------------------------------------------------------
-// alert_messages (SOS thread)
+// alert_messages (Conductor ⇄ Admin SOS thread)
 // -----------------------------------------------------------------------------
 export interface AlertMessage {
   id: string;
@@ -366,6 +368,38 @@ export interface AlertMessageInsert {
   sender_id: string;
   sender_role: "admin" | "master_admin" | "conductor";
   message: string;
+}
+
+// -----------------------------------------------------------------------------
+// passenger_emergency_chats & messages (Passenger ⇄ Admin SOS thread)
+// -----------------------------------------------------------------------------
+export interface PassengerEmergencyChat {
+  id: string;
+  ticket_id: string | null;
+  trip_id: string | null;
+  bus_id: string | null;
+  district_id: string | null;
+  passenger_session_id: string;
+  status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+  emergency_type: "GENERAL" | "SAFETY" | "MEDICAL" | "HARASSMENT" | "ACCIDENT";
+  initial_latitude: number | null;
+  initial_longitude: number | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  resolution_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PassengerEmergencyMessage {
+  id: string;
+  chat_id: string;
+  sender_role: "passenger" | "admin" | "conductor" | "system";
+  sender_id: string;
+  message: string;
+  latitude: number | null;
+  longitude: number | null;
+  created_at: string;
 }
 
 // -----------------------------------------------------------------------------

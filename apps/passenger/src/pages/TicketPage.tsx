@@ -84,11 +84,32 @@ export function TicketPage() {
   const [emergencyType, setEmergencyType] = useState<"GENERAL" | "MEDICAL" | "SAFETY" | "HARASSMENT">("GENERAL");
   const [chatId, setChatId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [hasUnreadAdminMessage, setHasUnreadAdminMessage] = useState(false);
+  const [lastAdminMessage, setLastAdminMessage] = useState<string | null>(null);
   const [inputMessage, setInputMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-
+  // Check if an active emergency chat session already exists for this ticket
+  useEffect(() => {
+    if (!ticket?.id) return;
+    supabase
+      .from("passenger_emergency_chats")
+      .select("id, status, emergency_type")
+      .eq("ticket_id", ticket.id)
+      .neq("status", "CLOSED")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.id) {
+          setChatId(data.id);
+          if (data.emergency_type) {
+            setEmergencyType(data.emergency_type as any);
+          }
+        }
+      });
+  }, [ticket?.id]);
 
   useEffect(() => {
     void reload();
@@ -165,17 +186,48 @@ export function TicketPage() {
     void fetchExistingRating();
   }, [ticket?.id]);
 
-  // Realtime subscription for emergency chat
+  // Realtime subscription & history fetch for emergency chat
   useEffect(() => {
     if (!chatId) return;
+
+    // 1. Fetch existing message thread
+    supabase
+      .from("passenger_emergency_messages")
+      .select("*")
+      .eq("chat_id", chatId)
+      .order("created_at", { ascending: true })
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setChatMessages(data as ChatMessage[]);
+        }
+      });
+
+    // 2. Subscribe to realtime incoming messages
     const msgChannel = supabase
       .channel(`emg-chat:${chatId}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "passenger_emergency_messages", filter: `chat_id=eq.${chatId}` },
         (payload) => {
-          setChatMessages((prev) => [...prev, payload.new as ChatMessage]);
+          const newMsg = payload.new as ChatMessage;
+          setChatMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
           messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+
+          // If message is from Admin or Conductor, trigger unread alert notification
+          if (newMsg.sender_role === "admin" || newMsg.sender_role === "conductor") {
+            setLastAdminMessage(newMsg.message);
+            setHasUnreadAdminMessage(true);
+            try {
+              if ("vibrate" in navigator) {
+                navigator.vibrate([100, 60, 100]);
+              }
+            } catch {
+              // Ignore vibration permissions
+            }
+          }
         }
       )
       .subscribe();
@@ -241,6 +293,10 @@ export function TicketPage() {
 
   const handleStartChat = async (type = emergencyType) => {
     if (!ticket) return;
+    if (chatId) {
+      setEmergencyType(type);
+      return;
+    }
     setIsSending(true);
     let lat: number | null = null;
     let lon: number | null = null;
@@ -382,20 +438,56 @@ export function TicketPage() {
         ]}
       />
 
+      {/* Real-time Admin SOS Reply Alert Banner */}
+      {hasUnreadAdminMessage && !showEmergencyChat && (
+        <div
+          onClick={() => {
+            setShowEmergencyChat(true);
+            setHasUnreadAdminMessage(false);
+          }}
+          className="w-full cursor-pointer animate-pulse rounded-2xl border-2 border-rose-500 bg-rose-600 p-4 text-white shadow-xl shadow-rose-900/40 flex items-center justify-between gap-3 transition hover:bg-rose-700"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-lg">
+              🚨
+            </div>
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-wider text-rose-100">Control Room Responded</p>
+              <p className="text-xs font-bold line-clamp-1">{lastAdminMessage}</p>
+            </div>
+          </div>
+          <span className="text-xs font-black underline whitespace-nowrap bg-white text-rose-700 px-2.5 py-1 rounded-lg">
+            View Chat →
+          </span>
+        </div>
+      )}
+
       {/* Emergency Assistance Button */}
       {ticketActive && (
         <button
           type="button"
           onClick={() => {
             setShowEmergencyChat(true);
+            setHasUnreadAdminMessage(false);
             if (!chatId) {
               void handleStartChat("GENERAL");
             }
           }}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-500/40 bg-rose-950/30 p-3 text-sm font-bold text-rose-400 shadow-md shadow-rose-950/20 backdrop-blur transition hover:bg-rose-900/40 active:scale-[0.99]"
+          className={`flex w-full items-center justify-between gap-2 rounded-2xl p-3 text-sm font-bold backdrop-blur transition active:scale-[0.99] ${
+            hasUnreadAdminMessage
+              ? "border-2 border-rose-500 bg-rose-600 text-white shadow-lg shadow-rose-900/40 animate-pulse"
+              : "border border-rose-500/40 bg-rose-950/30 text-rose-400 shadow-md shadow-rose-950/20 hover:bg-rose-900/40"
+          }`}
         >
-          <ShieldAlertIcon className="h-4 w-4 text-rose-500" />
-          <span>Emergency Assistance / SOS Chat</span>
+          <div className="flex items-center gap-2">
+            <ShieldAlertIcon className={`h-4 w-4 ${hasUnreadAdminMessage ? "text-white" : "text-rose-500"}`} />
+            <span>Emergency Assistance / SOS Chat</span>
+          </div>
+          {hasUnreadAdminMessage && (
+            <span className="rounded-full bg-white text-rose-700 px-2 py-0.5 text-[10px] font-black">
+              1 New Reply
+            </span>
+          )}
         </button>
       )}
 
