@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge, Card, EmptyState, LoadingState } from "@sbt/ui";
+import { Badge, Card, EmptyState, LoadingState, WheelchairIcon } from "@sbt/ui";
 import type { Stop } from "@sbt/shared-types";
 import { supabase } from "../lib/supabase";
 import { useMyTickets } from "../hooks/useTicket";
@@ -19,6 +19,7 @@ export function MyTicketsPage() {
   const { t } = useI18n();
   const { tickets, status, reload } = useMyTickets();
   const [stopsById, setStopsById] = useState<Map<string, Stop>>(new Map());
+  const [busesByTripId, setBusesByTripId] = useState<Map<string, { bus_number: string; is_wheelchair_accessible?: boolean }>>(new Map());
 
   useEffect(() => {
     void reload();
@@ -32,6 +33,28 @@ export function MyTicketsPage() {
       .select("*")
       .in("id", ids)
       .then(({ data }) => setStopsById(new Map(((data ?? []) as Stop[]).map((s) => [s.id, s]))));
+
+    const tripIds = Array.from(new Set(tickets.map((t) => t.trip_id).filter(Boolean)));
+    if (tripIds.length > 0) {
+      supabase
+        .from("trips")
+        .select("id, buses(bus_number, is_wheelchair_accessible)")
+        .in("id", tripIds)
+        .then(({ data }) => {
+          if (!data) return;
+          const map = new Map<string, { bus_number: string; is_wheelchair_accessible?: boolean }>();
+          for (const row of data as any[]) {
+            const b = Array.isArray(row.buses) ? row.buses[0] : row.buses;
+            if (b?.bus_number) {
+              map.set(row.id, {
+                bus_number: b.bus_number,
+                is_wheelchair_accessible: b.is_wheelchair_accessible,
+              });
+            }
+          }
+          setBusesByTripId(map);
+        });
+    }
   }, [tickets]);
 
   return (
@@ -61,9 +84,24 @@ export function MyTicketsPage() {
               onClick={() => navigate(`/ticket/${ticket.id}`)}
             >
               <div className="flex items-center justify-between">
-                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                  {origin?.name ?? "…"} → {dest?.name ?? "…"}
-                </p>
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    {origin?.name ?? "…"} → {dest?.name ?? "…"}
+                  </p>
+                  {ticket.trip_id && busesByTripId.get(ticket.trip_id) && (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="font-mono text-xs font-semibold text-slate-600 dark:text-slate-400">
+                        Bus #{busesByTripId.get(ticket.trip_id)!.bus_number}
+                      </span>
+                      {busesByTripId.get(ticket.trip_id)!.is_wheelchair_accessible && (
+                        <span className="inline-flex items-center gap-1 rounded bg-blue-500/15 text-blue-600 dark:text-blue-300 border border-blue-500/25 px-1.5 py-0.2 text-[10px] font-bold" title="Handicap Accessible Vehicle">
+                          <WheelchairIcon size={11} className="text-blue-500 dark:text-blue-400" />
+                          <span>Accessible</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <Badge tone={statusTone[ticket.status]}>{ticket.status}</Badge>
               </div>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">

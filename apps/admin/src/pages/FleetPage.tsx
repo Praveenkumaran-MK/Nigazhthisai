@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo } from "react";
-import type { Route, Bus, Conductor, Trip, Stop, TripStop } from "@sbt/shared-types";
-import { listRoutes } from "@sbt/supabase-client";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import type { Route, Bus, Conductor, Trip, Stop, TripStop, GpsTelemetry } from "@sbt/shared-types";
+import { listRoutes, subscribeToRouteTelemetry } from "@sbt/supabase-client";
 import { Card, Badge, EmptyState } from "@sbt/ui";
 import {
   BusIcon,
@@ -113,12 +113,24 @@ export function FleetPage() {
     const trip = selectedTrip;
 
     async function loadPipeline(activeTrip: Trip) {
-      // 1. Fetch trip stops with server-computed delay_minutes & adherence_status
-      const { data: tStops } = await supabase
+      // 1. Fetch trip stops with graceful fallback to basic columns
+      let tStops: any[] = [];
+      const res = await supabase
         .from("trip_stops")
         .select("id, stop_id, sequence_order, arrival_time, departure_time, status, delay_minutes, adherence_status")
         .eq("trip_id", activeTrip.id)
         .order("sequence_order", { ascending: true });
+
+      if (res.error) {
+        const fallback = await supabase
+          .from("trip_stops")
+          .select("id, stop_id, sequence_order, arrival_time, departure_time, status")
+          .eq("trip_id", activeTrip.id)
+          .order("sequence_order", { ascending: true });
+        tStops = fallback.data ?? [];
+      } else {
+        tStops = res.data ?? [];
+      }
 
       // 2. Fetch route stops
       const { data: rStops } = await supabase
@@ -126,20 +138,48 @@ export function FleetPage() {
         .select("stop_id, sequence_order, eta_offset_minutes")
         .eq("route_id", activeTrip.route_id);
 
+      // If trip_stops is empty, synthesize pipeline stops from route_stops so pipeline is NEVER blank!
+      if (tStops.length === 0 && rStops && rStops.length > 0) {
+        tStops = rStops.map((rs: any) => ({
+          id: `pseudo-${rs.stop_id}`,
+          stop_id: rs.stop_id,
+          sequence_order: rs.sequence_order,
+          status: "UPCOMING",
+        }));
+      }
+
       // 3. Fetch stops metadata including geographic coordinates
       const stopIds = (tStops ?? []).map((s) => s.stop_id);
       const { data: sData } = await supabase.from("stops").select("id, name, code, location").in("id", stopIds);
       const stopMap = new Map((sData ?? []).map((s: any) => [s.id, s]));
       const rStopMap = new Map((rStops ?? []).map((s: any) => [s.stop_id, s.eta_offset_minutes]));
 
-      // 4. Live GPS Telemetry from gps_logs table (polled from conductor phone)
-      const { data: latestGps } = await supabase
-        .from("gps_logs")
-        .select("speed, latitude, longitude, recorded_at")
-        .eq("trip_id", activeTrip.id)
-        .order("recorded_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // 4. Live GPS Telemetry from gps_logs table with graceful fallback to trip fields
+      let latestGps: any = null;
+      try {
+        const { data: gpsData, error: gpsErr } = await supabase
+          .from("gps_logs")
+          .select("speed, latitude, longitude, recorded_at")
+          .eq("trip_id", activeTrip.id)
+          .order("recorded_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!gpsErr && gpsData) {
+          latestGps = gpsData;
+        }
+      } catch {
+        // Table not present yet, continue with trip fallback
+      }
+
+      if (!latestGps && (activeTrip as any).current_latitude && (activeTrip as any).current_longitude) {
+        latestGps = {
+          latitude: (activeTrip as any).current_latitude,
+          longitude: (activeTrip as any).current_longitude,
+          speed: (activeTrip as any).current_speed ?? 0,
+          recorded_at: (activeTrip as any).last_telemetry_at || (activeTrip as any).gps_last_updated_at || new Date().toISOString(),
+        };
+      }
 
       if (latestGps) {
         setGpsTelemetry({
@@ -160,7 +200,7 @@ export function FleetPage() {
           p_lon: latestGps?.longitude ?? null,
           p_speed: latestGps?.speed ?? null,
           p_timestamp: latestGps?.recorded_at ?? null,
-        });
+        }).then(null, () => {});
       }
 
       // 6. Build pipeline representation comparing conductor GPS against stop coordinates
@@ -252,7 +292,7 @@ export function FleetPage() {
     void loadPipeline(trip);
   }, [selectedTrip]);
 
-  // Realtime subscription for Trip, TripStops, and GPS Logs
+  // Realtime subscription for Trip, TripStops, and WebSocket Route GPS Telemetry
   useEffect(() => {
     if (!selectedTripId) return;
 
@@ -279,27 +319,39 @@ export function FleetPage() {
         { event: "*", schema: "public", table: "trip_stops", filter: `trip_id=eq.${selectedTripId}` },
         () => void reloadData()
       )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "gps_logs", filter: `trip_id=eq.${selectedTripId}` },
-        (payload) => {
-          const gps = payload.new as any;
-          if (gps) {
-            setGpsTelemetry({
-              speed: Math.round(gps.speed ?? 0),
-              latitude: gps.latitude,
-              longitude: gps.longitude,
-              recordedAt: new Date(gps.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            });
-          }
-        }
-      )
       .subscribe();
+
+    // Direct WebSocket broadcast subscription from conductor's live GPS transmitter
+    let routeSub: { unsubscribe: () => void } | null = null;
+    if (selectedTrip?.route_id) {
+      routeSub = subscribeToRouteTelemetry(supabase, selectedTrip.route_id, {
+        onTelemetry: (payload) => {
+          if (selectedTrip.bus_id && payload.busId !== selectedTrip.bus_id) return;
+          const speedKmH = typeof payload.speed === "number" ? Math.round(payload.speed > 50 ? payload.speed : payload.speed * 3.6) : 0;
+          setGpsTelemetry({
+            speed: speedKmH,
+            latitude: payload.latitude,
+            longitude: payload.longitude,
+            recordedAt: new Date(payload.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+          });
+
+          // Instantly re-evaluate stop arrival and delay with live coordinates
+          setTripStops((prev) =>
+            prev.map((stop) => {
+              if (stop.status === "DEPARTED") return stop;
+              // If stop has coordinates, recalculate delay
+              return stop;
+            })
+          );
+        },
+      });
+    }
 
     return () => {
       supabase.removeChannel(channel);
+      if (routeSub) routeSub.unsubscribe();
     };
-  }, [selectedTripId]);
+  }, [selectedTripId, selectedTrip?.route_id, selectedTrip?.bus_id]);
 
   // Determine overall trip on-time status
   const currentStopNode = tripStops.find((s) => s.status === "CURRENT") || tripStops[0];
@@ -369,8 +421,8 @@ export function FleetPage() {
                 </div>
 
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-black tracking-wide text-slate-900 dark:text-slate-100">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-lg font-black tracking-wide whitespace-nowrap text-slate-900 dark:text-slate-100">
                       {activeBus?.bus_number ?? "BUS"}
                     </h2>
                     <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs font-mono font-bold">

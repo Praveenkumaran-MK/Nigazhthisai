@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, Alert, Badge, Card, Input } from "@sbt/ui";
+import { Button, Alert, Badge, Card, Input, WheelchairIcon } from "@sbt/ui";
 import { Camera, Keyboard, ArrowLeft, Bus } from "lucide-react";
 import { validateTicket } from "@sbt/supabase-client";
 import { supabase } from "../lib/supabase";
@@ -28,7 +28,7 @@ export function ScannerPage() {
   const { t } = useConductorI18n();
 
   const [activeTripId, setActiveTripId] = useState<string | undefined>(paramTripId);
-  const [tripInfo, setTripInfo] = useState<{ bus_number?: string; route_name?: string } | null>(null);
+  const [tripInfo, setTripInfo] = useState<{ bus_number?: string; route_name?: string; is_wheelchair_accessible?: boolean } | null>(null);
   const [mode, setMode] = useState<"camera" | "pnr">("camera");
   const [feedback, setFeedback] = useState<ScanFeedback>(null);
   const [isValidating, setIsValidating] = useState(false);
@@ -43,7 +43,7 @@ export function ScannerPage() {
         setActiveTripId(tid);
         const { data } = await supabase
           .from("trips")
-          .select("id, status, buses(bus_number), routes(route_number, name)")
+          .select("id, status, buses(bus_number, is_wheelchair_accessible), routes(route_number, name)")
           .eq("id", tid)
           .maybeSingle();
         if (data) {
@@ -51,13 +51,14 @@ export function ScannerPage() {
           const route = Array.isArray(data.routes) ? data.routes[0] : data.routes;
           setTripInfo({
             bus_number: bus?.bus_number,
+            is_wheelchair_accessible: bus?.is_wheelchair_accessible,
             route_name: route?.route_number ? `${route.route_number} - ${route.name}` : route?.name,
           });
         }
       } else if (conductor?.id) {
         const { data } = await supabase
           .from("trips")
-          .select("id, status, buses(bus_number), routes(route_number, name)")
+          .select("id, status, buses(bus_number, is_wheelchair_accessible), routes(route_number, name)")
           .eq("conductor_id", conductor.id)
           .in("status", ["ACTIVE", "SCHEDULED"])
           .order("created_at", { ascending: false })
@@ -70,6 +71,7 @@ export function ScannerPage() {
           const route = Array.isArray(first.routes) ? first.routes[0] : first.routes;
           setTripInfo({
             bus_number: bus?.bus_number,
+            is_wheelchair_accessible: bus?.is_wheelchair_accessible,
             route_name: route?.route_number ? `${route.route_number} - ${route.name}` : route?.name,
           });
         }
@@ -220,10 +222,16 @@ export function ScannerPage() {
         </Button>
 
         {tripInfo && (
-          <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400">
-            <Bus className="h-3.5 w-3.5 text-sky-400" />
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <Bus className="h-3.5 w-3.5 text-sky-400 shrink-0" />
             <span className="font-semibold text-slate-200">Bus #{tripInfo.bus_number}</span>
-            {tripInfo.route_name && <span>• {tripInfo.route_name}</span>}
+            {tripInfo.is_wheelchair_accessible && (
+              <span className="inline-flex items-center gap-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 text-[10px] font-bold" title="Handicap Accessible Vehicle">
+                <WheelchairIcon size={12} className="text-blue-400" />
+                <span>Handicap</span>
+              </span>
+            )}
+            {tripInfo.route_name && <span className="hidden sm:inline">• {tripInfo.route_name}</span>}
           </div>
         )}
 

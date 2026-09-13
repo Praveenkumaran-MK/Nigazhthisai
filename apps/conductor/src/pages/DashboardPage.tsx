@@ -12,6 +12,7 @@ import {
   QRDisplay,
   TransitBusRunner,
   useToast,
+  WheelchairIcon,
 } from "@sbt/ui";
 import {
   QrCode,
@@ -67,6 +68,7 @@ interface AssignedTrip {
     registration_number?: string | null;
     type?: string | null;
     capacity?: number | null;
+    is_wheelchair_accessible?: boolean;
   } | null;
   routes?: {
     id: string;
@@ -229,7 +231,8 @@ export function DashboardPage() {
             bus_number,
             registration_number,
             type,
-            capacity
+            capacity,
+            is_wheelchair_accessible
           ),
           routes (
             id,
@@ -865,9 +868,17 @@ export function DashboardPage() {
                         : "ON-TIME"}
                     </Badge>
                   </div>
-                  <span className="text-xs font-mono font-bold text-emerald-400">
-                    Bus #{activeTrip.buses?.bus_number ?? "N/A"}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-mono font-bold text-emerald-400">
+                      Bus #{activeTrip.buses?.bus_number ?? "N/A"}
+                    </span>
+                    {activeTrip.buses?.is_wheelchair_accessible && (
+                      <span className="inline-flex items-center gap-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 text-[10px] font-bold" title="Handicap Accessible Vehicle">
+                        <WheelchairIcon size={12} className="text-blue-400" />
+                        <span>Handicap</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-3">
@@ -922,31 +933,6 @@ export function DashboardPage() {
                     />
                   </div>
                 )}
-
-                {/* Prominent Action Buttons on Card */}
-                <div className="mt-4 grid grid-cols-2 gap-2.5">
-                  <Button
-                    size="lg"
-                    className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black shadow-lg shadow-orange-950/40 inline-flex items-center justify-center gap-2"
-                    onClick={() => {
-                      setIssuedTicket(null);
-                      setShowIssueTicket(true);
-                    }}
-                  >
-                    <Ticket className="h-4 w-4" />
-                    <span>{t("Issue Ticket")}</span>
-                  </Button>
-
-                  <Button
-                    size="lg"
-                    variant="secondary"
-                    className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold inline-flex items-center justify-center gap-2 border border-slate-700"
-                    onClick={() => navigate(`/trip/${activeTrip.id}/scan`)}
-                  >
-                    <Camera className="h-4 w-4 text-sky-400" />
-                    <span>{t("Scan Ticket")}</span>
-                  </Button>
-                </div>
               </Card>
 
               {/* Live Bus Occupancy Card */}
@@ -1054,9 +1040,17 @@ export function DashboardPage() {
                 <Badge tone="warning" className="animate-pulse font-extrabold uppercase tracking-wider">
                   SCHEDULED SERVICE READY
                 </Badge>
-                <span className="text-xs font-mono font-bold text-amber-400">
-                  Bus #{primaryScheduledTrip.buses?.bus_number ?? "N/A"}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-mono font-bold text-amber-400">
+                    Bus #{primaryScheduledTrip.buses?.bus_number ?? "N/A"}
+                  </span>
+                  {primaryScheduledTrip.buses?.is_wheelchair_accessible && (
+                    <span className="inline-flex items-center gap-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 text-[10px] font-bold" title="Handicap Accessible Vehicle">
+                      <WheelchairIcon size={12} className="text-blue-400" />
+                      <span>Handicap</span>
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="mt-3">
                 <h2 className="text-lg font-bold text-slate-100">
@@ -1126,6 +1120,12 @@ export function DashboardPage() {
                           <BusIcon className="h-3 w-3 text-slate-500" />
                           {st.buses?.bus_number ?? "N/A"}
                         </span>
+                        {st.buses?.is_wheelchair_accessible && (
+                          <span className="inline-flex items-center gap-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1 py-0.2 text-[9px] font-bold" title="Handicap Accessible">
+                            <WheelchairIcon size={10} className="text-blue-400" />
+                            <span>Handicap</span>
+                          </span>
+                        )}
                         <span>•</span>
                         <span>
                           {st.scheduled_departure

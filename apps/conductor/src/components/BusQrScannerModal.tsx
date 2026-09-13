@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useCameraScanner } from "../hooks/useCameraScanner";
 import { Camera, X, Zap, Keyboard, ShieldAlert, ShieldCheck, RefreshCw, Bus, CheckCircle2 } from "lucide-react";
-import { Button, Input } from "@sbt/ui";
+import { Button, Input, WheelchairIcon } from "@sbt/ui";
 
 interface BusQrScannerModalProps {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface BusQrScannerModalProps {
     bus_number: string;
     registration_number?: string | null;
     type?: string | null;
+    is_wheelchair_accessible?: boolean;
   } | null;
   onVerify: (scannedValue: string) => Promise<void>;
 }
@@ -135,9 +136,17 @@ export function BusQrScannerModal({
               <Bus className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">
-                Verify Bus #{assignedBus?.bus_number ?? "Assigned"}
-              </h2>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-base font-bold text-white">
+                  Verify Bus #{assignedBus?.bus_number ?? "Assigned"}
+                </h2>
+                {assignedBus?.is_wheelchair_accessible && (
+                  <span className="inline-flex items-center gap-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 text-[10px] font-bold" title="Handicap Accessible Vehicle">
+                    <WheelchairIcon size={12} className="text-blue-400" />
+                    <span>Handicap</span>
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-400">
                 {assignedBus?.registration_number ? `${assignedBus.registration_number} · ` : ""}
                 Scan official bus QR

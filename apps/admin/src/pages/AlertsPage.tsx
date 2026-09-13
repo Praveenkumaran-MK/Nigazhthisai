@@ -85,21 +85,83 @@ export function AlertsPage() {
     supabase.from("districts").select("id, name").order("name").then(({ data }) => setDistricts((data ?? []) as Pick<District, "id" | "name">[]));
   }, []);
 
+  const [scanningIdle, setScanningIdle] = useState(false);
+
   // Automated continuous background idle bus scanner (runs every 60 seconds)
-  useEffect(() => {
-    const scanIdle = async () => {
-      try {
-        const { data } = await supabase.rpc("check_idle_buses");
+  const scanIdle = async () => {
+    setScanningIdle(true);
+    let rpcSucceeded = false;
+    try {
+      const { data, error } = await supabase.rpc("check_idle_buses");
+      if (!error) {
+        rpcSucceeded = true;
         const count = Number(data ?? 0);
         if (count > 0) {
           const refreshed = await listActiveAlerts(supabase);
           setAlerts(refreshed);
         }
-      } catch {
-        // silent background automated scan
       }
-    };
+    } catch {
+      rpcSucceeded = false;
+    }
 
+    // Client-side fallback idle detection routine (works even if RPC or gps_logs is missing)
+    if (!rpcSucceeded) {
+      try {
+        const { data: activeTrips } = await supabase
+          .from("trips")
+          .select("id, bus_id, conductor_id, district_id, status, started_at, gps_last_updated_at, last_telemetry_at, buses(bus_number)")
+          .eq("status", "ACTIVE");
+
+        if (activeTrips && activeTrips.length > 0) {
+          const now = Date.now();
+          let newAlertCount = 0;
+
+          for (const trip of activeTrips) {
+            const lastActivity = (trip as any).last_telemetry_at || (trip as any).gps_last_updated_at || trip.started_at;
+            if (!lastActivity) continue;
+
+            const elapsedMins = (now - new Date(lastActivity).getTime()) / 60000;
+            // Idle alert threshold: >= 10 minutes without telemetry movement
+            if (elapsedMins >= 10) {
+              const { data: existing } = await supabase
+                .from("alerts")
+                .select("id")
+                .eq("trip_id", trip.id)
+                .in("status", ["OPEN", "ACKNOWLEDGED", "INVESTIGATING"])
+                .limit(1);
+
+              if (!existing || existing.length === 0) {
+                const busObj = Array.isArray(trip.buses) ? trip.buses[0] : trip.buses;
+                const busNum = (busObj as any)?.bus_number || "assigned vehicle";
+                await supabase.from("alerts").insert({
+                  trip_id: trip.id,
+                  bus_id: trip.bus_id,
+                  conductor_id: trip.conductor_id,
+                  district_id: trip.district_id,
+                  severity: "WARNING",
+                  status: "OPEN",
+                  title: `Bus #${busNum} Idle Detected`,
+                  message: `Vehicle #${busNum} has had no GPS movement or telemetry heartbeat for ${Math.round(elapsedMins)} minutes while on an active service trip.`,
+                });
+                newAlertCount++;
+              }
+            }
+          }
+
+          if (newAlertCount > 0) {
+            const refreshed = await listActiveAlerts(supabase);
+            setAlerts(refreshed);
+          }
+        }
+      } catch (err) {
+        console.error("Client idle scanner error:", err);
+      }
+    }
+    setScanningIdle(false);
+  };
+
+  useEffect(() => {
     void scanIdle();
     const intervalId = window.setInterval(scanIdle, 60000);
     return () => window.clearInterval(intervalId);
@@ -329,6 +391,18 @@ export function AlertsPage() {
           >
             <SirenIcon className={`h-4 w-4 ${audioArmed ? "text-white" : "text-slate-400"}`} />
             <span>{audioArmed ? "Siren Armed (Click to Mute)" : "Siren Muted (Click to Arm)"}</span>
+          </button>
+
+          {/* Manual Scan Fleet Button */}
+          <button
+            type="button"
+            onClick={() => void scanIdle()}
+            disabled={scanningIdle}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 disabled:opacity-50 transition"
+            title="Scan active fleet vehicles for stationary idle alerts"
+          >
+            <ActivityIcon className={`h-3.5 w-3.5 text-emerald-500 ${scanningIdle ? "animate-spin" : ""}`} />
+            <span>{scanningIdle ? "Scanning Fleet…" : "Scan Fleet Idle"}</span>
           </button>
 
           {/* View Tab Buttons */}

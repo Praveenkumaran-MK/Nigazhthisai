@@ -87,18 +87,35 @@ export function useGpsTelemetry({ busId, tripId, routeId, conductorId, enabled }
         setLastTelemetry(telemetry);
         void channel.broadcastPosition(telemetry);
 
+        // Direct database heartbeat on active trip to guarantee idle detection & real-time tracking
+        const recordedIso = new Date(now).toISOString();
+        void supabase
+          .from("trips")
+          .update({
+            gps_last_updated_at: recordedIso,
+            current_latitude: pos.coords.latitude,
+            current_longitude: pos.coords.longitude,
+            current_speed: pos.coords.speed,
+            last_telemetry_at: recordedIso,
+          })
+          .eq("id", tripId)
+          .then(null, () => {});
+
         // Persist GPS telemetry to central cloud PostgreSQL gps_logs table
-        void supabase.from("gps_logs").insert({
-          trip_id: tripId,
-          bus_id: busId,
-          conductor_id: conductorId,
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          speed: pos.coords.speed,
-          heading: pos.coords.heading,
-          accuracy: pos.coords.accuracy,
-          recorded_at: new Date(now).toISOString(),
-        });
+        void supabase
+          .from("gps_logs")
+          .insert({
+            trip_id: tripId,
+            bus_id: busId,
+            conductor_id: conductorId,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            speed: pos.coords.speed,
+            heading: pos.coords.heading,
+            accuracy: pos.coords.accuracy,
+            recorded_at: recordedIso,
+          })
+          .then(null, () => {});
       },
       (err) => setStatus(err.code === err.PERMISSION_DENIED ? "denied" : "error"),
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 },

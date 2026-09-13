@@ -16,13 +16,58 @@ values (true, 'nigazhthisai-transit@upi', true, 'Nigazhthisai Pvt. Ltd')
 on conflict (id) do update set
   authority_name = coalesce(transport_authority_config.authority_name, excluded.authority_name);
 
--- 2. Ensure buses table has status column
+-- 2. Ensure buses, trip_stops, and trips have all required columns
 alter table public.buses
-  add column if not exists status text default 'ACTIVE';
+  add column if not exists status text default 'ACTIVE',
+  add column if not exists is_wheelchair_accessible boolean default false;
 
 update public.buses
 set status = case when is_active = false then 'INACTIVE' else 'ACTIVE' end
 where status is null;
+
+alter table public.trip_stops
+  add column if not exists delay_minutes integer default 0,
+  add column if not exists adherence_status text default 'ON_TIME';
+
+alter table public.trips
+  add column if not exists gps_last_updated_at timestamptz,
+  add column if not exists last_telemetry_at timestamptz,
+  add column if not exists current_latitude double precision,
+  add column if not exists current_longitude double precision,
+  add column if not exists current_speed double precision;
+
+-- 2b. Central GPS Logs Table & Realtime Publication
+create table if not exists public.gps_logs (
+  id           uuid primary key default gen_random_uuid(),
+  trip_id      uuid references public.trips (id) on delete cascade,
+  bus_id       uuid references public.buses (id) on delete set null,
+  conductor_id uuid references public.conductors (id) on delete set null,
+  latitude     double precision not null,
+  longitude    double precision not null,
+  speed        double precision,
+  heading      double precision,
+  accuracy     double precision,
+  recorded_at  timestamptz not null default now()
+);
+
+create index if not exists idx_gps_logs_trip_time on public.gps_logs (trip_id, recorded_at desc);
+create index if not exists idx_gps_logs_bus_time  on public.gps_logs (bus_id, recorded_at desc);
+create index if not exists idx_gps_logs_recorded  on public.gps_logs (recorded_at desc);
+
+alter table public.gps_logs enable row level security;
+
+drop policy if exists gps_logs_public_read on public.gps_logs;
+create policy gps_logs_public_read on public.gps_logs for select using (true);
+
+drop policy if exists gps_logs_write on public.gps_logs;
+create policy gps_logs_write on public.gps_logs for insert with check (true);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.gps_logs;
+exception when others then
+  null;
+end $$;
 
 -- 3. Drop conflicting overloads of log_maintenance_entry and recreate unified RPC
 drop function if exists public.log_maintenance_entry(text, uuid, text, int, text);
@@ -1586,6 +1631,99 @@ drop trigger if exists trg_auto_advance_trip_on_gps on public.gps_logs;
 create trigger trg_auto_advance_trip_on_gps
   after insert on public.gps_logs
   for each row execute function public.auto_advance_trip_on_gps();
+
+-- 22. Bulletproof Idle Bus Detection Engine
+create or replace function public.check_idle_buses()
+returns int
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_idle_minutes int := 10;
+  v_flagged      int := 0;
+  v_trip         record;
+  v_last_time    timestamptz;
+  v_elapsed_mins double precision;
+  v_bus_number   text;
+begin
+  -- Get configured threshold or default 10 minutes
+  select coalesce(idle_alert_minutes, 10) into v_idle_minutes
+  from public.transport_authority_config
+  limit 1;
+
+  if v_idle_minutes is null or v_idle_minutes <= 0 then
+    v_idle_minutes := 10;
+  end if;
+
+  for v_trip in
+    select
+      t.id as trip_id,
+      t.bus_id,
+      t.conductor_id,
+      t.district_id,
+      t.started_at,
+      t.gps_last_updated_at,
+      t.last_telemetry_at,
+      b.bus_number
+    from public.trips t
+    left join public.buses b on b.id = t.bus_id
+    where t.status = 'ACTIVE'
+  loop
+    -- Check timestamp from gps_logs first, or fallback to trip columns
+    select max(recorded_at) into v_last_time
+    from public.gps_logs
+    where trip_id = v_trip.trip_id;
+
+    if v_last_time is null then
+      v_last_time := coalesce(v_trip.last_telemetry_at, v_trip.gps_last_updated_at, v_trip.started_at);
+    end if;
+
+    if v_last_time is null then
+      continue;
+    end if;
+
+    v_elapsed_mins := extract(epoch from (now() - v_last_time)) / 60.0;
+
+    if v_elapsed_mins >= v_idle_minutes then
+      -- Check if open alert already exists
+      if not exists (
+        select 1 from public.alerts
+        where trip_id = v_trip.trip_id
+          and status in ('OPEN', 'ACKNOWLEDGED', 'INVESTIGATING')
+      ) then
+        v_bus_number := coalesce(v_trip.bus_number, 'Assigned Vehicle');
+
+        insert into public.alerts (
+          trip_id,
+          bus_id,
+          conductor_id,
+          district_id,
+          severity,
+          status,
+          title,
+          message
+        ) values (
+          v_trip.trip_id,
+          v_trip.bus_id,
+          v_trip.conductor_id,
+          v_trip.district_id,
+          'WARNING',
+          'OPEN',
+          'Bus #' || v_bus_number || ' Idle Detected',
+          'Vehicle #' || v_bus_number || ' has reported no GPS movement or telemetry heartbeat for ' || round(v_elapsed_mins::numeric) || ' minutes while on active service.'
+        );
+
+        v_flagged := v_flagged + 1;
+      end if;
+    end if;
+  end loop;
+
+  return v_flagged;
+end;
+$$;
+
+grant execute on function public.check_idle_buses() to authenticated, anon;
 
 notify pgrst, 'reload schema';
 
