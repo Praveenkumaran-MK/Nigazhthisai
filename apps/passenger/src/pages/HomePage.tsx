@@ -200,13 +200,6 @@ export function HomePage() {
     });
   }, [allStops, originQuery, destStop]);
 
-  // Popular destination suggestions
-  const popularDestinations = useMemo(() => {
-    return allStops
-      .filter((s) => !originStop || s.id !== originStop.id)
-      .slice(0, 4);
-  }, [allStops, originStop]);
-
   const handleSelectDest = (stop: Stop) => {
     setDestStop(stop);
     setDestQuery(stop.name);
@@ -434,28 +427,6 @@ export function HomePage() {
                 </div>
               )}
             </div>
-
-            {/* Quick Popular Destination Chips */}
-            {!destStop && popularDestinations.length > 0 && (
-              <div className="flex flex-col gap-1.5 pt-1">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                  Popular Destinations
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {popularDestinations.map((stop) => (
-                    <button
-                      key={stop.id}
-                      type="button"
-                      onClick={() => handleSelectDest(stop)}
-                      className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700 transition dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                    >
-                      <MapPin className="h-3 w-3 text-brand-600 dark:text-brand-400" />
-                      <span>{stop.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Connecting Route Status Feedback */}
             {isResolvingRoute && (
