@@ -7,6 +7,7 @@ import "./index.css";
 import { App } from "./App";
 import { AdminAuthProvider } from "./hooks/useAdminAuth";
 import { FeatureFlagsProvider } from "./hooks/useFeatureFlags";
+import { AdminI18nProvider } from "./lib/i18n";
 
 // The HTML <title> is baked at build time (same bundle for both portals).
 // Override it immediately so the browser tab shows the correct tier.
@@ -19,13 +20,15 @@ document.title = isMasterAdminHost
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
-      <ToastProvider>
-        <AdminAuthProvider>
-          <FeatureFlagsProvider>
-            <App />
-          </FeatureFlagsProvider>
-        </AdminAuthProvider>
-      </ToastProvider>
+      <AdminI18nProvider>
+        <ToastProvider>
+          <AdminAuthProvider>
+            <FeatureFlagsProvider>
+              <App />
+            </FeatureFlagsProvider>
+          </AdminAuthProvider>
+        </ToastProvider>
+      </AdminI18nProvider>
     </BrowserRouter>
   </StrictMode>,
 );

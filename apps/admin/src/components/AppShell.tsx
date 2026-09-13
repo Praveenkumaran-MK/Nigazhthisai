@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { BrandLogo } from "@sbt/ui";
 import { useAdminAuth } from "../hooks/useAdminAuth";
 import { useFeatureFlags } from "../hooks/useFeatureFlags";
+import { useAdminI18n } from "../lib/i18n";
 import {
   LayoutDashboard,
   Activity,
@@ -20,7 +21,6 @@ import {
   UploadCloud,
   FileSpreadsheet,
   LogOut,
-  Bell,
   User,
   ArrowLeft,
 } from "lucide-react";
@@ -77,6 +77,7 @@ const navGroups: NavGroup[] = [
 export function AppShell({ children }: { children: ReactNode }) {
   const { profile, logout } = useAdminAuth();
   const { isAccessible } = useFeatureFlags();
+  const { lang, setLang, t } = useAdminI18n();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -100,7 +101,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const activeNavItem = navGroups
     .flatMap((g) => g.items)
     .find((i) => i.to === currentPath);
-  const pageTitle = activeNavItem ? activeNavItem.label.toUpperCase() : "DASHBOARD";
+  const pageTitle = activeNavItem ? activeNavItem.label : "Dashboard";
 
   return (
     <div className="flex min-h-dvh bg-[#F8FAFC]">
@@ -111,9 +112,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-2.5 px-6 py-6 border-b border-white/10">
             <BrandLogo variant="mark" tone="light" className="h-8 w-8 shrink-0" />
             <div className="flex items-baseline gap-1.5 leading-none">
-              <span className="font-extrabold tracking-wider text-base text-white">NIGAZHTHISAI</span>
+              <span className="font-extrabold tracking-wider text-base text-white">{t("NIGAZHTHISAI")}</span>
               <span className="font-extrabold tracking-wider text-base text-[#D97F00]">
-                {isMasterAdmin ? "MASTER" : "ADMIN"}
+                {isMasterAdmin ? t("MASTER") : t("ADMIN")}
               </span>
             </div>
           </div>
@@ -124,7 +125,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div key={group.label} className="mb-2">
                 {visibleNavGroups.length > 1 && (
                   <p className="mb-1.5 px-3 text-[10px] font-extrabold uppercase tracking-widest text-white/40">
-                    {group.label}
+                    {t(group.label)}
                   </p>
                 )}
                 <div className="flex flex-col gap-1">
@@ -149,7 +150,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                                 isActive ? "text-[#D97F00]" : "text-white/60 group-hover:text-white"
                               }`}
                             />
-                            <span>{item.label}</span>
+                            <span>{t(item.label)}</span>
                           </>
                         )}
                       </NavLink>
@@ -172,7 +173,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider text-red-400 hover:text-red-300 hover:bg-white/5 transition-colors"
           >
             <LogOut className="h-4 w-4 text-red-400" />
-            <span>LOGOUT</span>
+            <span>{t("LOGOUT")}</span>
           </button>
         </div>
       </aside>
@@ -190,49 +191,50 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-[#0D2A5D] transition-colors"
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span>BACK</span>
+                <span>{t("BACK")}</span>
               </button>
             )}
             <h1 className="text-sm font-black uppercase tracking-wider text-[#0D2A5D]">
-              {pageTitle}
+              {t(pageTitle).toUpperCase()}
             </h1>
           </div>
 
-          {/* Right: Language Pill, Bell Icon, User Profile */}
+          {/* Right: Language Pill & User Profile (Notification Icon Removed) */}
           <div className="flex items-center gap-4">
-            {/* Language Switcher Pill */}
+            {/* Bilingual Language Switcher Pill */}
             <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200/60">
               <button
                 type="button"
-                className="rounded-md bg-[#0D2A5D] px-2.5 py-1 text-[11px] font-bold text-white shadow-sm"
+                onClick={() => setLang("en")}
+                className={`rounded-md px-3 py-1 text-[11px] font-bold transition-all ${
+                  lang === "en"
+                    ? "bg-[#0D2A5D] text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
               >
                 EN
               </button>
               <button
                 type="button"
-                className="rounded-md px-2.5 py-1 text-[11px] font-bold text-slate-500 hover:text-slate-900"
+                onClick={() => setLang("ta")}
+                className={`rounded-md px-3 py-1 text-[11px] font-bold transition-all ${
+                  lang === "ta"
+                    ? "bg-[#0D2A5D] text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
               >
                 TA
               </button>
             </div>
 
-            {/* Notification Bell */}
-            <button
-              type="button"
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-slate-200/80 text-slate-600 hover:text-[#0D2A5D] transition shadow-sm"
-            >
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-[#D97F00]" />
-            </button>
-
             {/* User Profile Display */}
             <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-bold uppercase tracking-wider text-[#0D2A5D] leading-tight">
-                  {profile?.display_name || (isMasterAdmin ? "MASTER ADMIN" : "DISTRICT ADMIN")}
+                  {profile?.display_name || (isMasterAdmin ? t("MASTER ADMIN") : t("DISTRICT ADMIN"))}
                 </p>
                 <p className="text-[10px] font-extrabold uppercase tracking-widest text-[#D97F00] leading-tight">
-                  {roleLabel}
+                  {t(roleLabel)}
                 </p>
               </div>
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white border-2 border-[#0D2A5D] text-[#0D2A5D] shadow-sm">
