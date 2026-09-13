@@ -466,6 +466,269 @@ export const dictionary: Record<string, string> = {
   "HIGH": "அதிகம்",
   "ALL": "அனைத்தும்",
   "All": "அனைத்தும்",
+
+  // Resource CRUD Core Operations & Buttons
+  "CREATE NEW STOP": "புதிய நிறுத்தம் உருவாக்கு",
+  "Create New Stop": "புதிய நிறுத்தம் உருவாக்கு",
+  "Search stops...": "நிறுத்தங்களைத் தேடுக...",
+  "Search stops": "நிறுத்தங்களைத் தேடுக",
+  "Stop created": "நிறுத்தம் உருவாக்கப்பட்டது",
+  "Stop updated": "நிறுத்தம் புதுப்பிக்கப்பட்டது",
+  "CREATE NEW ROUTE": "புதிய வழித்தடம் உருவாக்கு",
+  "Create New Route": "புதிய வழித்தடம் உருவாக்கு",
+  "Search routes...": "வழித்தடங்களைத் தேடுக...",
+  "Route created": "வழித்தடம் உருவாக்கப்பட்டது",
+  "Route updated": "வழித்தடம் புதுப்பிக்கப்பட்டது",
+  "CREATE NEW BUS": "புதிய பேருந்து உருவாக்கு",
+  "Create New Bus": "புதிய பேருந்து உருவாக்கு",
+  "Search buses...": "பேருந்துகளைத் தேடுக...",
+  "Bus created": "பேருந்து உருவாக்கப்பட்டது",
+  "Bus updated": "பேருந்து புதுப்பிக்கப்பட்டது",
+  "CREATE NEW TRIP": "புதிய பயணம் உருவாக்கு",
+  "Create New Trip": "புதிய பயணம் உருவாக்கு",
+  "Search trips...": "பயணங்களைத் தேடுக...",
+  "Trip created": "பயணம் உருவாக்கப்பட்டது",
+  "Trip updated": "பயணம் புதுப்பிக்கப்பட்டது",
+  "CREATE NEW SCHEDULE": "புதிய அட்டவணை உருவாக்கு",
+  "Create New Schedule": "புதிய அட்டவணை உருவாக்கு",
+  "Search schedules...": "அட்டவணைகளைத் தேடுக...",
+  "Schedule created": "அட்டவணை உருவாக்கப்பட்டது",
+  "Schedule updated": "அட்டவணை புதுப்பிக்கப்பட்டது",
+  "CREATE NEW FARE": "புதிய கட்டணம் உருவாக்கு",
+  "Create New Fare": "புதிய கட்டணம் உருவாக்கு",
+  "Search fares...": "கட்டணங்களைத் தேடுக...",
+  "Fare created": "கட்டணம் உருவாக்கப்பட்டது",
+  "Fare updated": "கட்டணம் புதுப்பிக்கப்பட்டது",
+  "CREATE NEW DISTRICT": "புதிய மாவட்டம் உருவாக்கு",
+  "Create New District": "புதிய மாவட்டம் உருவாக்கு",
+  "Search districts...": "மாவட்டங்களைத் தேடுக...",
+  "District created": "மாவட்டம் உருவாக்கப்பட்டது",
+  "District updated": "மாவட்டம் புதுப்பிக்கப்பட்டது",
+  "CREATE NEW CONDUCTOR": "புதிய நடத்துனர் உருவாக்கு",
+  "Create New Conductor": "புதிய நடத்துனர் உருவாக்கு",
+  "Search conductors...": "நடத்துனர்களைத் தேடுக...",
+  "Conductor created": "நடத்துனர் உருவாக்கப்பட்டது",
+  "Conductor updated": "நடத்துனர் புதுப்பிக்கப்பட்டது",
+  "CREATE NEW ADMIN USER": "புதிய நிர்வாகப் பயனர் உருவாக்கு",
+  "Create New Admin User": "புதிய நிர்வாகப் பயனர் உருவாக்கு",
+  "Search users...": "பயனர்களைத் தேடுக...",
+  "User created": "பயனர் உருவாக்கப்பட்டது",
+  "User updated": "பயனர் புதுப்பிக்கப்பட்டது",
+  "CREATE NEW RECORD": "புதிய பதிவு உருவாக்கு",
+  "Create New Record": "புதிய பதிவு உருவாக்கு",
+  "Record created": "பதிவு உருவாக்கப்பட்டது",
+  "Record updated": "பதிவு புதுப்பிக்கப்பட்டது",
+  "Delete this record?": "இந்தப் பதிவை நீக்கவா?",
+  "This action cannot be undone.": "இந்தச் செயலை மீட்டெடுக்க முடியாது.",
+  "Deleted": "நீக்கப்பட்டது",
+  "Could not delete": "நீக்க முடியவில்லை",
+  "Could not save": "சேமிக்க முடியவில்லை",
+  "Something went wrong": "ஏதோ தவறு நடந்துவிட்டது",
+  "No stops found": "நிறுத்தங்கள் எதுவும் கிடைக்கவில்லை",
+  "No routes found": "வழித்தடங்கள் எதுவும் கிடைக்கவில்லை",
+  "No buses found": "பேருந்துகள் எதுவும் கிடைக்கவில்லை",
+  "No trips found": "பயணங்கள் எதுவும் கிடைக்கவில்லை",
+  "No schedules found": "அட்டவணைகள் எதுவும் கிடைக்கவில்லை",
+  "No fares found": "கட்டணங்கள் எதுவும் கிடைக்கவில்லை",
+  "No conductors found": "நடத்துனர்கள் எதுவும் கிடைக்கவில்லை",
+  "No users found": "பயனர்கள் எதுவும் கிடைக்கவில்லை",
+  "No records found": "பதிவுகள் எதுவும் கிடைக்கவில்லை",
+  "Edit Bus": "பேருந்தைத் திருத்து",
+  "Edit Trip": "பயணத்தைத் திருத்து",
+  "Edit Schedule": "அட்டவணையைத் திருத்து",
+  "Edit Fare": "கட்டணத்தைத் திருத்து",
+  "Edit User": "பயனரைத் திருத்து",
+  "Edit Conductor": "நடத்துனரைத் திருத்து",
+
+  // Core Table Column Headers
+  "COORDINATES": "ஆயத்தொலைவுகள்",
+  "CORRIDOR": "வழித்தடம்",
+  "SCHEDULE": "அட்டவணை",
+  "BUS NUMBER": "பேருந்து எண்",
+  "Bus number": "பேருந்து எண்",
+  "Bus Number": "பேருந்து எண்",
+  "CAPACITY": "கொள்ளளவு",
+  "Capacity": "கொள்ளளவு",
+  "ORIGIN": "தொடக்க நிறுத்தம்",
+  "DESTINATION": "சேருமிடம்",
+  "Destination stop": "சேருமிட நிறுத்தம்",
+  "Origin stop": "தொடக்க நிறுத்தம்",
+  "FARE": "கட்டணம்",
+  "Fare amount (₹)": "கட்டணத் தொகை (₹)",
+  "DEPARTURE": "புறப்பாடு",
+  "ARRIVAL": "வருகை",
+  "DURATION": "கால அளவு",
+  "Duration (h)": "கால அளவு (மணிநேரம்)",
+  "SERIAL": "வரிசை எண்",
+  "BATTERY": "பேட்டரி நிலை",
+  "Battery Level": "பேட்டரி நிலை",
+
+  // Core Page Descriptions & Instructional Copy
+  "Bus stops used by routes across the district.": "மாவட்டம் முழுவதும் வழித்தடங்களால் பயன்படுத்தப்படும் பேருந்து நிறுத்தங்கள்.",
+  "Fleet vehicles, each optionally assigned to a route and operating district.": "வாகனக் குழு, ஒவ்வொன்றும் விருப்பத்தேர்வாக ஒரு வழித்தடம் மற்றும் மாவட்டத்திற்கு ஒதுக்கப்பட்டுள்ளது.",
+  "Flat fare per origin/destination pair on a route.": "ஒரு வழித்தடத்தில் தொடக்கம்/சேருமிடம் இணைக்கான நிலையான கட்டணம்.",
+  "Ordering here is authoritative for fare lookup and eligible-bus filtering.": "கட்டணக் கணக்கீடு மற்றும் பேருந்து வடிகட்டலுக்கு இந்த வரிசைமுறை முதன்மையானது.",
+  "Select a route": "வழித்தடத்தைத் தேர்வு செய்க",
+  "Select district": "மாவட்டத்தைத் தேர்வு செய்க",
+  "Select a stop": "நிறுத்தத்தைத் தேர்வு செய்க",
+  "No route assigned": "வழித்தடம் எதுவும் ஒதுக்கப்படவில்லை",
+  "Non-AC": "ஏசி அல்லாதது",
+  "AC": "ஏசி",
+  "Stop name": "நிறுத்தப் பெயர்",
+  "Stop code": "நிறுத்தக் குறியீடு",
+  "Latitude": "அட்சரேகை (Latitude)",
+  "Longitude": "தீர்க்கரேகை (Longitude)",
+  "No stops on this route yet": "இந்த வழித்தடத்தில் இன்னும் நிறுத்தங்கள் சேர்க்கப்படவில்லை",
+  "Add stops below in the order buses will visit them.": "பேருந்துகள் செல்லும் வரிசையில் கீழே நிறுத்தங்களைச் சேர்க்கவும்.",
+  "Add stop": "நிறுத்தம் சேர்",
+  "Add": "சேர்",
+  "Remove": "நீக்கு",
+  "Could not add stop": "நிறுத்தத்தைச் சேர்க்க முடியவில்லை",
+  "Could not remove stop": "நிறுத்தத்தை நீக்க முடியவில்லை",
+  "Could not reorder stop": "நிறுத்த வரிசையை மாற்ற முடியவில்லை",
+
+  // Corridor Management & Metrics
+  "Transit Stops": "போக்குவரத்து நிறுத்தங்கள்",
+  "Search corridors by name, code, or number...": "பெயர், குறியீடு அல்லது எண் மூலம் வழித்தடங்களைத் தேடுக...",
+  "CREATE ROUTE": "புதிய வழித்தடம்",
+  "Create Route": "புதிய வழித்தடம்",
+  "Cards": "அட்டைகள்",
+  "Table": "அட்டவணை",
+  "Loading corridors…": "வழித்தடங்கள் ஏற்றப்படுகின்றன…",
+  "No transit corridors match your search.": "உங்கள் தேடலுக்கு ஏற்ற வழித்தடங்கள் எதுவும் இல்லை.",
+  "Try clearing filters or adding a new route.": "வடிப்பான்களை அழிக்கவும் அல்லது புதிய வழித்தடத்தைச் சேர்க்கவும்.",
+  "Timetable Departures": "புறப்பாடு கால அட்டவணை",
+  "Delete Route": "வழித்தடத்தை நீக்கு",
+  "Route Updated Successfully": "வழித்தடம் வெற்றிகரமாகப் புதுப்பிக்கப்பட்டது",
+  "Route Deleted": "வழித்தடம் நீக்கப்பட்டது",
+  "Route Created Successfully": "வழித்தடம் வெற்றிகரமாக உருவாக்கப்பட்டது",
+  "Days / Week": "நாட்கள் / வாரம்",
+
+  // Single Trips & Weekly Schedules
+  "Single Trip Schedules": "தனிப் பயண அட்டவணைகள்",
+  "Weekly Schedule Templates": "வாராந்திர அட்டவணை வார்ப்புருக்கள்",
+  "Schedule Trip (Wizard)": "பயண வழிகாட்டி (விசாரணை)",
+  "Add Weekly Template": "வாராந்திர வார்ப்புரு சேர்",
+  "Confirm & Launch Trip": "உறுதிசெய்து பயணத்தைத் தொடங்கு",
+  "Create Template": "வார்ப்புருவை உருவாக்கு",
+  "Preferred Conductor": "விருப்பமான நடத்துனர்",
+  "Single Trips": "தனிப் பயணங்கள்",
+  "Template Matrix": "வார்ப்புரு மேட்ரிக்ஸ்",
+  "Departure Time (HH:MM)": "புறப்படும் நேரம் (HH:MM)",
+  "Scheduled Start": "திட்டமிடப்பட்ட தொடக்கம்",
+  "Duration (Hours)": "கால அளவு (மணிநேரம்)",
+  "Schedule New Trip": "புதிய பயணத்தைத் திட்டமிடு",
+  "Trip Scheduled Successfully": "பயணம் வெற்றிகரமாகத் திட்டமிடப்பட்டது",
+  "Trip Details Updated & Audited": "பயண விவரங்கள் புதுப்பிக்கப்பட்டு தணிக்கை செய்யப்பட்டன",
+  "Filter Status:": "நிலை வடிகட்டி:",
+  "ALL STATUSES": "அனைத்து நிலைகள்",
+  "Audit History": "தணிக்கை வரலாறு",
+  "Save Changes": "மாற்றங்களைச் சேமி",
+
+  // Revenue & Financial Analytics
+  "Tickets Sold": "விற்கப்பட்ட டிக்கெட்டுகள்",
+  "Average Fare": "சராசரி கட்டணம்",
+  "Cash Share": "ரொக்கப் பங்கு",
+  "Digital Share": "டிஜிட்டல் பங்கு",
+
+  // Operational Alerts & Incidents
+  "Operational Alerts & SOS": "செயல்பாட்டு எச்சரிக்கைகள் & SOS",
+  "Incident History": "சம்பவ வரலாறு",
+  "Trigger Test Alert": "சோதனை எச்சரிக்கையைத் தொடங்கு",
+  "Audio Siren Enabled": "ஒலி எச்சரிக்கை இயக்கப்பட்டது",
+  "Audio Siren Disabled": "ஒலி எச்சரிக்கை முடக்கப்பட்டது",
+  "Resolve Incident": "சம்பவத்தைத் தீர்வு செய்",
+  "Incident Details": "சம்பவ விவரங்கள்",
+  "Acknowledge Alert": "எச்சரிக்கையை ஏற்றுக்கொள்",
+  "Filter Source:": "மூல வடிகட்டி:",
+  "ALL SOURCES": "அனைத்து மூலங்கள்",
+
+  // Fleet & Maintenance
+  "Active In-Service Trips": "சேவையில் உள்ள பயணங்கள்",
+  "Speed": "வேகம்",
+  "Delay": "தாமதம்",
+  "On Time": "சரியான நேரத்தில்",
+  "Departed": "புறப்பட்டது",
+  "Current": "தற்போது",
+  "Upcoming": "வரவிருப்பது",
+  "Log Maintenance Event": "பராமரிப்பு நிகழ்வைப் பதிவு செய்",
+  "Resource Type": "வள வகை",
+  "Select Bus": "பேருந்தைத் தேர்வு செய்க",
+  "Select ETM": "இடிஎம் சாதனத்தைத் தேர்வு செய்க",
+  "Maintenance Status": "பராமரிப்பு நிலை",
+  "Battery Level (%)": "பேட்டரி நிலை (%)",
+  "Notes / Findings": "குறிப்புகள் / ஆய்வு முடிவுகள்",
+  "UNDER_MAINTENANCE": "பராமரிப்பில் உள்ளது",
+  "INSPECTION_PENDING": "ஆய்வு நிலுவையில் உள்ளது",
+  "REPAIRED": "பழுதுநீக்கப்பட்டது",
+  "DECOMMISSIONED": "செயலிழக்கப்பட்டது",
+
+  // ETM Devices & QR
+  "Electronic Ticketing Machines (ETM)": "மின்னணு டிக்கெட் சாதனங்கள் (ETM)",
+  "Register Device": "சாதனத்தைப் பதிவு செய்",
+  "Register ETM": "இடிஎம் பதிவு செய்",
+  "Assigned Bus": "ஒதுக்கப்பட்ட பேருந்து",
+  "Assign ETM": "இடிஎம் சாதனத்தை ஒதுக்கு",
+  "Assign to Duty": "பணிக்கு ஒதுக்கு",
+  "Bus QR Codes & Ticketing Validation": "பேருந்து க்யூஆர் & டிக்கெட் சரிபார்ப்பு",
+  "Generate QR": "க்யூஆர் உருவாக்கு",
+  "Regenerate QR": "க்யூஆர் மீண்டும் உருவாக்கு",
+  "Print QR": "க்யூஆர் அச்சிடுக",
+  "Copy Payload": "விவரங்களை நகலெடு",
+  "QR Generated": "க்யூஆர் உருவாக்கப்பட்டது",
+
+  // Passenger Complaints
+  "Passenger Complaints & Grievance Resolution": "பயணிகள் புகார்கள் & குறைதீர்ப்பு",
+  "Safety & Security": "பாதுகாப்பு & உறுதி",
+  "Overcrowding": "அதிக நெரிசல்",
+  "Fare Overcharging": "கூடுதல் கட்டணம் வசூலிப்பு",
+  "Driver / Crew Conduct": "ஓட்டுநர் / ஊழியர் நடத்தை",
+  "Cleanliness & Hygiene": "தூய்மை & சுகாதாரம்",
+  "General Grievance": "பொதுவான புகார்",
+  "OPEN": "திறந்துள்ளது",
+  "IN_REVIEW": "மதிப்பாய்வில் உள்ளது",
+  "RESOLVED": "தீர்வு செய்யப்பட்டது",
+  "DISMISSED": "நிராகரிக்கப்பட்டது",
+  "Mark In Review": "மதிப்பாய்வுக்கு மாற்று",
+  "Resolve Grievance": "புகாரைத் தீர்வு செய்",
+  "Dismiss": "நிராகரி",
+
+  // Admin Users & Regional Divisions
+  "Admin Users & Access Control": "நிர்வாகப் பயனர்கள் & அணுகல் கட்டுப்பாடு",
+  "Add District Admin": "மாவட்ட நிர்வாகியைச் சேர்",
+  "Master Admin": "முதன்மை நிர்வாகி",
+  "District Admin": "மாவட்ட நிர்வாகி",
+  "Suspended": "இடைநீக்கம் செய்யப்பட்டது",
+  "Delete Admin": "நிர்வாகியை நீக்கு",
+  "Are you sure you want to remove this admin?": "இந்த நிர்வாகியை நிச்சயமாக நீக்க விரும்புகிறீர்களா?",
+  "Districts & Regional Divisions": "மாவட்டங்கள் & மண்டலப் பிரிவுகள்",
+  "Add New District": "புதிய மாவட்டத்தைச் சேர்",
+  "District Name": "மாவட்டப் பெயர்",
+  "District Code": "மாவட்டக் குறியீடு",
+  "State": "மாநிலம்",
+  "Buses Active": "செயலில் உள்ள பேருந்துகள்",
+  "Conductors Active": "செயலில் உள்ள நடத்துனர்கள்",
+
+  // System Settings
+  "System Settings & Authority Configuration": "அமைப்பு அமைப்புகள் & நிர்வாக கட்டமைப்பு",
+  "Transport Authority Name": "போக்குவரத்து கழகத்தின் பெயர்",
+  "Payment Gateway UPI ID": "பணம் செலுத்தும் UPI முகவரி",
+  "Digital Payments Active": "டிஜிட்டல் கட்டணம் செயலில் உள்ளது",
+  "Customer Support Phone": "வாடிக்கையாளர் ஆதரவு எண்",
+  "Support Email": "ஆதரவு மின்னஞ்சல்",
+  "Save Configuration": "அமைப்புகளைச் சேமி",
+  "Saving Settings…": "அமைப்புகள் சேமிக்கப்படுகின்றன…",
+
+  // CSV Import
+  "Bulk CSV Data Import": "மொத்த சிஎஸ்வி தரவு பதிவேற்றம்",
+  "Import Stops, Routes, and Fares in Bulk": "நிறுத்தங்கள், வழித்தடங்கள் மற்றும் கட்டணங்களை மொத்தமாகப் பதிவேற்றுக",
+  "Select Entity Kind": "பதிவேற்ற வகையைத் தேர்வு செய்க",
+  "Upload CSV File": "சிஎஸ்வி கோப்பை பதிவேற்றுக",
+  "Drag and drop CSV here, or click to browse": "சிஎஸ்வி கோப்பை இங்கே இழுத்து விடவும், அல்லது கிளிக் செய்து தேர்வு செய்யவும்",
+  "Validate & Preview": "சரிபார்த்து முன்னோட்டம் காண்க",
+  "Confirm & Import": "உறுதிசெய்து பதிவேற்றுக",
+  "Rows Validated": "வரிசைகள் சரிபார்க்கப்பட்டன",
+  "Import Completed": "பதிவேற்றம் முடிந்தது",
 };
 
 // Auto-populate reverse dictionary to guarantee 100% bidirectional coverage
@@ -822,6 +1085,66 @@ export function translateText(rawText: string): string {
     return rawText.replace(trimmed, res);
   }
 
+// English sentence indicators (articles, prepositions, aux verbs, pronouns)
+const englishSentenceWords = new Set([
+  "the", "is", "are", "was", "were", "be", "been", "being",
+  "have", "has", "had", "do", "does", "did",
+  "a", "an", "and", "or", "but", "nor", "for", "yet", "so",
+  "at", "by", "from", "in", "into", "of", "off", "on", "onto", "out", "over", "to", "up", "with", "across",
+  "about", "against", "between", "through", "during", "before", "after", "above", "below",
+  "this", "that", "these", "those", "my", "your", "his", "her", "its", "our", "their",
+  "what", "which", "who", "whom", "whose", "where", "when", "why", "how",
+  "all", "any", "both", "each", "few", "more", "most", "other", "some", "such",
+  "no", "not", "only", "own", "same", "than", "too", "very", "can", "will", "just",
+  "should", "now", "cannot", "could", "would", "please", "used", "across"
+]);
+
+// Landmark words common in dynamic stop and station names
+const landmarkReplacements: Array<[RegExp, string]> = [
+  [/\bBus Stand\b/gi, "பேருந்து நிலையம்"],
+  [/\bBus Stop\b/gi, "பேருந்து நிறுத்தம்"],
+  [/\bRailway Station\b/gi, "ரயில் நிலையம்"],
+  [/\bRailway\b/gi, "ரயில்வே"],
+  [/\bJunction\b/gi, "சந்திப்பு"],
+  [/\bCheckpost\b/gi, "செக்போஸ்ட்"],
+  [/\bHospital\b/gi, "மருத்துவமனை"],
+  [/\bCollege\b/gi, "கல்லூரி"],
+  [/\bSchool\b/gi, "பள்ளி"],
+  [/\bTemple\b/gi, "கோவில்"],
+  [/\bChurch\b/gi, "தேவாலயம்"],
+  [/\bMosque\b/gi, "மசூதி"],
+  [/\bDepot\b/gi, "பணிமனை"],
+  [/\bFlyover\b/gi, "மேம்பாலம்"],
+  [/\bBridge\b/gi, "பாலம்"],
+  [/\bBypass\b/gi, "பைபாஸ்"],
+  [/\bCircle\b/gi, "வட்டம்"],
+  [/\bCorner\b/gi, "முனை"],
+  [/\bRoad\b/gi, "சாலை"],
+  [/\bStreet\b/gi, "தெரு"],
+  [/\bAvenue\b/gi, "அவென்யூ"],
+  [/\bNagar\b/gi, "நகர்"],
+  [/\bColony\b/gi, "காலனி"],
+  [/\bLayout\b/gi, "லேஅவுட்"],
+  [/\bMarket\b/gi, "சந்தை"],
+  [/\bCross\b/gi, "குறுக்குத்தெரு"],
+  [/\bNorth\b/gi, "வடக்கு"],
+  [/\bSouth\b/gi, "தெற்கு"],
+  [/\bEast\b/gi, "கிழக்கு"],
+  [/\bWest\b/gi, "மேற்கு"],
+  [/\bCentral\b/gi, "மத்திய"],
+];
+
+function isEnglishSentence(text: string): boolean {
+  const tokens = text.toLowerCase().split(/[^a-z]+/);
+  let sentenceWordCount = 0;
+  for (const t of tokens) {
+    if (englishSentenceWords.has(t)) {
+      sentenceWordCount++;
+    }
+  }
+  return sentenceWordCount >= 2 || (tokens.length >= 4 && sentenceWordCount >= 1);
+}
+
   // 6. Sub-phrase replacement with safe word-boundary matching for Latin words
   let result = rawText;
   let changed = false;
@@ -847,8 +1170,17 @@ export function translateText(rawText: string): string {
     }
   }
 
-  // 7. Word-level Auto-Translation / Transliteration for any remaining Latin words
-  if (/[a-zA-Z]{2,}/.test(result)) {
+  // 7. Dynamic Landmark Suffixes for changing stop names (e.g. "Gandhipuram Bus Stand", "Lakshmi Mills Junction")
+  for (const [re, val] of landmarkReplacements) {
+    if (re.test(result)) {
+      result = result.replace(re, val);
+      changed = true;
+    }
+  }
+
+  // 8. Auto-Translation strictly for CHANGING THINGS (New Stops, Routes, and User Names)
+  // If the text is an English sentence with grammar words, DO NOT mangle it with phonetic transliteration.
+  if (/[a-zA-Z]{2,}/.test(result) && !isEnglishSentence(trimmed)) {
     result = result.replace(/\b[a-zA-Z]{2,}\b/g, (token) => {
       // Don't translate codes like TN-49, ETM-01, RSN-04, 7C, D74
       if (/^[A-Z0-9\-_]+$/i.test(token) && /\d/.test(token)) return token;

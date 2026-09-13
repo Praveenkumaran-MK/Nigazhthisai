@@ -467,6 +467,47 @@ export function translateText(rawText: string): string {
     return rawText.replace(trimmed, res);
   }
 
+// English sentence indicators (articles, prepositions, aux verbs, pronouns)
+const englishSentenceWords = new Set([
+  "the", "is", "are", "was", "were", "be", "been", "being",
+  "have", "has", "had", "do", "does", "did",
+  "a", "an", "and", "or", "but", "nor", "for", "yet", "so",
+  "at", "by", "from", "in", "into", "of", "off", "on", "onto", "out", "over", "to", "up", "with", "across",
+  "this", "that", "these", "those", "your", "its", "our", "their", "please", "cannot", "could", "would"
+]);
+
+// Landmark words common in dynamic stop and station names
+const landmarkReplacements: Array<[RegExp, string]> = [
+  [/\bBus Stand\b/gi, "பேருந்து நிலையம்"],
+  [/\bBus Stop\b/gi, "பேருந்து நிறுத்தம்"],
+  [/\bRailway Station\b/gi, "ரயில் நிலையம்"],
+  [/\bJunction\b/gi, "சந்திப்பு"],
+  [/\bCheckpost\b/gi, "செக்போஸ்ட்"],
+  [/\bHospital\b/gi, "மருத்துவமனை"],
+  [/\bCollege\b/gi, "கல்லூரி"],
+  [/\bSchool\b/gi, "பள்ளி"],
+  [/\bTemple\b/gi, "கோவில்"],
+  [/\bRoad\b/gi, "சாலை"],
+  [/\bStreet\b/gi, "தெரு"],
+  [/\bNagar\b/gi, "நகர்"],
+  [/\bCross\b/gi, "குறுக்குத்தெரு"],
+  [/\bNorth\b/gi, "வடக்கு"],
+  [/\bSouth\b/gi, "தெற்கு"],
+  [/\bEast\b/gi, "கிழக்கு"],
+  [/\bWest\b/gi, "மேற்கு"],
+];
+
+function isEnglishSentence(text: string): boolean {
+  const tokens = text.toLowerCase().split(/[^a-z]+/);
+  let sentenceWordCount = 0;
+  for (const t of tokens) {
+    if (englishSentenceWords.has(t)) {
+      sentenceWordCount++;
+    }
+  }
+  return sentenceWordCount >= 2 || (tokens.length >= 4 && sentenceWordCount >= 1);
+}
+
   // 6. Sub-phrase replacement with safe word-boundary matching
   let result = rawText;
   let changed = false;
@@ -492,8 +533,16 @@ export function translateText(rawText: string): string {
     }
   }
 
-  // 7. Word-level Auto-Translation / Transliteration for any remaining Latin words
-  if (/[a-zA-Z]{2,}/.test(result)) {
+  // 7. Dynamic Landmark Suffixes for changing stop names
+  for (const [re, val] of landmarkReplacements) {
+    if (re.test(result)) {
+      result = result.replace(re, val);
+      changed = true;
+    }
+  }
+
+  // 8. Auto-Translation strictly for CHANGING THINGS (New Stops, Routes, and User Names)
+  if (/[a-zA-Z]{2,}/.test(result) && !isEnglishSentence(trimmed)) {
     result = result.replace(/\b[a-zA-Z]{2,}\b/g, (token) => {
       if (/^[A-Z0-9\-_]+$/i.test(token) && /\d/.test(token)) return token;
       const lower = token.toLowerCase();
