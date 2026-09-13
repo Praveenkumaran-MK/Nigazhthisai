@@ -104,7 +104,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pageTitle = activeNavItem ? activeNavItem.label : "Dashboard";
 
   return (
-    <div className="flex min-h-dvh bg-[#F8FAFC]">
+    <div key={lang} className="flex min-h-dvh bg-[#F8FAFC]">
       {/* ── Left Sidebar (Solid Deep Navy #0D2A5D matching reference) ── */}
       <aside className="hidden w-64 shrink-0 bg-[#0D2A5D] text-white flex-col justify-between md:flex border-r border-[#0D2A5D]">
         <div className="flex flex-col flex-1 overflow-y-auto">
@@ -245,7 +245,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         {/* Page Content */}
-        <main key={lang} className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#F8FAFC]">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#F8FAFC]">
           {children}
         </main>
       </div>
