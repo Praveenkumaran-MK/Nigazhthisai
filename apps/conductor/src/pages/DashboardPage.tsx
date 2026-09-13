@@ -127,14 +127,12 @@ export function DashboardPage() {
             loadedStats = statsData as ConductorStats;
           } else if (statsErr) {
             console.warn(
-              "[Dashboard] get_conductor_stats RPC returned error, switching to direct client query fallback:",
+              "[Dashboard] get_conductor_stats RPC returned error, using direct query fallback:",
               statsErr.message
             );
-            rpcStatsAvailable.current = false;
           }
         } catch (err) {
           console.warn("[Dashboard] get_conductor_stats invocation failed, using direct query fallback:", err);
-          rpcStatsAvailable.current = false;
         }
       }
 
@@ -152,37 +150,58 @@ export function DashboardPage() {
             return dateStr === todayStr;
           });
           const allTripIds = (allConductorTrips || []).map((t) => t.id);
+          const activeTripIds = new Set(
+            (allConductorTrips || []).filter((t) => t.status === "ACTIVE").map((t) => t.id)
+          );
 
           let ticketsIssued = 0;
           let cashRevenue = 0;
           let digitalRevenue = 0;
           let passengersCarried = 0;
 
+          const ticketMap = new Map<string, any>();
+
           if (allTripIds.length > 0) {
-            const { data: tickets } = await supabase
+            const { data: tripTickets } = await supabase
               .from("tickets")
-              .select("id, total_fare, channel, passenger_count, created_at, status")
+              .select("id, trip_id, total_fare, channel, passenger_count, created_at, validated_at, status")
               .in("trip_id", allTripIds)
               .in("status", ["PAID", "VALIDATED", "EXPIRED"]);
 
-            if (tickets) {
-              const todayTickets = tickets.filter((tk) => {
-                const dateStr = (tk.created_at || "").slice(0, 10);
-                return dateStr === todayStr;
-              });
-
-              ticketsIssued = todayTickets.length;
-              for (const tk of todayTickets) {
-                const fare = Number(tk.total_fare || 0);
-                const isCash = tk.channel === "CASH" || tk.channel === "ETM";
-                if (isCash) {
-                  cashRevenue += fare;
-                } else {
-                  digitalRevenue += fare;
-                }
-                passengersCarried += tk.passenger_count || 1;
-              }
+            for (const tk of tripTickets || []) {
+              ticketMap.set(tk.id, tk);
             }
+          }
+
+          // Also fetch tickets validated by this conductor's user ID
+          const { data: validatedTickets } = await supabase
+            .from("tickets")
+            .select("id, trip_id, total_fare, channel, passenger_count, created_at, validated_at, status")
+            .eq("validated_by", conductor.id)
+            .in("status", ["PAID", "VALIDATED", "EXPIRED"]);
+
+          for (const tk of validatedTickets || []) {
+            ticketMap.set(tk.id, tk);
+          }
+
+          const relevantTickets = Array.from(ticketMap.values()).filter((tk) => {
+            const createdDate = (tk.created_at || "").slice(0, 10);
+            const validatedDate = (tk.validated_at || "").slice(0, 10);
+            const isToday = createdDate === todayStr || validatedDate === todayStr;
+            const isOnActiveTrip = tk.trip_id && activeTripIds.has(tk.trip_id);
+            return isToday || isOnActiveTrip;
+          });
+
+          ticketsIssued = relevantTickets.length;
+          for (const tk of relevantTickets) {
+            const fare = Number(tk.total_fare || 0);
+            const isCash = tk.channel === "CASH" || tk.channel === "ETM";
+            if (isCash) {
+              cashRevenue += fare;
+            } else {
+              digitalRevenue += fare;
+            }
+            passengersCarried += tk.passenger_count || 1;
           }
 
           loadedStats = {
@@ -216,10 +235,29 @@ export function DashboardPage() {
     void loadData();
   }, [loadData]);
 
-  // Real-time listener for newly assigned or updated trips
+  // Reload on window focus and tab visibility (e.g. returning from scanner)
+  useEffect(() => {
+    const handleFocus = () => {
+      void loadData();
+    };
+    window.addEventListener("focus", handleFocus);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void loadData();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [loadData]);
+
+  // Real-time listener for newly assigned or updated trips & validated tickets
   useEffect(() => {
     if (!conductor?.id) return;
-    const channel = supabase
+
+    const tripsChannel = supabase
       .channel(`conductor-trips-realtime-${conductor.id}`)
       .on(
         "postgres_changes",
@@ -235,8 +273,24 @@ export function DashboardPage() {
       )
       .subscribe();
 
+    const ticketsChannel = supabase
+      .channel(`conductor-tickets-realtime-${conductor.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tickets",
+        },
+        () => {
+          void loadData();
+        }
+      )
+      .subscribe();
+
     return () => {
-      void supabase.removeChannel(channel);
+      void supabase.removeChannel(tripsChannel);
+      void supabase.removeChannel(ticketsChannel);
     };
   }, [conductor?.id, loadData]);
 

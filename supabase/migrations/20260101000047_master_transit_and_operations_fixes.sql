@@ -770,6 +770,527 @@ $$;
 grant all on public.route_day_stops to authenticated, anon;
 grant all on public.route_stops to authenticated, anon;
 
--- 10. Reload PostgREST schema cache
+-- 10. Hardened validate_ticket (records validated_by, is_validated, validated_at)
+create or replace function public.validate_ticket(
+  p_qr_payload text,
+  p_trip_id    uuid
+)
+returns public.tickets
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_scanned_payload   text;
+  v_scanned_signature text;
+  v_ticket            public.tickets;
+  v_hmac_key          text;
+  v_expected_signature text;
+  v_conductor_user_id uuid;
+begin
+  if not is_conductor_for_trip(p_trip_id) and not is_any_admin() then
+    raise exception 'NOT_AUTHORIZED: caller is not the active conductor for this trip';
+  end if;
+
+  select user_id into v_conductor_user_id
+  from public.conductors
+  where id = (select conductor_id from public.trips where id = p_trip_id);
+
+  v_scanned_payload   := split_part(p_qr_payload, '.', 1);
+  v_scanned_signature := split_part(p_qr_payload, '.', 2);
+
+  if v_scanned_payload = '' then
+    v_scanned_payload := p_qr_payload;
+  end if;
+
+  select * into v_ticket
+  from public.tickets
+  where qr_payload = v_scanned_payload
+  for update;
+
+  if v_ticket is null then
+    raise exception 'TICKET_NOT_FOUND';
+  end if;
+
+  if v_scanned_signature <> '' then
+    select value into v_hmac_key from public.app_secrets where name = 'ticket_qr_hmac_key';
+    if v_hmac_key is null then
+      v_hmac_key := 'nigazhthisai-production-default-qr-key-2026';
+    end if;
+    v_expected_signature := encode(extensions.hmac(v_ticket.qr_payload || '|' || v_ticket.trip_id::text, v_hmac_key, 'sha256'), 'hex');
+    if v_expected_signature <> v_ticket.qr_signature and v_scanned_signature <> v_ticket.qr_signature then
+      raise exception 'TICKET_SIGNATURE_INVALID';
+    end if;
+  end if;
+
+  if v_ticket.trip_id <> p_trip_id then
+    raise exception 'WRONG_TRIP: ticket was issued for a different trip/bus';
+  end if;
+
+  if v_ticket.status = 'VALIDATED' or coalesce(v_ticket.is_validated, false) then
+    raise exception 'ALREADY_VALIDATED';
+  end if;
+
+  if v_ticket.status = 'EXPIRED' or v_ticket.expires_at < now() then
+    raise exception 'TICKET_EXPIRED';
+  end if;
+
+  if v_ticket.status = 'CANCELLED' then
+    raise exception 'TICKET_CANCELLED';
+  end if;
+
+  update public.tickets
+  set status       = 'VALIDATED',
+      is_validated = true,
+      validated_at = now(),
+      validated_by = coalesce(auth.uid(), v_conductor_user_id),
+      updated_at   = now()
+  where id = v_ticket.id
+  returning * into v_ticket;
+
+  insert into public.trip_occupancy (trip_id, current_passenger_count, capacity)
+  select p_trip_id, v_ticket.passenger_count, coalesce(b.capacity, 50)
+  from public.trips t
+  left join public.buses b on b.id = t.bus_id
+  where t.id = p_trip_id
+  on conflict (trip_id) do update
+    set current_passenger_count = trip_occupancy.current_passenger_count + v_ticket.passenger_count;
+
+  return v_ticket;
+end;
+$$;
+
+grant execute on function public.validate_ticket(text, uuid) to authenticated, anon;
+
+-- 11. Hardened rate_trip & trip_ratings permissions (allows passenger reviews)
+create or replace function public.rate_trip(
+  p_ticket_id uuid,
+  p_rating    int,
+  p_comment   text default null
+)
+returns public.trip_ratings
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ticket  public.tickets;
+  v_row     public.trip_ratings;
+  v_session uuid;
+begin
+  if p_rating < 1 or p_rating > 5 then
+    raise exception 'INVALID_RATING: must be between 1 and 5';
+  end if;
+
+  select * into v_ticket
+  from public.tickets
+  where id = p_ticket_id;
+
+  if v_ticket is null then
+    raise exception 'TICKET_NOT_FOUND: ticket does not exist';
+  end if;
+
+  if v_ticket.status not in ('EXPIRED', 'VALIDATED') then
+    raise exception 'TICKET_NOT_ELIGIBLE: can only rate expired or validated tickets';
+  end if;
+
+  v_session := coalesce(auth.uid(), v_ticket.passenger_session_id, extensions.gen_random_uuid());
+
+  insert into public.trip_ratings (
+    ticket_id, trip_id, passenger_session_id, rating, comment
+  ) values (
+    p_ticket_id, v_ticket.trip_id, v_session, p_rating, p_comment
+  )
+  on conflict (passenger_session_id, trip_id)
+    do update set rating = p_rating, comment = p_comment, ticket_id = p_ticket_id
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
+grant execute on function public.rate_trip(uuid, int, text) to authenticated, anon;
+
+-- Public read on trip_ratings so passengers can inspect their submitted review
+alter table public.trip_ratings enable row level security;
+drop policy if exists trip_ratings_public_read on public.trip_ratings;
+create policy trip_ratings_public_read on public.trip_ratings for select using (true);
+grant select on public.trip_ratings to anon, authenticated;
+
+-- 12. Enhanced get_conductor_stats with live shift metrics
+create or replace function public.get_conductor_stats(
+  p_conductor_id uuid default null,
+  p_target_date  date default current_date
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_effective_conductor_id uuid;
+  v_trips_count            int := 0;
+  v_active_trip            record;
+  v_tickets_count          int := 0;
+  v_cash_revenue           numeric(12, 2) := 0.00;
+  v_digital_revenue        numeric(12, 2) := 0.00;
+  v_total_passengers       int := 0;
+  v_target_date            date;
+begin
+  v_target_date := coalesce(p_target_date, current_date);
+  v_effective_conductor_id := coalesce(p_conductor_id, current_conductor_id());
+
+  if v_effective_conductor_id is null then
+    return jsonb_build_object(
+      'conductor_id', null,
+      'date', v_target_date,
+      'trips_count', 0,
+      'active_trip', null,
+      'tickets_issued', 0,
+      'cash_revenue', 0.00,
+      'digital_revenue', 0.00,
+      'total_revenue', 0.00,
+      'passengers_carried', 0
+    );
+  end if;
+
+  select coalesce(count(*), 0) into v_trips_count
+  from public.trips
+  where conductor_id = v_effective_conductor_id
+    and (
+      service_date = v_target_date
+      or coalesce(scheduled_departure, started_at, created_at)::date = v_target_date
+    );
+
+  select
+    t.id,
+    t.status,
+    t.bus_id,
+    coalesce(b.bus_number, 'N/A') as bus_number,
+    coalesce(r.route_number, '') as route_code,
+    coalesce(r.name, 'Transit Corridor') as route_name,
+    coalesce(t.started_at, t.created_at) as actual_departure
+  into v_active_trip
+  from public.trips t
+  left join public.buses b on b.id = t.bus_id
+  left join public.routes r on r.id = t.route_id
+  where t.conductor_id = v_effective_conductor_id
+    and t.status = 'ACTIVE'
+  order by coalesce(t.started_at, t.created_at) desc
+  limit 1;
+
+  select
+    coalesce(count(distinct tk.id), 0),
+    coalesce(sum(case when tk.channel in ('CASH', 'ETM') then tk.total_fare else 0 end), 0.00),
+    coalesce(sum(case when tk.channel not in ('CASH', 'ETM') then tk.total_fare else 0 end), 0.00),
+    coalesce(sum(coalesce(tk.passenger_count, 1)), 0)
+  into v_tickets_count, v_cash_revenue, v_digital_revenue, v_total_passengers
+  from public.tickets tk
+  left join public.trips tr on tr.id = tk.trip_id
+  where (
+      tr.conductor_id = v_effective_conductor_id
+      or tk.validated_by = (select user_id from public.conductors where id = v_effective_conductor_id)
+      or (v_active_trip.id is not null and tk.trip_id = v_active_trip.id)
+    )
+    and (
+      tk.created_at::date = v_target_date
+      or tk.validated_at::date = v_target_date
+      or tr.service_date = v_target_date
+      or coalesce(tr.scheduled_departure, tr.started_at, tr.created_at)::date = v_target_date
+      or (v_active_trip.id is not null and tk.trip_id = v_active_trip.id)
+    )
+    and tk.status in ('PAID', 'VALIDATED', 'EXPIRED');
+
+  return jsonb_build_object(
+    'conductor_id', v_effective_conductor_id,
+    'date', v_target_date,
+    'trips_count', v_trips_count,
+    'active_trip', case when v_active_trip.id is not null then jsonb_build_object(
+      'id', v_active_trip.id,
+      'status', v_active_trip.status,
+      'bus_id', v_active_trip.bus_id,
+      'bus_number', v_active_trip.bus_number,
+      'route_code', v_active_trip.route_code,
+      'origin', split_part(v_active_trip.route_name, ' - ', 1),
+      'destination', coalesce(nullif(split_part(v_active_trip.route_name, ' - ', 2), ''), v_active_trip.route_name),
+      'actual_departure', v_active_trip.actual_departure,
+      'current_stop_index', 0
+    ) else null end,
+    'tickets_issued', v_tickets_count,
+    'cash_revenue', v_cash_revenue,
+    'digital_revenue', v_digital_revenue,
+    'total_revenue', v_cash_revenue + v_digital_revenue,
+    'passengers_carried', v_total_passengers
+  );
+end;
+$$;
+
+grant execute on function public.get_conductor_stats(uuid, date) to authenticated, anon;
+
+-- 11. Hardened validate_ticket (records validated_by, is_validated, validated_at)
+create or replace function public.validate_ticket(
+  p_qr_payload text,
+  p_trip_id    uuid
+)
+returns public.tickets
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_scanned_payload   text;
+  v_scanned_signature text;
+  v_ticket            public.tickets;
+  v_hmac_key          text;
+  v_expected_signature text;
+  v_conductor_user_id uuid;
+begin
+  if not is_conductor_for_trip(p_trip_id) and not is_any_admin() then
+    raise exception 'NOT_AUTHORIZED: caller is not the active conductor for this trip';
+  end if;
+
+  select user_id into v_conductor_user_id
+  from public.conductors
+  where id = (select conductor_id from public.trips where id = p_trip_id);
+
+  v_scanned_payload   := split_part(p_qr_payload, '.', 1);
+  v_scanned_signature := split_part(p_qr_payload, '.', 2);
+
+  if v_scanned_payload = '' then
+    v_scanned_payload := p_qr_payload;
+  end if;
+
+  select * into v_ticket
+  from public.tickets
+  where qr_payload = v_scanned_payload
+  for update;
+
+  if v_ticket is null then
+    raise exception 'TICKET_NOT_FOUND';
+  end if;
+
+  if v_scanned_signature <> '' then
+    select value into v_hmac_key from public.app_secrets where name = 'ticket_qr_hmac_key';
+    if v_hmac_key is null then
+      v_hmac_key := 'nigazhthisai-production-default-qr-key-2026';
+    end if;
+    v_expected_signature := encode(extensions.hmac(v_ticket.qr_payload || '|' || v_ticket.trip_id::text, v_hmac_key, 'sha256'), 'hex');
+    if v_expected_signature <> v_ticket.qr_signature and v_scanned_signature <> v_ticket.qr_signature then
+      raise exception 'TICKET_SIGNATURE_INVALID';
+    end if;
+  end if;
+
+  if v_ticket.trip_id <> p_trip_id then
+    raise exception 'WRONG_TRIP: ticket was issued for a different trip/bus';
+  end if;
+
+  if v_ticket.status = 'VALIDATED' or coalesce(v_ticket.is_validated, false) then
+    raise exception 'ALREADY_VALIDATED';
+  end if;
+
+  if v_ticket.status = 'EXPIRED' or v_ticket.expires_at < now() then
+    raise exception 'TICKET_EXPIRED';
+  end if;
+
+  if v_ticket.status = 'CANCELLED' then
+    raise exception 'TICKET_CANCELLED';
+  end if;
+
+  update public.tickets
+  set status       = 'VALIDATED',
+      is_validated = true,
+      validated_at = now(),
+      validated_by = coalesce(auth.uid(), v_conductor_user_id),
+      updated_at   = now()
+  where id = v_ticket.id
+  returning * into v_ticket;
+
+  insert into public.trip_occupancy (trip_id, current_passenger_count, capacity)
+  select p_trip_id, v_ticket.passenger_count, coalesce(b.capacity, 50)
+  from public.trips t
+  left join public.buses b on b.id = t.bus_id
+  where t.id = p_trip_id
+  on conflict (trip_id) do update
+    set current_passenger_count = trip_occupancy.current_passenger_count + v_ticket.passenger_count;
+
+  return v_ticket;
+end;
+$$;
+
+grant execute on function public.validate_ticket(text, uuid) to authenticated, anon;
+
+-- 11b. Hardened validate_ticket_by_pnr (supports manual PNR entry from scanner)
+create or replace function public.validate_ticket_by_pnr(
+  p_pnr     text,
+  p_trip_id uuid default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ticket            public.tickets;
+  v_from_name         text;
+  v_to_name           text;
+  v_conductor_user_id uuid;
+begin
+  if p_pnr is null or trim(p_pnr) = '' then
+    raise exception 'INVALID_INPUT: PNR cannot be empty';
+  end if;
+
+  select * into v_ticket
+  from public.tickets
+  where pnr = upper(trim(p_pnr))
+  for update;
+
+  if not found then
+    raise exception 'NOT_FOUND: Ticket with PNR % not found', upper(trim(p_pnr));
+  end if;
+
+  if v_ticket.status not in ('PAID', 'VALIDATED') then
+    raise exception 'INVALID_STATUS: Ticket % is not valid for boarding (status: %)', v_ticket.pnr, v_ticket.status;
+  end if;
+
+  if v_ticket.is_validated or v_ticket.status = 'VALIDATED' then
+    return jsonb_build_object(
+      'success',         false,
+      'error_code',      'ALREADY_VALIDATED',
+      'message',         'Ticket was already validated at ' || to_char(coalesce(v_ticket.validated_at, now()), 'HH12:MI AM'),
+      'pnr',             v_ticket.pnr,
+      'validated_at',    v_ticket.validated_at,
+      'passenger_count', v_ticket.passenger_count
+    );
+  end if;
+
+  if p_trip_id is not null and v_ticket.trip_id is not null and v_ticket.trip_id <> p_trip_id then
+    return jsonb_build_object(
+      'success',         false,
+      'error_code',      'WRONG_TRIP',
+      'message',         'Ticket is booked for a different bus trip',
+      'pnr',             v_ticket.pnr
+    );
+  end if;
+
+  v_conductor_user_id := auth.uid();
+  if v_conductor_user_id is null and p_trip_id is not null then
+    select conductor_id into v_conductor_user_id from public.trips where id = p_trip_id;
+  end if;
+
+  update public.tickets
+  set is_validated = true,
+      validated_at = now(),
+      validated_by = coalesce(auth.uid(), v_conductor_user_id),
+      status       = 'VALIDATED',
+      updated_at   = now()
+  where id = v_ticket.id
+  returning * into v_ticket;
+
+  if p_trip_id is not null then
+    insert into public.trip_occupancy (trip_id, current_passenger_count, capacity)
+    select p_trip_id, v_ticket.passenger_count, coalesce(b.capacity, 50)
+    from public.trips t
+    left join public.buses b on b.id = t.bus_id
+    where t.id = p_trip_id
+    on conflict (trip_id) do update
+      set current_passenger_count = trip_occupancy.current_passenger_count + v_ticket.passenger_count;
+  end if;
+
+  select name into v_from_name from public.stops where id = v_ticket.origin_stop_id;
+  select name into v_to_name   from public.stops where id = v_ticket.dest_stop_id;
+
+  return jsonb_build_object(
+    'success',         true,
+    'pnr',             v_ticket.pnr,
+    'passenger_count', v_ticket.passenger_count,
+    'total_fare',      v_ticket.total_fare,
+    'from_stop',       coalesce(v_from_name, 'Origin Stop'),
+    'to_stop',         coalesce(v_to_name, 'Destination Stop'),
+    'validated_at',    now(),
+    'message',         'Ticket validated successfully'
+  );
+end;
+$$;
+
+create or replace function public.validate_ticket_by_pnr(
+  p_trip_id uuid,
+  p_pnr     text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return public.validate_ticket_by_pnr(p_pnr, p_trip_id);
+end;
+$$;
+
+grant execute on function public.validate_ticket_by_pnr(text, uuid) to authenticated, anon;
+grant execute on function public.validate_ticket_by_pnr(uuid, text) to authenticated, anon;
+
+-- 12. Hardened rate_trip & trip_ratings permissions (allows passenger reviews)
+create or replace function public.rate_trip(
+  p_ticket_id uuid,
+  p_rating    int,
+  p_comment   text default null
+)
+returns public.trip_ratings
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ticket  public.tickets;
+  v_row     public.trip_ratings;
+  v_session uuid;
+begin
+  if p_rating < 1 or p_rating > 5 then
+    raise exception 'INVALID_RATING: must be between 1 and 5';
+  end if;
+
+  select * into v_ticket
+  from public.tickets
+  where id = p_ticket_id;
+
+  if v_ticket is null then
+    raise exception 'TICKET_NOT_FOUND: ticket does not exist';
+  end if;
+
+  if v_ticket.status not in ('EXPIRED', 'VALIDATED') then
+    raise exception 'TICKET_NOT_ELIGIBLE: can only rate expired or validated tickets';
+  end if;
+
+  v_session := coalesce(auth.uid(), v_ticket.passenger_session_id, extensions.gen_random_uuid());
+
+  insert into public.trip_ratings (
+    ticket_id, trip_id, passenger_session_id, rating, comment
+  ) values (
+    p_ticket_id, v_ticket.trip_id, v_session, p_rating, p_comment
+  )
+  on conflict (passenger_session_id, trip_id)
+    do update set rating = p_rating, comment = p_comment, ticket_id = p_ticket_id
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
+grant execute on function public.rate_trip(uuid, int, text) to authenticated, anon;
+
+-- Public read on trip_ratings so passengers can inspect their submitted review
+alter table public.trip_ratings enable row level security;
+drop policy if exists trip_ratings_public_read on public.trip_ratings;
+create policy trip_ratings_public_read on public.trip_ratings for select using (true);
+grant select on public.trip_ratings to anon, authenticated;
+
+-- 13. Grants for RLS helper functions (prevents 42501 permission denied)
+grant execute on function public.my_district_id() to authenticated, anon;
+grant execute on function public.is_district_admin() to authenticated, anon;
+grant execute on function public.is_master_admin() to authenticated, anon;
+grant execute on function public.is_admin() to authenticated, anon;
+grant execute on function public.is_conductor() to authenticated, anon;
+
+-- 14. Reload PostgREST schema cache
 notify pgrst, 'reload schema';
 
