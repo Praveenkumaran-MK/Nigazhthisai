@@ -262,9 +262,9 @@ export function HomePage() {
       <div className="-mt-px h-12 bg-navy-800" />
 
       {/* Destination-First Search Card */}
-      <div className="-mt-10 flex flex-1 flex-col gap-4 px-5 pb-6">
-        <div className="flex flex-1 flex-col justify-between rounded-3xl bg-white p-5 shadow-xl shadow-navy-900/10 dark:bg-surface-dark min-h-[440px]">
-          <div className="flex flex-col gap-4">
+      <div className="-mt-10 flex flex-1 flex-col gap-4 px-5 pb-3">
+        <div className="flex flex-1 flex-col justify-between rounded-3xl bg-white p-5 shadow-xl shadow-navy-900/10 dark:bg-surface-dark min-h-[460px]">
+          <div className="flex flex-col gap-5">
 
             {/* 1. Origin Stop (Auto GPS Determined) */}
             <div>
