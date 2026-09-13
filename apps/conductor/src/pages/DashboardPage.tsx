@@ -50,7 +50,7 @@ interface ConductorStats {
 
 export function DashboardPage() {
   const { conductor, logout } = useConductorAuth();
-  const { lang, setLang } = useConductorI18n();
+  const { lang, setLang, t } = useConductorI18n();
   const navigate = useNavigate();
   const [stats, setStats] = useState<ConductorStats | null>(null);
   const [assignedTrips, setAssignedTrips] = useState<AssignedTrip[]>([]);
@@ -477,7 +477,7 @@ export function DashboardPage() {
 
           {/* Quick Actions */}
           <div className="flex flex-col gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Quick Actions</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("Quick Actions")}</h3>
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="secondary"
@@ -488,12 +488,12 @@ export function DashboardPage() {
                   if (targetTrip) {
                     navigate(`/trip/${targetTrip.id}/scan`);
                   } else {
-                    alert("No active or scheduled trip to scan tickets for.");
+                    navigate("/scan");
                   }
                 }}
               >
                 <QrCode className="h-4 w-4 text-sky-500" />
-                <span>Open Scanner</span>
+                <span>{t("Open Scanner")}</span>
               </Button>
               <Button
                 variant="secondary"
@@ -509,7 +509,7 @@ export function DashboardPage() {
                 }}
               >
                 <Ticket className="h-4 w-4 text-emerald-500" />
-                <span>Issue Cash Ticket</span>
+                <span>{t("Issue Cash Ticket")}</span>
               </Button>
             </div>
           </div>

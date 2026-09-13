@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button, Alert, Badge, Card, Input } from "@sbt/ui";
-import { Camera, Keyboard, ArrowLeft } from "lucide-react";
+import { Camera, Keyboard, ArrowLeft, Bus } from "lucide-react";
 import { validateTicket } from "@sbt/supabase-client";
 import { supabase } from "../lib/supabase";
 import { useCameraScanner } from "../hooks/useCameraScanner";
+import { useConductorAuth } from "../hooks/useConductorAuth";
+import { useConductorI18n } from "../lib/i18n";
 
 type ScanFeedback = {
   tone: "success" | "danger" | "warning";
@@ -20,21 +22,81 @@ type ScanFeedback = {
 } | null;
 
 export function ScannerPage() {
-  const { tripId } = useParams<{ tripId: string }>();
+  const { tripId: paramTripId } = useParams<{ tripId?: string }>();
   const navigate = useNavigate();
+  const { conductor } = useConductorAuth();
+  const { t } = useConductorI18n();
+
+  const [activeTripId, setActiveTripId] = useState<string | undefined>(paramTripId);
+  const [tripInfo, setTripInfo] = useState<{ bus_number?: string; route_name?: string } | null>(null);
   const [mode, setMode] = useState<"camera" | "pnr">("camera");
   const [feedback, setFeedback] = useState<ScanFeedback>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [cooldown, setCooldown] = useState(false);
   const [pnrInput, setPnrInput] = useState("");
 
+  // Resolve trip if not in route params
+  useEffect(() => {
+    async function resolveTrip() {
+      const tid = paramTripId;
+      if (tid) {
+        setActiveTripId(tid);
+        const { data } = await supabase
+          .from("trips")
+          .select("id, status, buses(bus_number), routes(route_number, name)")
+          .eq("id", tid)
+          .maybeSingle();
+        if (data) {
+          const bus = Array.isArray(data.buses) ? data.buses[0] : data.buses;
+          const route = Array.isArray(data.routes) ? data.routes[0] : data.routes;
+          setTripInfo({
+            bus_number: bus?.bus_number,
+            route_name: route?.route_number ? `${route.route_number} - ${route.name}` : route?.name,
+          });
+        }
+      } else if (conductor?.id) {
+        const { data } = await supabase
+          .from("trips")
+          .select("id, status, buses(bus_number), routes(route_number, name)")
+          .eq("conductor_id", conductor.id)
+          .in("status", ["ACTIVE", "SCHEDULED"])
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (data && data.length > 0 && data[0]) {
+          const first: any = data[0];
+          setActiveTripId(first.id);
+          const bus = Array.isArray(first.buses) ? first.buses[0] : first.buses;
+          const route = Array.isArray(first.routes) ? first.routes[0] : first.routes;
+          setTripInfo({
+            bus_number: bus?.bus_number,
+            route_name: route?.route_number ? `${route.route_number} - ${route.name}` : route?.name,
+          });
+        }
+      }
+    }
+    void resolveTrip();
+  }, [paramTripId, conductor?.id]);
+
+  const effectiveTripId = paramTripId || activeTripId;
+
   const handleDecoded = useCallback(
     async (value: string) => {
-      if (isValidating || cooldown || !tripId) return;
+      if (isValidating || cooldown) return;
+
+      if (!effectiveTripId) {
+        setFeedback({
+          tone: "warning",
+          title: "No Active Trip Assigned",
+          message: "Please start or select a trip before scanning QR codes, or switch to Manual PNR mode.",
+        });
+        return;
+      }
+
       setIsValidating(true);
       setCooldown(true);
       try {
-        const ticket = await validateTicket(supabase, { qr_payload: value, trip_id: tripId });
+        const ticket = await validateTicket(supabase, { qr_payload: value, trip_id: effectiveTripId });
         if ("vibrate" in navigator) {
           navigator.vibrate([120]);
         }
@@ -62,7 +124,7 @@ export function ScannerPage() {
         window.setTimeout(() => setCooldown(false), 2000);
       }
     },
-    [isValidating, cooldown, tripId],
+    [isValidating, cooldown, effectiveTripId],
   );
 
   const { videoRef, status, start, stop } = useCameraScanner(handleDecoded);
@@ -87,7 +149,7 @@ export function ScannerPage() {
     try {
       const { data, error } = await supabase.rpc("validate_ticket_by_pnr", {
         p_pnr: cleanPnr,
-        p_trip_id: tripId || null,
+        p_trip_id: effectiveTripId || null,
       });
 
       if (error) throw error;
@@ -141,10 +203,32 @@ export function ScannerPage() {
     <div className="flex min-h-dvh flex-col bg-slate-950 text-slate-100">
       {/* Top Bar */}
       <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 p-4 backdrop-blur">
-        <Button variant="ghost" size="sm" className="inline-flex items-center gap-1.5" onClick={() => navigate(-1)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="inline-flex items-center gap-1.5"
+          onClick={() => {
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else if (effectiveTripId) {
+              navigate(`/trip/${effectiveTripId}`);
+            } else {
+              navigate("/dashboard");
+            }
+          }}
+        >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back</span>
+          <span>{t("Back")}</span>
         </Button>
+
+        {tripInfo && (
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400">
+            <Bus className="h-3.5 w-3.5 text-sky-400" />
+            <span className="font-semibold text-slate-200">Bus #{tripInfo.bus_number}</span>
+            {tripInfo.route_name && <span>• {tripInfo.route_name}</span>}
+          </div>
+        )}
+
         <div className="flex gap-1 rounded-lg bg-slate-800 p-1">
           <button
             type="button"
@@ -154,7 +238,7 @@ export function ScannerPage() {
             onClick={() => setMode("camera")}
           >
             <Camera className="h-3.5 w-3.5" />
-            <span>QR Camera</span>
+            <span>{t("QR Camera")}</span>
           </button>
           <button
             type="button"
@@ -164,7 +248,7 @@ export function ScannerPage() {
             onClick={() => setMode("pnr")}
           >
             <Keyboard className="h-3.5 w-3.5" />
-            <span>Manual PNR</span>
+            <span>{t("Manual PNR")}</span>
           </button>
         </div>
         <Badge tone={mode === "camera" ? (status === "scanning" ? "success" : "neutral") : "brand"}>
@@ -178,21 +262,21 @@ export function ScannerPage() {
           <video ref={videoRef} className="h-full w-full object-cover" muted playsInline />
           <div className="pointer-events-none absolute inset-8 flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-emerald-400/60 shadow-[0_0_50px_rgba(16,185,129,0.2)]">
             <span className="rounded bg-slate-950/80 px-3 py-1 text-xs text-emerald-300 font-mono">
-              Align Passenger QR Code
+              {t("Align Passenger QR Code")}
             </span>
           </div>
         </div>
       ) : (
         <div className="flex-1 p-5 max-w-md mx-auto w-full flex flex-col justify-center gap-4">
           <Card className="border-slate-800 bg-slate-900/90 p-5 shadow-xl">
-            <h2 className="text-base font-bold text-slate-100">Manual Ticket Validation</h2>
+            <h2 className="text-base font-bold text-slate-100">{t("Manual Ticket Validation")}</h2>
             <p className="mt-1 text-xs text-slate-400">
-              Enter the 8-character PNR code or Ticket ID from the passenger's screen / receipt.
+              {t("Enter the 8-character PNR code or Ticket ID from the passenger's screen / receipt.")}
             </p>
 
             <form onSubmit={handlePnrSubmit} className="mt-4 flex flex-col gap-3">
               <Input
-                label="Passenger PNR Code"
+                label={t("Passenger PNR Code")}
                 placeholder="e.g. TN84A12B"
                 value={pnrInput}
                 onChange={(e) => setPnrInput(e.target.value.toUpperCase())}
@@ -223,7 +307,7 @@ export function ScannerPage() {
                 className="mt-2 w-full"
                 disabled={!pnrInput.trim() || isValidating}
               >
-                {isValidating ? "Validating..." : "Validate Ticket →"}
+                {isValidating ? t("Validating...") : t("Validate Ticket →")}
               </Button>
             </form>
           </Card>
@@ -233,8 +317,8 @@ export function ScannerPage() {
       {/* Feedback Panel */}
       <div className="p-4 bg-slate-900 border-t border-slate-800">
         {status === "camera-denied" && mode === "camera" && (
-          <Alert tone="danger" title="Camera permission denied">
-            Enable camera access in your browser settings or switch to Manual PNR mode.
+          <Alert tone="danger" title={t("Camera permission denied")}>
+            {t("Enable camera access in your browser settings or switch to Manual PNR mode.")}
           </Alert>
         )}
         {feedback && (

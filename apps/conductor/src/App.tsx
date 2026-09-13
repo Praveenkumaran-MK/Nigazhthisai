@@ -66,7 +66,31 @@ export function App() {
           }
         />
         <Route
+          path="/trip/:tripId/scan"
+          element={
+            <ProtectedRoute>
+              <ScannerPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/trip/:tripId/scanner"
+          element={
+            <ProtectedRoute>
+              <ScannerPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/scan"
+          element={
+            <ProtectedRoute>
+              <ScannerPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/scanner"
           element={
             <ProtectedRoute>
               <ScannerPage />

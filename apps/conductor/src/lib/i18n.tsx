@@ -111,6 +111,9 @@ export const dictionary: Record<string, string> = {
   "Freedom Fighter": "தியாகிகள் (இலவசம்)",
 
   // QR Validation & Scanner
+  "OPEN SCANNER": "ஸ்கேனரைத் திற",
+  "Open Scanner": "ஸ்கேனரைத் திற",
+  "Quick Actions": "விரைவு நடவடிக்கைகள்",
   "VERIFY TICKET QR": "டிக்கெட் க்யூஆர் சரிபார்",
   "Verify Ticket QR": "டிக்கெட் க்யூஆர் சரிபார்",
   "SCAN TICKET": "டிக்கெட்டை ஸ்கேன் செய்",
@@ -128,6 +131,16 @@ export const dictionary: Record<string, string> = {
   "Point camera at passenger ticket QR": "பயணியின் டிக்கெட் க்யூஆர் மீது கேமராவை வைக்கவும்",
   "Scan Next Ticket": "அடுத்த டிக்கெட்டை ஸ்கேன் செய்",
   "Passenger Details": "பயணி விவரங்கள்",
+  "Manual Ticket Validation": "கைமுறை டிக்கெட் சரிபார்ப்பு",
+  "Passenger PNR Code": "பயணி PNR குறியீடு",
+  "Validate Ticket →": "டிக்கெட்டை சரிபார் →",
+  "Align Passenger QR Code": "பயணியின் QR குறியீட்டை நேராக்கவும்",
+  "QR Camera": "QR கேமரா",
+  "Manual PNR": "கைமுறை PNR",
+  "Camera permission denied": "கேமரா அனுமதி மறுக்கப்பட்டது",
+  "Enable camera access in your browser settings or switch to Manual PNR mode.": "உங்கள் உலாவி அமைப்புகளில் கேமரா அணுகலை இயக்கவும் அல்லது கைமுறை PNR பயன்முறைக்கு மாறவும்.",
+  "No Active Trip Assigned": "செயலில் உள்ள பயணம் எதுவும் ஒதுக்கப்படவில்லை",
+  "Please start or select a trip before scanning QR codes, or switch to Manual PNR mode.": "QR குறியீடுகளை ஸ்கேன் செய்வதற்கு முன் ஒரு பயணத்தைத் தொடங்கவும் அல்லது தேர்ந்தெடுக்கவும், அல்லது கைமுறை PNR பயன்முறைக்கு மாறவும்.",
 
   // Emergency & SOS
   "SOS EMERGENCY": "அவசர SOS",
