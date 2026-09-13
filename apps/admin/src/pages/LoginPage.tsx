@@ -13,11 +13,6 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Detect which portal or active role tab is selected
-  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
-  const initialRole = hostname.includes("superadmin") ? "master_admin" : "admin";
-  const [selectedRole, setSelectedRole] = useState<"master_admin" | "admin" | "conductor" | "passenger">(initialRole);
-
   useEffect(() => {
     if (status === "signed-in") {
       navigate("/dashboard", { replace: true });
@@ -33,15 +28,6 @@ export function LoginPage() {
       /* error surfaced via useAdminAuth().error */
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleRoleSelect = (role: "master_admin" | "admin" | "conductor" | "passenger") => {
-    setSelectedRole(role);
-    if (role === "passenger") {
-      window.location.href = "https://nigazhthisai.vercel.app";
-    } else if (role === "conductor") {
-      window.location.href = "https://nigazhthisai-conductor.vercel.app";
     }
   };
 
@@ -87,54 +73,6 @@ export function LoginPage() {
           </p>
         </div>
 
-        {/* 4-Role Grid Switcher (matching reference operations site) */}
-        <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-2xl border border-slate-200/60">
-          <button
-            type="button"
-            onClick={() => handleRoleSelect("master_admin")}
-            className={`py-2 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all ${
-              selectedRole === "master_admin"
-                ? "bg-[#0D2A5D] text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            {t("MASTER ADMIN")}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleRoleSelect("admin")}
-            className={`py-2 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all ${
-              selectedRole === "admin"
-                ? "bg-[#0D2A5D] text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            {t("ADMIN")}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleRoleSelect("conductor")}
-            className={`py-2 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all ${
-              selectedRole === "conductor"
-                ? "bg-[#0D2A5D] text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            {t("CONDUCTOR")}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleRoleSelect("passenger")}
-            className={`py-2 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all ${
-              selectedRole === "passenger"
-                ? "bg-[#0D2A5D] text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            {t("PASSENGER")}
-          </button>
-        </div>
-
         {/* Credentials Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
@@ -147,7 +85,7 @@ export function LoginPage() {
                 type="email"
                 required
                 autoComplete="username"
-                placeholder={selectedRole === "master_admin" ? "master@nigazhthisai.com" : "admin@transit.gov"}
+                placeholder="admin@nigazhthisai.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-[#D97F00] focus:ring-4 focus:ring-[#D97F00]/10 focus:outline-none transition-all"

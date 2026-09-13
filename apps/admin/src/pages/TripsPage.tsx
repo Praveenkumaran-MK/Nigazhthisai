@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { DataTable, Badge, Card, Button, Dialog, Select, DateTimePicker, Input, useToast, EditIcon, HistoryIcon } from "@sbt/ui";
+import { DataTable, Badge, Card, Button, Dialog, Select, DateTimePicker, Input, useToast, EditIcon, HistoryIcon, TrashIcon, Alert } from "@sbt/ui";
 import type { Trip, Route, Bus, Conductor } from "@sbt/shared-types";
 import { supabase } from "../lib/supabase";
 
@@ -52,6 +52,13 @@ export function TripsPage() {
   const [auditTrip, setAuditTrip] = useState<Trip | null>(null);
   const [auditLogs, setAuditLogs] = useState<TripEditAudit[]>([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
+
+  // Delete / Cancel Trip State
+  const [deletingTrip, setDeletingTrip] = useState<Trip | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const loadData = useCallback(async () => {
     setStatus("loading");
@@ -171,6 +178,84 @@ export function TripsPage() {
     }
   };
 
+  const handleOpenDelete = (t: Trip) => {
+    setDeletingTrip(t);
+    setCancelReason("");
+    setDeleteError(null);
+  };
+
+  const handleCancelTrip = async (t: Trip) => {
+    setIsCancelling(true);
+    setDeleteError(null);
+    try {
+      const { error: updateErr } = await supabase
+        .from("trips")
+        .update({ status: "CANCELLED", last_edited_at: new Date().toISOString() })
+        .eq("id", t.id);
+
+      if (updateErr) throw updateErr;
+
+      // Audit log entry
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData.session?.user?.id) {
+          await supabase.from("trip_edits").insert({
+            trip_id: t.id,
+            edited_by: sessionData.session.user.id,
+            field_name: "status",
+            old_value: t.status,
+            new_value: "CANCELLED",
+            reason: cancelReason.trim() || "Trip cancelled by administrator before dispatch",
+          });
+        }
+      } catch {
+        // non-fatal
+      }
+
+      push({
+        tone: "success",
+        title: "Trip cancelled",
+        description: "Scheduled trip has been marked as CANCELLED.",
+      });
+      setDeletingTrip(null);
+      await loadData();
+    } catch (err: any) {
+      setDeleteError(err.message || "Failed to cancel trip");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleDeleteTrip = async (t: Trip) => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const { error: delErr } = await supabase
+        .from("trips")
+        .delete()
+        .eq("id", t.id);
+
+      if (delErr) {
+        if (delErr.message.includes("foreign key") || (delErr as any).code === "23503") {
+          throw new Error("This trip already has passenger tickets or dependencies associated. Please choose 'Cancel Trip' instead of permanent deletion.");
+        }
+        throw delErr;
+      }
+
+      push({
+        tone: "success",
+        title: "Trip deleted permanently",
+        description: "Scheduled trip removed from dispatch schedule.",
+      });
+      setDeletingTrip(null);
+      await loadData();
+    } catch (err: any) {
+      setDeleteError(err.message || "Failed to delete trip");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const routeLabel = (id: string) => routes.find((r) => r.id === id)?.route_number ?? id.slice(0, 8);
   const busLabel = (id: string) => buses.find((b) => b.id === id)?.bus_number ?? id.slice(0, 8);
   const conductorLabel = (id: string | null) => conductors.find((c) => c.id === id)?.display_name ?? "Unassigned";
@@ -238,14 +323,24 @@ export function TripsPage() {
               render: (t) => (
                 <div className="flex items-center gap-1.5">
                   {t.status === "SCHEDULED" && (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEdit(t)}
-                      className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100 dark:bg-brand-950/60 dark:text-brand-300 dark:hover:bg-brand-900 border border-brand-200/60 dark:border-brand-800/60 shadow-xs transition"
-                    >
-                      <EditIcon className="h-3 w-3" />
-                      <span>Edit Trip</span>
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(t)}
+                        className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100 dark:bg-brand-950/60 dark:text-brand-300 dark:hover:bg-brand-900 border border-brand-200/60 dark:border-brand-800/60 shadow-xs transition"
+                      >
+                        <EditIcon className="h-3 w-3" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDelete(t)}
+                        className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900 border border-rose-200/60 dark:border-rose-800/60 shadow-xs transition"
+                      >
+                        <TrashIcon className="h-3 w-3" />
+                        <span>Delete</span>
+                      </button>
+                    </>
                   )}
                   <button
                     type="button"
@@ -414,6 +509,93 @@ export function TripsPage() {
             </div>
           )}
         </div>
+      </Dialog>
+
+      {/* Cancel or Delete Scheduled Trip Dialog */}
+      <Dialog
+        open={Boolean(deletingTrip)}
+        onClose={() => {
+          if (!isDeleting && !isCancelling) setDeletingTrip(null);
+        }}
+        title="Delete or Cancel Scheduled Trip"
+      >
+        {deletingTrip && (
+          <div className="flex flex-col gap-4">
+            <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200/70 text-xs dark:bg-slate-800/50 dark:border-slate-700">
+              <div className="grid grid-cols-2 gap-2 text-slate-700 dark:text-slate-300">
+                <div>
+                  <span className="text-slate-400 font-medium">Route: </span>
+                  <span className="font-bold">{routeLabel(deletingTrip.route_id)}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-medium">Bus: </span>
+                  <span className="font-bold">{busLabel(deletingTrip.bus_id)}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-medium">Conductor: </span>
+                  <span className="font-bold">{conductorLabel(deletingTrip.conductor_id)}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-medium">Status: </span>
+                  <Badge tone="neutral">{deletingTrip.status}</Badge>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5 rounded-xl bg-amber-50/70 p-3 border border-amber-200/70 text-xs text-amber-900 dark:bg-amber-950/30 dark:border-amber-900/50 dark:text-amber-300">
+              <p className="font-bold">Choose an action for this scheduled trip:</p>
+              <p>• <strong>Cancel Trip:</strong> Marks status as <em>CANCELLED</em>. Preserves an audit trail for dispatch logs.</p>
+              <p>• <strong>Delete Permanently:</strong> Completely removes this scheduled trip from the database.</p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Cancellation Reason / Note (optional)
+              </label>
+              <Input
+                placeholder="e.g. Bus breakdown, schedule change, bad weather"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+              />
+            </div>
+
+            {deleteError && (
+              <Alert tone="danger" title="Action failed">
+                {deleteError}
+              </Alert>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDeletingTrip(null)}
+                disabled={isDeleting || isCancelling}
+              >
+                Close
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleCancelTrip(deletingTrip)}
+                isLoading={isCancelling}
+                disabled={isDeleting}
+                className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950/40"
+              >
+                Cancel Trip
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleDeleteTrip(deletingTrip)}
+                isLoading={isDeleting}
+                disabled={isCancelling}
+                className="bg-rose-600 hover:bg-rose-700 text-white"
+              >
+                Delete Permanently
+              </Button>
+            </div>
+          </div>
+        )}
       </Dialog>
     </div>
   );

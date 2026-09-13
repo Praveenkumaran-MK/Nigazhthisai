@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Button, Card, DataTable, Dialog, Select, DateTimePicker, Badge, Alert, useToast, ErrorState, Input, ClockIcon, CalendarIcon } from "@sbt/ui";
+import { Button, Card, DataTable, Dialog, Select, DateTimePicker, Badge, Alert, useToast, ErrorState, Input, ClockIcon, CalendarIcon, TrashIcon } from "@sbt/ui";
 import type { Route, Bus, Conductor, Schedule } from "@sbt/shared-types";
 import { listRoutes, confirmScheduleAndCreateTrip } from "@sbt/supabase-client";
 import { supabase } from "../lib/supabase";
@@ -19,7 +19,7 @@ interface WeeklySchedule {
 const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export function SchedulesPage() {
-  const { rows, status, error, create, reload } = useCrudResource<Schedule>({ table: "schedules", orderBy: "scheduled_start" });
+  const { rows, status, error, create, remove, reload } = useCrudResource<Schedule>({ table: "schedules", orderBy: "scheduled_start" });
   const { push } = useToast();
   const [tab, setTab] = useState<"trips" | "templates">("trips");
 
@@ -271,12 +271,31 @@ export function SchedulesPage() {
               { key: "status", header: "Status", render: (s) => <Badge tone={s.status === "CONFIRMED" ? "success" : s.status === "CANCELLED" ? "danger" : "neutral"}>{s.status}</Badge> },
               {
                 key: "actions",
-                header: "",
+                header: "Actions",
                 render: (s) =>
                   s.status === "PLANNED" ? (
-                    <Button size="sm" onClick={() => setConfirmingSchedule(s)}>
-                      Confirm &amp; assign conductor
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button size="sm" onClick={() => setConfirmingSchedule(s)}>
+                        Confirm &amp; assign conductor
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (confirm("Are you sure you want to delete this planned schedule?")) {
+                            try {
+                              await remove(s.id);
+                              push({ tone: "success", title: "Schedule deleted" });
+                            } catch (e: any) {
+                              alert("Failed to delete schedule: " + e.message);
+                            }
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition"
+                      >
+                        <TrashIcon className="h-3.5 w-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
                   ) : null,
               },
             ]}
