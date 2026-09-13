@@ -345,10 +345,18 @@ export function RevenuePage() {
           <div className="py-12 text-center text-xs text-slate-500">No revenue data available for selected parameters.</div>
         ) : (
           <div className="flex flex-col gap-3">
-            {/* Visual SVG Bar Chart */}
-            <div className="h-44 w-full flex items-end gap-2 pt-6 pb-2 px-2 bg-slate-50/50 rounded-lg dark:bg-slate-900/30 overflow-x-auto">
+            {/* Visual Bar Chart */}
+            <div className="relative h-56 w-full flex items-end gap-3 pt-10 pb-2 px-3 bg-slate-50/70 border border-slate-100 rounded-xl dark:bg-slate-900/40 dark:border-slate-800/80 overflow-x-auto">
+              {/* Background Reference Grid Lines */}
+              <div className="absolute inset-x-3 top-10 bottom-8 flex flex-col justify-between pointer-events-none opacity-25 dark:opacity-15">
+                <div className="border-b border-dashed border-slate-400 w-full" />
+                <div className="border-b border-dashed border-slate-400 w-full" />
+                <div className="border-b border-dashed border-slate-400 w-full" />
+                <div className="border-b border-slate-300 dark:border-slate-700 w-full" />
+              </div>
+
               {analytics?.breakdown.map((item, idx) => {
-                const heightPct = maxRevenue > 0 ? Math.max(Math.round((Number(item.total_revenue) / maxRevenue) * 100), 4) : 4;
+                const heightPct = maxRevenue > 0 ? Math.max(Math.round((Number(item.total_revenue) / maxRevenue) * 100), 6) : 6;
                 const isHovered = hoveredIndex === idx;
 
                 return (
@@ -356,23 +364,51 @@ export function RevenuePage() {
                     key={item.group_key}
                     onMouseEnter={() => setHoveredIndex(idx)}
                     onMouseLeave={() => setHoveredIndex(null)}
-                    className="flex-1 min-w-[36px] flex flex-col items-center gap-1 group relative cursor-pointer"
+                    className="flex-1 min-w-[48px] max-w-[72px] h-full flex flex-col justify-end items-center group relative cursor-pointer z-10"
                   >
                     {/* Tooltip */}
                     {isHovered && (
-                      <div className="absolute -top-12 z-20 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[10px] text-white shadow-lg dark:bg-white dark:text-slate-900 pointer-events-none">
-                        <p className="font-bold">{item.label}</p>
-                        <p>₹{Number(item.total_revenue).toLocaleString("en-IN")} · {item.tickets_count} tix</p>
+                      <div className="absolute -top-14 z-30 whitespace-nowrap rounded-xl bg-slate-950 px-3 py-1.5 text-xs text-white shadow-2xl dark:bg-white dark:text-slate-950 pointer-events-none border border-slate-800 dark:border-slate-200">
+                        <p className="font-bold text-[11px]">{item.label}</p>
+                        <p className="font-extrabold text-[11px] text-amber-400 dark:text-amber-600">
+                          ₹{Number(item.total_revenue).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                          {item.tickets_count} tickets · {item.cash_revenue ? `₹${item.cash_revenue} cash` : "Digital"}
+                        </p>
                       </div>
                     )}
-                    <div
-                      className={`w-full rounded-t-md transition-all duration-300 ${
-                        isHovered ? "bg-brand-500 shadow-sm" : "bg-brand-600/80 hover:bg-brand-500"
+
+                    {/* Value Badge on top of Bar */}
+                    <span
+                      className={`text-[9px] font-bold text-slate-400 transition-opacity mb-1 ${
+                        isHovered ? "opacity-100 text-brand-600 dark:text-brand-400 font-black" : "opacity-70 group-hover:opacity-100"
                       }`}
-                      style={{ height: `${heightPct}%` }}
-                    />
-                    <span className="text-[10px] text-slate-500 font-medium truncate w-full text-center">
-                      {item.label.slice(0, 7)}
+                    >
+                      ₹{Math.round(Number(item.total_revenue))}
+                    </span>
+
+                    {/* Explicit Height Bar Track */}
+                    <div className="w-full h-[130px] flex items-end justify-center">
+                      <div
+                        className={`w-full max-w-[28px] rounded-t-lg transition-all duration-300 relative shadow-xs ${
+                          isHovered
+                            ? "bg-gradient-to-t from-brand-600 to-brand-400 shadow-md shadow-brand-500/30 scale-x-110 ring-2 ring-brand-400/50"
+                            : "bg-gradient-to-t from-brand-700 to-brand-500 hover:from-brand-600 hover:to-brand-400"
+                        }`}
+                        style={{
+                          height: `${heightPct}%`,
+                          minHeight: Number(item.total_revenue) > 0 ? "8px" : "4px",
+                        }}
+                      >
+                        {/* Glossy top cap for 3D depth */}
+                        <div className="w-full h-1 bg-white/30 rounded-t-lg" />
+                      </div>
+                    </div>
+
+                    {/* X-Axis Label */}
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate w-full text-center mt-2 shrink-0">
+                      {item.label.replace(/, \d{4}$/, "").slice(0, 8)}
                     </span>
                   </div>
                 );
