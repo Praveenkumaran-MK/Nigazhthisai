@@ -922,12 +922,51 @@ const vowelInitialMap: Record<string, string> = {
   ea: "ஏ", e: "எ", oa: "ஓ", o: "ஒ", au: "ஔ"
 };
 
+export const coreEnglishWordsBlocklist = new Set([
+  "near", "you", "your", "detect", "gps", "save", "saved", "device", "from", "to", "type",
+  "destination", "origin", "stop", "stops", "change", "done", "search", "buses",
+  "bus", "ticket", "tickets", "seat", "seats", "filled", "occupancy", "price",
+  "per", "track", "book", "now", "full", "currently", "route", "routes", "via",
+  "eta", "arrival", "departure", "passenger", "passengers", "checkout", "number",
+  "concession", "total", "fare", "paying", "pay", "processing", "payment", "received",
+  "failed", "home", "back", "retry", "loading", "connecting", "setting", "session",
+  "cleanliness", "safety", "overcrowding", "driver", "behavior", "overcharging",
+  "other", "rating", "trip", "trips", "validated", "complete", "service", "alert",
+  "network", "district", "point", "matching", "transit", "away", "swap", "lines",
+  "checking", "connected", "direct", "offline", "report", "issue", "assistance",
+  "emergency", "chat", "terrible", "poor", "average", "good", "excellent",
+  "locating", "feedback", "select", "first", "en", "accessible", "available",
+  "denied", "unavailable", "note", "use", "only", "suggest", "manually",
+  "already", "passed", "shortly", "again", "still", "configuration", "moment",
+  "bought", "tied", "browser", "account", "approaching", "sent", "reminder",
+  "alighted", "scanned", "enjoy", "ride", "expired", "thanks", "riding",
+  "review", "respond", "message", "details", "describe", "happened", "investigate",
+  "resolve", "administrators", "submit", "submitting", "submitted", "reference",
+  "optional", "recent", "link", "improve", "experience", "comment", "skip",
+  "view", "status", "date", "time", "operator", "pnr", "code", "valid",
+  "until", "board", "boarding", "alighting", "help", "sos", "shift", "summary",
+  "performance", "show", "hide", "metrics", "cash", "digital", "online", "collection",
+  "collections", "breakdown", "quick", "actions", "open", "scanner", "print", "printing",
+  "camera", "align", "manual", "enter", "keypad", "screen", "receipt", "pocket", "lock",
+  "operations", "monitoring", "finance", "maintenance", "system", "control", "master",
+  "admin", "dashboard", "overview", "idle", "alerts", "schedules", "matrix", "revenue",
+  "analytics", "fares", "conductors", "directory", "complaints", "grievance", "fleet",
+  "devices", "districts", "users", "roles", "settings", "import", "filters", "refine",
+  "zone", "north", "south", "central", "west", "east", "all"
+]);
+
 export function transliterateWord(word: string): string {
   // Preserve numbers, plates, and codes (e.g. TN-38, ETM-01, 7C, RSN-04)
   if (/^[A-Z0-9\-_]+$/i.test(word) && /\d/.test(word)) return word;
   if (/^[0-9.,:;!?%₹#\(\)\-_/\\+=*&^$@]+$/.test(word)) return word;
 
-  const str = word.toLowerCase();
+  const lowerWord = word.toLowerCase();
+  // CORE GUARANTEE: Never transliterate core permanent UI words!
+  if (coreEnglishWordsBlocklist.has(lowerWord)) {
+    return lowerDictMap.get(lowerWord) || word;
+  }
+
+  const str = lowerWord;
   let result = "";
   let i = 0;
 
@@ -1187,6 +1226,9 @@ function isEnglishSentence(text: string): boolean {
       const lower = token.toLowerCase();
       if (lowerDictMap.has(lower)) {
         return lowerDictMap.get(lower)!;
+      }
+      if (coreEnglishWordsBlocklist.has(lower)) {
+        return token; // Core UI word with no dictionary mapping: keep in English, NEVER transliterate!
       }
       // If it looks like a transit word or proper noun, transliterate it
       const transliterated = transliterateWord(token);

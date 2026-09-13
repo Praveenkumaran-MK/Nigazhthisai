@@ -10,6 +10,8 @@ export interface BrandLogoProps {
   className?: string;
   /** Accessible name. Pass "" for decorative use alongside visible text. */
   title?: string;
+  /** Optional custom subtitle (e.g. localized) */
+  subtitle?: string;
 }
 
 /**
@@ -76,7 +78,7 @@ function LogoMark({ tone, className, title }: { tone: BrandLogoTone; className?:
  * `lockup` adds the wordmark beside it; `lockup-stacked` places it below
  * for splash/hero use.
  */
-export function BrandLogo({ variant = "mark", tone = "navy", className, title = "Nigazhthisai" }: BrandLogoProps) {
+export function BrandLogo({ variant = "mark", tone = "navy", className, title = "Nigazhthisai", subtitle }: BrandLogoProps) {
   if (variant === "mark") {
     return <LogoMark tone={tone} className={cn("h-9 w-9", className)} title={title} />;
   }
@@ -98,7 +100,7 @@ export function BrandLogo({ variant = "mark", tone = "navy", className, title = 
       <span className={cn("flex flex-col leading-none", stacked && "items-center")}>
         <span className={cn("text-base font-bold tracking-tight", nameColor)}>Nigazhthisai</span>
         <span className={cn("mt-0.5 text-[10px] font-medium uppercase tracking-[0.14em]", subColor)}>
-          District Network
+          {subtitle ?? "District Network"}
         </span>
       </span>
     </span>

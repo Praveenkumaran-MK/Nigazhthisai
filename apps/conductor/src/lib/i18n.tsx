@@ -194,6 +194,59 @@ export const dictionary: Record<string, string> = {
   "Karanthai": "கரந்தை",
   "Vallam": "வல்லம்",
   "Medical College": "மருத்துவக் கல்லூரி",
+
+  // Permanent UI Controls, Headers & Actions (Authentic Tamil)
+  "Scan QR": "QR ஸ்கேன் செய்",
+  "Pocket Lock": "பாக்கெட் பூட்டு",
+  "Hold for SOS": "SOS-க்கு அழுத்தவும்",
+  "Bus Occupancy": "பேருந்து நிரம்பல் நிலை",
+  "/ Seats": "/ இருக்கைகள்",
+  "Seats": "இருக்கைகள்",
+  "seats left": "இருக்கைகள் மீதமுள்ளன",
+  "Automated Stop Sequence": "தானியங்கி நிறுத்த வரிசைமுறை",
+  "Automatic GPS Progression: Stops arrive and depart automatically based on continuous vehicle GPS telemetry.": "தானியங்கி ஜிபிஎஸ் கண்காணிப்பு: வாகனத்தின் நேரலை ஜிபிஎஸ் தகவலின்படி நிறுத்தங்கள் தானாகவே புதுப்பிக்கப்படும்.",
+  "AT STOP (CURRENT)": "தற்போதைய நிறுத்தம்",
+  "Live": "நேரலை",
+  "SCHEDULED SERVICE READY": "திட்டமிடப்பட்ட சேவை தயார்",
+  "Scheduled Departure:": "திட்டமிடப்பட்ட புறப்பாடு:",
+  "Immediate / On Demand": "உடனடி சேவை",
+  "Scan Bus QR to Start Service →": "சேவையைத் தொடங்க பேருந்து QR-ஐ ஸ்கேன் செய் →",
+  "SCHEDULE": "அட்டவணை",
+  "Upcoming Assigned Trips": "வரவிருக்கும் பயணங்கள்",
+  "Shift Performance": "பணி விவரங்கள்",
+  "Shift Summary": "பணி விவரங்கள்",
+  "Show": "காட்டு",
+  "Hide": "மறை",
+  "Today's Revenue Breakdown": "இன்றைய வருவாய் விவரம்",
+  "Cash Ticket Collections": "ரொக்க டிக்கெட் வசூல்",
+  "Digital / Online Tickets": "டிஜிட்டல் / ஆன்லைன் டிக்கெட்டுகள்",
+  "Total Shift Collection": "மொத்த வசூல்",
+  "Total Shift Revenue": "மொத்த பணி வருவாய்",
+  "Issue Cash / Walk-in Ticket": "ரொக்க டிக்கெட் வழங்கு",
+  "✓ Paid & Validated (Cash)": "✓ கட்டணம் பெறப்பட்டது & சரிபார்க்கப்பட்டது (ரொக்கம்)",
+  "Passengers:": "பயணிகள்:",
+  "Passengers": "பயணிகள்",
+  "Concession:": "சலுகை:",
+  "Total Collected:": "மொத்த வசூல்:",
+  "+ Issue Another": "+ மற்றொரு டிக்கெட் வழங்கு",
+  "Done": "முடிந்தது",
+  "1. Boarding Stop (From)": "1. ஏறும் நிறுத்தம் (இருந்து)",
+  "2. Destination Stop (To)": "2. சேருமிடம் (வரை)",
+  "Total Cash to Collect:": "பெற வேண்டிய மொத்த ரொக்கம்:",
+  "Emergency Dispatch & Control Room Chat": "அவசர உதவி & கட்டுப்பாட்டு அறை அரட்டை",
+  "Live Control Room Channel": "நேரலை கட்டுப்பாட்டு அறை இணைப்பு",
+  "Central transit dispatchers are monitoring this trip.": "மத்திய போக்குவரத்து கட்டுப்பாட்டாளர்கள் இந்த பயணத்தை கண்காணிக்கின்றனர்.",
+  "SOS ACTIVE": "SOS செயலில் உள்ளது",
+  "Validating...": "சரிபார்க்கப்படுகிறது...",
+  "Valid Ticket — Boarding Allowed": "செல்லுபடியாகும் டிக்கெட் — பயணம் அனுமதிக்கப்பட்டது",
+  "Ticket Rejected": "டிக்கெட் நிராகரிக்கப்பட்டது",
+  "Validation Error": "சரிபார்ப்பு பிழை",
+  "District Network": "மாவட்ட பொதுப்போக்குவரத்து",
+  "DISTRICT NETWORK": "மாவட்ட பொதுப்போக்குவரத்து",
+  "Destination": "சேருமிடம்",
+  "Origin": "புறப்படும் இடம்",
+  "Near You": "உங்கள் அருகில்",
+  "Detect GPS": "இருப்பிடம் கண்டறி",
 };
 
 // Automatically build reverse dictionary
@@ -334,11 +387,45 @@ const vowelInitialMap: Record<string, string> = {
   ea: "ஏ", e: "எ", oa: "ஓ", o: "ஒ", au: "ஔ"
 };
 
+export const coreEnglishWordsBlocklist = new Set([
+  "near", "you", "your", "detect", "gps", "save", "saved", "device", "from", "to", "type",
+  "destination", "origin", "stop", "stops", "change", "done", "search", "buses",
+  "bus", "ticket", "tickets", "seat", "seats", "filled", "occupancy", "price",
+  "per", "track", "book", "now", "full", "currently", "route", "routes", "via",
+  "eta", "arrival", "departure", "passenger", "passengers", "checkout", "number",
+  "concession", "total", "fare", "paying", "pay", "processing", "payment", "received",
+  "failed", "home", "back", "retry", "loading", "connecting", "setting", "session",
+  "cleanliness", "safety", "overcrowding", "driver", "behavior", "overcharging",
+  "other", "rating", "trip", "trips", "validated", "complete", "service", "alert",
+  "network", "district", "point", "matching", "transit", "away", "swap", "lines",
+  "checking", "connected", "direct", "offline", "report", "issue", "assistance",
+  "emergency", "chat", "terrible", "poor", "average", "good", "excellent",
+  "locating", "feedback", "select", "first", "en", "accessible", "available",
+  "denied", "unavailable", "note", "use", "only", "suggest", "manually",
+  "already", "passed", "shortly", "again", "still", "configuration", "moment",
+  "bought", "tied", "browser", "account", "approaching", "sent", "reminder",
+  "alighted", "scanned", "enjoy", "ride", "expired", "thanks", "riding",
+  "review", "respond", "message", "details", "describe", "happened", "investigate",
+  "resolve", "administrators", "submit", "submitting", "submitted", "reference",
+  "optional", "recent", "link", "improve", "experience", "comment", "skip",
+  "view", "status", "date", "time", "operator", "pnr", "code", "valid",
+  "until", "board", "boarding", "alighting", "help", "sos", "shift", "summary",
+  "performance", "show", "hide", "metrics", "cash", "digital", "online", "collection",
+  "collections", "breakdown", "quick", "actions", "open", "scanner", "print", "printing",
+  "camera", "align", "manual", "enter", "keypad", "screen", "receipt", "pocket", "lock"
+]);
+
 export function transliterateWord(word: string): string {
   if (/^[A-Z0-9\-_]+$/i.test(word) && /\d/.test(word)) return word;
   if (/^[0-9.,:;!?%₹#\(\)\-_/\\+=*&^$@]+$/.test(word)) return word;
 
-  const str = word.toLowerCase();
+  const lowerWord = word.toLowerCase();
+  // CORE GUARANTEE: Never transliterate core permanent UI words!
+  if (coreEnglishWordsBlocklist.has(lowerWord)) {
+    return lowerDictMap.get(lowerWord) || word;
+  }
+
+  const str = lowerWord;
   let result = "";
   let i = 0;
 
@@ -561,6 +648,9 @@ function isEnglishSentence(text: string): boolean {
       const lower = token.toLowerCase();
       if (lowerDictMap.has(lower)) {
         return lowerDictMap.get(lower)!;
+      }
+      if (coreEnglishWordsBlocklist.has(lower)) {
+        return token; // Core UI word with no dictionary mapping: keep in English, NEVER transliterate!
       }
       const transliterated = transliterateWord(token);
       if (transliterated && transliterated !== token) {

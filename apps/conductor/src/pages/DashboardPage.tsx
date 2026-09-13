@@ -913,7 +913,7 @@ export function DashboardPage() {
                     }}
                   >
                     <Ticket className="h-4 w-4" />
-                    <span>Issue Ticket</span>
+                    <span>{t("Issue Ticket")}</span>
                   </Button>
 
                   <Button
@@ -923,7 +923,7 @@ export function DashboardPage() {
                     onClick={() => navigate(`/trip/${activeTrip.id}/scan`)}
                   >
                     <Camera className="h-4 w-4 text-sky-400" />
-                    <span>Scan Ticket</span>
+                    <span>{t("Scan Ticket")}</span>
                   </Button>
                 </div>
               </Card>
@@ -933,17 +933,17 @@ export function DashboardPage() {
                 <Card className="border-slate-800 bg-slate-900/90 shadow-md">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">Bus Occupancy</p>
+                      <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">{t("Bus Occupancy")}</p>
                       <p className="mt-1 text-2xl font-black text-slate-100">
                         {occupancy.current_passenger_count}{" "}
-                        <span className="text-sm font-normal text-slate-400">/ {occupancy.capacity} Seats</span>
+                        <span className="text-sm font-normal text-slate-400">/ {occupancy.capacity} {t("Seats")}</span>
                       </p>
                     </div>
                     <Badge
                       tone={occupancy.capacity - occupancy.current_passenger_count > 5 ? "success" : "danger"}
                       className="text-xs font-bold px-2.5 py-1"
                     >
-                      {Math.max(0, occupancy.capacity - occupancy.current_passenger_count)} seats left
+                      {Math.max(0, occupancy.capacity - occupancy.current_passenger_count)} {t("seats left")}
                     </Badge>
                   </div>
                   <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-800">
@@ -1265,7 +1265,7 @@ export function DashboardPage() {
               className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-orange-950/50 active:scale-98 transition-transform"
             >
               <Ticket className="h-4 w-4" />
-              <span>Issue Ticket</span>
+              <span>{t("Issue Ticket")}</span>
             </button>
 
             <button
@@ -1274,7 +1274,7 @@ export function DashboardPage() {
               className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-blue-950/50 active:scale-98 transition-transform"
             >
               <Camera className="h-4 w-4" />
-              <span>Scan QR</span>
+              <span>{t("Scan QR")}</span>
             </button>
 
             {activeAlertId && (
@@ -1282,7 +1282,7 @@ export function DashboardPage() {
                 type="button"
                 onClick={() => setShowSosChat(true)}
                 className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-950 border border-rose-500/50 text-rose-400 hover:text-rose-200 animate-pulse"
-                title="Open SOS Dispatch Chat"
+                title={t("Open SOS Dispatch Chat")}
               >
                 <ShieldAlert className="h-5 w-5" />
               </button>
@@ -1292,7 +1292,7 @@ export function DashboardPage() {
               type="button"
               onClick={() => setPocketMode(true)}
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 hover:text-white"
-              title="Pocket Lock"
+              title={t("Pocket Lock")}
             >
               <Lock className="h-5 w-5" />
             </button>
@@ -1301,7 +1301,7 @@ export function DashboardPage() {
               type="button"
               {...sos.handlers}
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-600 font-bold text-white shadow-lg shadow-rose-950/60 active:scale-95 select-none"
-              title="Hold for SOS"
+              title={t("Hold for SOS")}
               style={{
                 backgroundImage: `linear-gradient(90deg, rgba(0,0,0,0.4) ${sos.progress * 100}%, transparent ${sos.progress * 100}%)`,
               }}
