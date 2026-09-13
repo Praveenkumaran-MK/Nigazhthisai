@@ -245,7 +245,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#F8FAFC]">
+        <main key={lang} className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#F8FAFC]">
           {children}
         </main>
       </div>
