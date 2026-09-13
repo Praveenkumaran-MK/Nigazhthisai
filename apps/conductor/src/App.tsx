@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { LoadingState, ErrorState, Button } from "@sbt/ui";
 import { useConductorAuth } from "./hooks/useConductorAuth";
+import { useConductorI18n } from "./lib/i18n";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TripPage } from "./pages/TripPage";
@@ -38,12 +39,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 export function App() {
+  const { lang } = useConductorI18n();
+
   // bg-canvas-oled is true #000000, not the softer canvas-dark used by
   // Passenger/Admin: the Conductor app runs for a full shift on a phone, so
   // OLED black is a battery requirement here (same reason Pocket Mode is
   // pure black), not a stylistic choice.
   return (
-    <div className="min-h-dvh bg-canvas-oled text-slate-100">
+    <div key={lang} className="min-h-dvh bg-canvas-oled text-slate-100">
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route

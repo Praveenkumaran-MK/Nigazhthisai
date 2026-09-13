@@ -4,6 +4,7 @@ import { Button, Card, LoadingState, StatusIndicator, StatCard, Badge } from "@s
 import { QrCode, Ticket, Play, Clock, Bus as BusIcon } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useConductorAuth } from "../hooks/useConductorAuth";
+import { useConductorI18n } from "../lib/i18n";
 
 interface AssignedTrip {
   id: string;
@@ -49,6 +50,7 @@ interface ConductorStats {
 
 export function DashboardPage() {
   const { conductor, logout } = useConductorAuth();
+  const { lang, setLang } = useConductorI18n();
   const navigate = useNavigate();
   const [stats, setStats] = useState<ConductorStats | null>(null);
   const [assignedTrips, setAssignedTrips] = useState<AssignedTrip[]>([]);
@@ -274,6 +276,28 @@ export function DashboardPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Bilingual Language Switcher */}
+          <div className="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setLang("en")}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition-all ${
+                lang === "en" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => setLang("ta")}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition-all ${
+                lang === "ta" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              TA
+            </button>
+          </div>
+
           <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={refreshing}>
             {refreshing ? "..." : "↻ Refresh"}
           </Button>

@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Input, Alert, Card, BrandLogo } from "@sbt/ui";
 import { useConductorAuth } from "../hooks/useConductorAuth";
+import { useConductorI18n } from "../lib/i18n";
 
 export function LoginPage() {
   const { login, error, status } = useConductorAuth();
+  const { lang, setLang } = useConductorI18n();
   const navigate = useNavigate();
   const [governmentId, setGovernmentId] = useState("");
   const [password, setPassword] = useState("");
@@ -39,7 +41,29 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-dvh items-center justify-center p-6">
-      <Card className="w-full max-w-sm">
+      <Card className="relative w-full max-w-sm">
+        {/* Bilingual Switcher Pill */}
+        <div className="absolute top-5 right-5 inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800">
+          <button
+            type="button"
+            onClick={() => setLang("en")}
+            className={`rounded-md px-2.5 py-1 text-[10px] font-bold transition-all ${
+              lang === "en" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            EN
+          </button>
+          <button
+            type="button"
+            onClick={() => setLang("ta")}
+            className={`rounded-md px-2.5 py-1 text-[10px] font-bold transition-all ${
+              lang === "ta" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            TA
+          </button>
+        </div>
+
         <BrandLogo variant="lockup" tone="light" className="mb-5" />
         <h1 className="text-lg font-semibold text-slate-100">Conductor Login</h1>
         <p className="mt-1 text-sm text-slate-500">Enter your government ID or email, and password.</p>

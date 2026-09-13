@@ -9,28 +9,13 @@ import { useNearestStop } from "../hooks/useNearestStop";
 import { useI18n } from "../lib/i18n";
 import type { Language } from "../lib/i18n";
 
+import { LangToggle } from "../components/LangToggle";
+
 interface ServiceAlert {
   id: string;
   title: string | null;
   message: string;
   severity: string;
-}
-
-/** Language toggle pill shown in the AppHeader actions slot. */
-function LangToggle() {
-  const { lang, setLang } = useI18n();
-
-  return (
-    <button
-      type="button"
-      id="lang-toggle"
-      aria-label="Switch language"
-      onClick={() => setLang((lang === "en" ? "ta" : "en") as Language)}
-      className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur transition-colors hover:bg-white/20"
-    >
-      <span className="font-bold tracking-wider">{lang === "en" ? "தமிழ்" : "EN"}</span>
-    </button>
-  );
 }
 
 export function HomePage() {

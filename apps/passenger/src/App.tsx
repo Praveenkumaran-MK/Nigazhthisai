@@ -50,14 +50,22 @@ function ReportIcon() {
 // Bottom tab bar only appears on these top-level screens
 const TAB_ROUTES = ["/", "/my-tickets", "/report"];
 
+import { LangToggle } from "./components/LangToggle";
+
 function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useI18n();
   const showTabBar = TAB_ROUTES.includes(location.pathname);
+  const isHome = location.pathname === "/";
 
   return (
     <>
+      {!isHome && (
+        <div className="fixed top-3 right-3 z-50">
+          <LangToggle />
+        </div>
+      )}
       <div className={showTabBar ? "pb-16" : undefined}>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -102,11 +110,11 @@ function AppRoutes() {
 
 export function App() {
   const { isReady, error } = usePassengerSession();
-  const { t } = useI18n();
+  const { lang, t } = useI18n();
 
   if (error) {
     return (
-      <div className="flex min-h-dvh items-center justify-center p-6">
+      <div key={lang} className="flex min-h-dvh items-center justify-center p-6">
         <ErrorState title={t("connecting")} description={error} onRetry={() => window.location.reload()} />
       </div>
     );
@@ -114,14 +122,14 @@ export function App() {
 
   if (!isReady) {
     return (
-      <div className="flex min-h-dvh items-center justify-center">
+      <div key={lang} className="flex min-h-dvh items-center justify-center">
         <LoadingState label={t("settingUp")} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-dvh bg-canvas-light dark:bg-canvas-dark">
+    <div key={lang} className="min-h-dvh bg-canvas-light dark:bg-canvas-dark">
       <OfflineBanner message={t("offline")} />
       <AppRoutes />
     </div>

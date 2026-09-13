@@ -18,6 +18,7 @@ import type { Trip, TripStop, TripOccupancy, Stop, Bus, Route } from "@sbt/share
 import { startTrip, departStopAndExpireTickets, listTripStops, getTripOccupancy, verifyBusQr } from "@sbt/supabase-client";
 import { supabase } from "../lib/supabase";
 import { useConductorAuth } from "../hooks/useConductorAuth";
+import { useConductorI18n } from "../lib/i18n";
 import { useWakeLock } from "../hooks/useWakeLock";
 import { useGpsTelemetry } from "../hooks/useGpsTelemetry";
 import { useSosLongPress } from "../hooks/useSosLongPress";
@@ -53,6 +54,7 @@ interface SosChatMessage {
 export function TripPage() {
   const { tripId } = useParams<{ tripId: string }>();
   const { conductor } = useConductorAuth();
+  const { lang, setLang } = useConductorI18n();
   const navigate = useNavigate();
   const { push } = useToast();
 
@@ -438,6 +440,28 @@ export function TripPage() {
     <div className="flex flex-col min-h-dvh bg-slate-950 text-slate-100">
       <AppHeader
         sticky
+        actions={
+          <div className="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setLang("en")}
+              className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition-all ${
+                lang === "en" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => setLang("ta")}
+              className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition-all ${
+                lang === "ta" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              TA
+            </button>
+          </div>
+        }
         leading={
           <button
             type="button"
