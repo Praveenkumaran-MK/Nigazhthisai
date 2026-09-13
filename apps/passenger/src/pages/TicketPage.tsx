@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { BoardingPassCard, Badge, LoadingState, Alert, TicketCountdown, Dialog, Button, Input, ShieldAlertIcon } from "@sbt/ui";
 import type { Stop, Bus } from "@sbt/shared-types";
 import { transferMissedTicket } from "@sbt/supabase-client";
-import { RefreshCw, CheckCircle2 } from "lucide-react";
+import { RefreshCw, CheckCircle2, ArrowLeft, Home } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useLoadTicket } from "../hooks/useTicket";
 import { useGeofenceAlighting } from "../hooks/useGeofenceAlighting";
@@ -66,6 +66,7 @@ interface ChatMessage {
 
 export function TicketPage() {
   const { ticketId } = useParams<{ ticketId: string }>();
+  const navigate = useNavigate();
   const { ticket, status, reload } = useLoadTicket(ticketId);
   const { t } = useI18n();
 
@@ -337,7 +338,36 @@ export function TicketPage() {
   const createdAt = new Date(ticket.created_at);
 
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-4 p-5 pb-24 pt-8">
+    <div className="mx-auto flex max-w-md flex-col items-center gap-4 p-5 pb-24 pt-6">
+      {/* Top Header with Back & Home Buttons */}
+      <div className="flex w-full items-center justify-between">
+        <button
+          type="button"
+          onClick={() => {
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              navigate("/tickets");
+            }
+          }}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm backdrop-blur hover:bg-slate-100 hover:text-slate-900 transition dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-200 dark:hover:bg-slate-800"
+          aria-label="Back to previous page"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>{t("Back") || "Back"}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm backdrop-blur hover:bg-slate-100 hover:text-slate-900 transition dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-200 dark:hover:bg-slate-800"
+          aria-label="Go to Home"
+        >
+          <Home className="h-4 w-4" />
+          <span>{t("Home") || "Home"}</span>
+        </button>
+      </div>
+
       {ticketActive && <TicketCountdown label={countdown.label} expired={countdown.expired} className="w-full" />}
 
       <BoardingPassCard

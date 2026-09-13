@@ -14,17 +14,53 @@ export function SearchResultsPage() {
   const destStopId = params.get("destStopId") ?? "";
 
   const { buses, status, error, search } = useEligibleBuses();
+  const [activeRouteId, setActiveRouteId] = useState(routeId);
   const [fare, setFare] = useState<number | null>(null);
   const [originStop, setOriginStop] = useState<Stop | null>(null);
   const [destStop, setDestStop] = useState<Stop | null>(null);
 
   useEffect(() => {
-    if (routeId && originStopId) void search(routeId, originStopId);
-    if (routeId && originStopId && destStopId) {
-      getFare(supabase, routeId, originStopId, destStopId)
-        .then((f) => setFare(f > 0 ? f : 15))
-        .catch(() => setFare(15));
+    async function initSearch() {
+      let rId = routeId;
+      if (!rId && originStopId && destStopId) {
+        // Query route_stops connecting origin and destination
+        const { data: rsOrigin } = await supabase
+          .from("route_stops")
+          .select("route_id, sequence_order")
+          .eq("stop_id", originStopId);
+
+        const { data: rsDest } = await supabase
+          .from("route_stops")
+          .select("route_id, sequence_order")
+          .eq("stop_id", destStopId);
+
+        if (rsOrigin && rsDest) {
+          const match = rsOrigin.find((o) =>
+            rsDest.some((d) => d.route_id === o.route_id && o.sequence_order < d.sequence_order)
+          );
+          if (match) {
+            rId = match.route_id;
+          } else {
+            const anyMatch = rsOrigin.find((o) => rsDest.some((d) => d.route_id === o.route_id));
+            if (anyMatch) rId = anyMatch.route_id;
+          }
+        }
+      }
+
+      setActiveRouteId(rId);
+
+      if (rId && originStopId) {
+        void search(rId, originStopId);
+      }
+      if (rId && originStopId && destStopId) {
+        getFare(supabase, rId, originStopId, destStopId)
+          .then((f) => setFare(f > 0 ? f : 15))
+          .catch(() => setFare(15));
+      }
     }
+
+    void initSearch();
+
     if (originStopId && destStopId) {
       supabase
         .from("stops_public")
@@ -36,8 +72,7 @@ export function SearchResultsPage() {
           setDestStop(rows.find((s) => s.id === destStopId) ?? null);
         });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeId, originStopId, destStopId]);
+  }, [routeId, originStopId, destStopId, search]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col pb-24">
@@ -71,7 +106,7 @@ export function SearchResultsPage() {
         </p>
 
         {status === "loading" && <LoadingState label="Looking for buses…" />}
-        {status === "error" && <ErrorState description={error ?? undefined} onRetry={() => search(routeId, originStopId)} />}
+        {status === "error" && <ErrorState description={error ?? undefined} onRetry={() => search(activeRouteId || routeId, originStopId)} />}
         {status === "success" && buses.length === 0 && (
           <EmptyState
             title="No buses available right now"
@@ -150,7 +185,7 @@ export function SearchResultsPage() {
                       variant="outline"
                       size="sm"
                       className="rounded-xl px-3 font-semibold text-slate-700 dark:text-slate-200"
-                      onClick={() => navigate(`/bus/${bus.trip_id}?routeId=${routeId}`)}
+                      onClick={() => navigate(`/bus/${bus.trip_id}?routeId=${activeRouteId || routeId}`)}
                     >
                       Track
                     </Button>

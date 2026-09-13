@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Card, LoadingState, StatusIndicator, StatCard, Badge } from "@sbt/ui";
-import { QrCode, Ticket, Play, Clock, Bus as BusIcon } from "lucide-react";
+import { QrCode, Ticket, Play, Clock, Bus as BusIcon, Eye, EyeOff } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useConductorAuth } from "../hooks/useConductorAuth";
 import { useConductorI18n } from "../lib/i18n";
@@ -57,7 +57,26 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [refreshing, setRefreshing] = useState(false);
+  const [hideFinancials, setHideFinancials] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("ngz_conductor_metrics_hidden") === "true";
+    } catch {
+      return false;
+    }
+  });
   const rpcStatsAvailable = useRef<boolean>(true);
+
+  const toggleHideFinancials = () => {
+    setHideFinancials((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("ngz_conductor_metrics_hidden", String(next));
+      } catch {
+        // quota
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -486,21 +505,56 @@ export function DashboardPage() {
             </div>
           )}
 
-          {/* Today's Operational Key Metrics */}
+          {/* Today's Operational Key Metrics Header with Hide Toggle */}
+          <div className="flex items-center justify-between pt-1">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              {t("Shift Summary") || "Shift Performance"}
+            </h3>
+            <button
+              type="button"
+              onClick={toggleHideFinancials}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-1 text-xs font-semibold text-slate-400 hover:border-slate-700 hover:text-slate-200 transition"
+              title={hideFinancials ? "Show metrics" : "Hide metrics"}
+            >
+              {hideFinancials ? (
+                <>
+                  <Eye className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Show</span>
+                </>
+              ) : (
+                <>
+                  <EyeOff className="h-3.5 w-3.5 text-slate-400" />
+                  <span>Hide</span>
+                </>
+              )}
+            </button>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <StatCard
               label="Tickets Issued"
-              value={stats?.tickets_issued ?? 0}
+              value={hideFinancials ? "•••" : (stats?.tickets_issued ?? 0)}
             />
             <StatCard
               label="Total Shift Revenue"
-              value={`₹${(stats?.total_revenue ?? 0).toFixed(2)}`}
+              value={hideFinancials ? "₹ ••••" : `₹${(stats?.total_revenue ?? 0).toFixed(2)}`}
             />
           </div>
 
           {/* Financial Breakdown Card */}
           <Card className="border-slate-800 bg-slate-900/80">
-            <h3 className="text-sm font-semibold text-slate-200">Today's Revenue Breakdown</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-200">Today's Revenue Breakdown</h3>
+              <button
+                type="button"
+                onClick={toggleHideFinancials}
+                className="text-slate-500 hover:text-slate-300 transition"
+                title={hideFinancials ? "Show Revenue" : "Hide Revenue"}
+                aria-label={hideFinancials ? "Show Revenue" : "Hide Revenue"}
+              >
+                {hideFinancials ? <Eye className="h-4 w-4 text-amber-400" /> : <EyeOff className="h-4 w-4" />}
+              </button>
+            </div>
             <div className="mt-3 space-y-2 text-sm">
               <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
                 <span className="text-slate-400 flex items-center gap-2">
@@ -508,7 +562,7 @@ export function DashboardPage() {
                   Cash / ETM Collections
                 </span>
                 <span className="font-mono font-semibold text-slate-100">
-                  ₹{(stats?.cash_revenue ?? 0).toFixed(2)}
+                  {hideFinancials ? "₹ ••••" : `₹${(stats?.cash_revenue ?? 0).toFixed(2)}`}
                 </span>
               </div>
               <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
@@ -517,13 +571,13 @@ export function DashboardPage() {
                   Digital / Online Tickets
                 </span>
                 <span className="font-mono font-semibold text-slate-100">
-                  ₹{(stats?.digital_revenue ?? 0).toFixed(2)}
+                  {hideFinancials ? "₹ ••••" : `₹${(stats?.digital_revenue ?? 0).toFixed(2)}`}
                 </span>
               </div>
               <div className="flex items-center justify-between pt-1">
                 <span className="text-slate-300 font-medium">Total Shift Collection</span>
                 <span className="font-mono font-bold text-emerald-400 text-base">
-                  ₹{(stats?.total_revenue ?? 0).toFixed(2)}
+                  {hideFinancials ? "₹ ••••" : `₹${(stats?.total_revenue ?? 0).toFixed(2)}`}
                 </span>
               </div>
             </div>
