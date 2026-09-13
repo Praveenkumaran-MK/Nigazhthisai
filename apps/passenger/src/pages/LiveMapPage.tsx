@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Polyline, Popup } from "react-leaflet"
 import L from "leaflet";
 import type { Trip, RouteWithStops, TripStop, Bus, Stop } from "@sbt/shared-types";
 import { getRouteWithStops, listTripStops } from "@sbt/supabase-client";
-import { MapFrame, Badge, LoadingState, StatusIndicator, AppHeader, TransitBusRunner } from "@sbt/ui";
+import { MapFrame, Badge, LoadingState, StatusIndicator, AppHeader, TransitBusRunner, WheelchairIcon } from "@sbt/ui";
 import { supabase } from "../lib/supabase";
 import { useRealtimeBusTracking } from "../hooks/useRealtimeBusTracking";
 
@@ -162,6 +162,12 @@ export function LiveMapPage() {
               <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">
                 {bus?.type.replace("_", "-") ?? ""}
               </span>
+              {bus?.is_wheelchair_accessible && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800" title="Handicap Accessible Bus">
+                  <WheelchairIcon size={13} className="text-blue-600 dark:text-blue-400" />
+                  <span>Accessible</span>
+                </span>
+              )}
               {trip?.schedule_adherence && (
                 <Badge tone={trip.schedule_adherence === "DELAYED" ? "warning" : "success"}>
                   {trip.schedule_adherence === "DELAYED"

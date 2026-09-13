@@ -192,3 +192,30 @@ export function ArrowRightIcon({ size = 18, className = "", ...props }: IconProp
     </svg>
   );
 }
+
+export function WheelchairIcon({ size = 18, className = "", ...props }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <circle cx="12" cy="4" r="2" />
+      <path d="M5 19a5 5 0 0 0 9.8 1.5" />
+      <path d="M12 8v6h5" />
+      <path d="M15 14l3.5 6" />
+      <path d="M9 13a4 4 0 0 1 0-8h1" />
+    </svg>
+  );
+}
+
+export const HandicapIcon = WheelchairIcon;
+export const AccessibilityIcon = WheelchairIcon;
+

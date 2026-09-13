@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Bus, Route, District } from "@sbt/shared-types";
 import { listRoutes } from "@sbt/supabase-client";
+import { WheelchairIcon } from "@sbt/ui";
 import { supabase } from "../lib/supabase";
 import { ResourceCrudPage } from "../components/crud/ResourceCrudPage";
 
@@ -33,6 +34,21 @@ export function BusesPage() {
         { key: "route", header: "Route", render: (b) => routeName(b.route_id) },
         { key: "type", header: "Type", render: (b) => b.type.replace("_", "-") },
         { key: "capacity", header: "Capacity", render: (b) => b.capacity },
+        {
+          key: "is_wheelchair_accessible",
+          header: "Handicap Facilities",
+          render: (b) =>
+            b.is_wheelchair_accessible ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800">
+                <WheelchairIcon size={14} className="text-blue-600 dark:text-blue-400" />
+                <span>Accessible</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 font-medium">
+                Standard
+              </span>
+            ),
+        },
       ]}
       fields={[
         { name: "bus_number", label: "Bus number", type: "text", required: true, placeholder: "TN-49-N-1023" },
@@ -64,6 +80,11 @@ export function BusesPage() {
           ],
         },
         { name: "capacity", label: "Capacity", type: "number", required: true },
+        {
+          name: "is_wheelchair_accessible",
+          label: "Handicap / Wheelchair Accessible Facilities",
+          type: "checkbox",
+        },
       ]}
     />
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dialog, Input, Select, Button, Alert } from "@sbt/ui";
+import { Dialog, Input, Select, Button, Alert, WheelchairIcon } from "@sbt/ui";
 import type { FormFieldConfig } from "./types";
 
 export interface ResourceFormDialogProps {
@@ -66,14 +66,31 @@ export function ResourceFormDialog({ open, title, fields, initialValues, onSubmi
             );
           }
           if (field.type === "checkbox") {
+            const isWheelchair = field.name.includes("wheelchair") || field.name.includes("handicap") || field.name.includes("access");
             return (
-              <label key={field.name} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+              <label
+                key={field.name}
+                className="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 cursor-pointer transition-all shadow-sm"
+              >
+                <div className="flex items-center gap-2.5">
+                  {isWheelchair && <WheelchairIcon size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />}
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                      {field.label}
+                    </span>
+                    {isWheelchair && (
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                        Enable if vehicle is equipped with ramp, designated wheelchair seats or low-floor facilities
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <input
                   type="checkbox"
                   checked={Boolean(values[field.name])}
                   onChange={(e) => setValues((v) => ({ ...v, [field.name]: e.target.checked }))}
+                  className="h-5 w-5 rounded border-slate-300 text-[#0D2A5D] focus:ring-[#0D2A5D] cursor-pointer"
                 />
-                {field.label}
               </label>
             );
           }

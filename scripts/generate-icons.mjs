@@ -1,76 +1,56 @@
 import fs from "fs";
 import path from "path";
-import zlib from "zlib";
+import { PNG } from "pngjs";
 
-function createSolidPng(width, height, r, g, b, a = 255) {
-  // PNG signature
-  const signature = Buffer.from([137, 80, 78, 72, 13, 10, 26, 10]);
+function resizeBilinear(src, targetWidth, targetHeight) {
+  const dst = new PNG({ width: targetWidth, height: targetHeight });
+  const xRatio = src.width / targetWidth;
+  const yRatio = src.height / targetHeight;
 
-  // IHDR chunk
-  const ihdrData = Buffer.alloc(13);
-  ihdrData.writeUInt32BE(width, 0);
-  ihdrData.writeUInt32BE(height, 4);
-  ihdrData.writeUInt8(8, 8); // bit depth 8
-  ihdrData.writeUInt8(6, 9); // color type RGBA (6)
-  ihdrData.writeUInt8(0, 10); // compression
-  ihdrData.writeUInt8(0, 11); // filter
-  ihdrData.writeUInt8(0, 12); // interlace
+  for (let y = 0; y < targetHeight; y++) {
+    for (let x = 0; x < targetWidth; x++) {
+      const px = x * xRatio;
+      const py = y * yRatio;
+      const xFloor = Math.floor(px);
+      const yFloor = Math.floor(py);
+      const xCeil = Math.min(src.width - 1, Math.ceil(px));
+      const yCeil = Math.min(src.height - 1, Math.ceil(py));
+      const xWeight = px - xFloor;
+      const yWeight = py - yFloor;
 
-  const ihdr = makeChunk("IHDR", ihdrData);
+      const idxDst = (y * targetWidth + x) << 2;
+      const idxTL = (yFloor * src.width + xFloor) << 2;
+      const idxTR = (yFloor * src.width + xCeil) << 2;
+      const idxBL = (yCeil * src.width + xFloor) << 2;
+      const idxBR = (yCeil * src.width + xCeil) << 2;
 
-  // Raw image data with filter byte 0 at start of each scanline
-  const rowSize = 1 + width * 4;
-  const rawData = Buffer.alloc(height * rowSize);
-  for (let y = 0; y < height; y++) {
-    const rowOffset = y * rowSize;
-    rawData[rowOffset] = 0; // None filter
-    for (let x = 0; x < width; x++) {
-      const pxOffset = rowOffset + 1 + x * 4;
-      rawData[pxOffset] = r;
-      rawData[pxOffset + 1] = g;
-      rawData[pxOffset + 2] = b;
-      rawData[pxOffset + 3] = a;
-    }
-  }
-
-  const compressed = zlib.deflateSync(rawData);
-  const idat = makeChunk("IDAT", compressed);
-  const iend = makeChunk("IEND", Buffer.alloc(0));
-
-  return Buffer.concat([signature, ihdr, idat, iend]);
-}
-
-function makeChunk(type, data) {
-  const len = data.length;
-  const buf = Buffer.alloc(4 + 4 + len + 4);
-  buf.writeUInt32BE(len, 0);
-  buf.write(type, 4, 4, "ascii");
-  data.copy(buf, 8);
-  const crc = crc32(buf.subarray(4, 8 + len));
-  buf.writeUInt32BE(crc >>> 0, 8 + len);
-  return buf;
-}
-
-function crc32(buf) {
-  let table = crc32.table;
-  if (!table) {
-    table = new Uint32Array(256);
-    for (let i = 0; i < 256; i++) {
-      let c = i;
-      for (let k = 0; k < 8; k++) {
-        c = (c & 1) ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      for (let c = 0; c < 4; c++) {
+        const top = src.data[idxTL + c] * (1 - xWeight) + src.data[idxTR + c] * xWeight;
+        const bottom = src.data[idxBL + c] * (1 - xWeight) + src.data[idxBR + c] * xWeight;
+        dst.data[idxDst + c] = Math.round(top * (1 - yWeight) + bottom * yWeight);
       }
-      table[i] = c;
     }
-    crc32.table = table;
   }
-
-  let c = 0xffffffff;
-  for (let i = 0; i < buf.length; i++) {
-    c = table[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
-  }
-  return (c ^ 0xffffffff) >>> 0;
+  return dst;
 }
+
+const masterPath = path.resolve(process.cwd(), "apps/conductor/public/brand-logo-original.png");
+const masterBuf = fs.readFileSync(masterPath);
+const masterPng = PNG.sync.read(masterBuf);
+
+console.log(`Loaded official master logo: ${masterPng.width}x${masterPng.height}`);
+
+const png512 = resizeBilinear(masterPng, 512, 512);
+const png192 = resizeBilinear(masterPng, 192, 192);
+
+const out512Buf = PNG.sync.write(png512);
+const out192Buf = PNG.sync.write(png192);
+const b64512 = out512Buf.toString("base64");
+
+const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <image href="data:image/png;base64,${b64512}" width="512" height="512" />
+</svg>
+`;
 
 const targets = [
   "apps/admin/public/icons",
@@ -78,14 +58,13 @@ const targets = [
   "apps/conductor/public/icons",
 ];
 
-const png192 = createSolidPng(192, 192, 13, 42, 93); // Navy #0D2A5D
-const png512 = createSolidPng(512, 512, 13, 42, 93);
-
 targets.forEach((targetDir) => {
   const fullDir = path.resolve(process.cwd(), targetDir);
-  if (fs.existsSync(fullDir)) {
-    fs.writeFileSync(path.join(fullDir, "icon-192.png"), png192);
-    fs.writeFileSync(path.join(fullDir, "icon-512.png"), png512);
-    console.log(`Generated icons in ${targetDir}`);
+  if (!fs.existsSync(fullDir)) {
+    fs.mkdirSync(fullDir, { recursive: true });
   }
+  fs.writeFileSync(path.join(fullDir, "icon-192.png"), out192Buf);
+  fs.writeFileSync(path.join(fullDir, "icon-512.png"), out512Buf);
+  fs.writeFileSync(path.join(fullDir, "icon.svg"), svgContent);
+  console.log(`Generated official master icons in ${targetDir}`);
 });

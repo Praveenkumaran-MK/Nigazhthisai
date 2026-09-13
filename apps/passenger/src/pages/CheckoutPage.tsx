@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Card, Alert, Select, Spinner } from "@sbt/ui";
+import { Button, Card, Alert, Select, Spinner, WheelchairIcon } from "@sbt/ui";
 import { supabase } from "../lib/supabase";
 import { useI18n } from "../lib/i18n";
 import { choosePaymentProvider } from "../lib/paymentProvider";
@@ -46,6 +46,12 @@ export function CheckoutPage() {
   const [paymentStep, setPaymentStep] = useState<"idle" | "processing" | "paid" | "creating" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [busDetails, setBusDetails] = useState<{
+    bus_number: string;
+    type: string;
+    is_wheelchair_accessible: boolean;
+  } | null>(null);
+
   useEffect(() => {
     async function loadConfig() {
       try {
@@ -61,7 +67,20 @@ export function CheckoutPage() {
       }
     }
     void loadConfig();
-  }, []);
+
+    if (tripId) {
+      supabase
+        .from("trips")
+        .select("id, bus_id, buses(bus_number, type, is_wheelchair_accessible)")
+        .eq("id", tripId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data && (data as any).buses) {
+            setBusDetails((data as any).buses);
+          }
+        });
+    }
+  }, [tripId]);
 
   const discount = CONCESSION_DISCOUNT[concessionType];
   const baseFareTotal = displayFare * Number(passengerCount);
@@ -132,6 +151,30 @@ export function CheckoutPage() {
   return (
     <div className="mx-auto flex max-w-md flex-col gap-5 p-5 pb-24 pt-8">
       <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{t("checkout")}</h1>
+
+      {busDetails && (
+        <Card className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {t("selectedVehicle") || "Bus Details"}
+              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-base font-bold text-slate-900 dark:text-slate-100">{busDetails.bus_number}</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase">({busDetails.type.replace("_", "-")})</span>
+              </div>
+            </div>
+            {busDetails.is_wheelchair_accessible ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800 shadow-xs" title="Handicap Accessible Vehicle">
+                <WheelchairIcon size={15} className="text-blue-600 dark:text-blue-400" />
+                <span>{t("handicapAccessible") || "Handicap Accessible"}</span>
+              </span>
+            ) : (
+              <span className="text-xs text-slate-400 font-medium">{t("standardBus") || "Standard Bus"}</span>
+            )}
+          </div>
+        </Card>
+      )}
 
       <Card>
         <div className="flex flex-col gap-4">

@@ -61,6 +61,10 @@ export const strings = {
     enRoute: "En route",
     accessible: "Accessible",
     direct: "Direct",
+    handicapAccessible: "Handicap Accessible",
+    handicapFacilities: "Handicap / Wheelchair Facilities Available",
+    standardBus: "Standard Bus",
+    selectedVehicle: "Selected Bus Details",
     // Checkout
     checkout: "Checkout",
     numberOfPassengers: "Number of passengers",
@@ -191,6 +195,10 @@ export const strings = {
     enRoute: "வழியில் உள்ளது",
     accessible: "அணுகக்கூடியது",
     direct: "நேரடி",
+    handicapAccessible: "மாற்றுத்திறனாளிகள் வசதி",
+    handicapFacilities: "மாற்றுத்திறனாளிகளுக்கான சிறப்பு வசதிகள்",
+    standardBus: "சாதாரண பேருந்து",
+    selectedVehicle: "தேர்ந்தெடுக்கப்பட்ட பேருந்து விவரங்கள்",
     // Checkout
     checkout: "கட்டணம் செலுத்துதல்",
     numberOfPassengers: "பயணிகள் எண்ணிக்கை",

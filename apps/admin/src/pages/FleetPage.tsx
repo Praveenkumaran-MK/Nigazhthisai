@@ -10,6 +10,7 @@ import {
   AlertTriangleIcon,
   ActivityIcon,
   UserIcon,
+  WheelchairIcon,
 } from "@sbt/ui";
 import { supabase } from "../lib/supabase";
 
@@ -375,6 +376,12 @@ export function FleetPage() {
                     <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs font-mono font-bold">
                       {activeRoute?.code ?? activeRoute?.route_number ?? "ROUTE"}
                     </span>
+                    {activeBus?.is_wheelchair_accessible && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 text-xs font-bold" title="Handicap Accessible Vehicle">
+                        <WheelchairIcon size={13} />
+                        <span>Handicap Accessible</span>
+                      </span>
+                    )}
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-black uppercase tracking-wider ${
                         isTripOverallOnTime

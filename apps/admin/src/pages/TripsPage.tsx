@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { DataTable, Badge, Card, Button, Dialog, Select, DateTimePicker, Input, useToast, EditIcon, HistoryIcon, TrashIcon, Alert } from "@sbt/ui";
+import { DataTable, Badge, Card, Button, Dialog, Select, DateTimePicker, Input, useToast, EditIcon, HistoryIcon, TrashIcon, Alert, WheelchairIcon } from "@sbt/ui";
 import type { Trip, Route, Bus, Conductor } from "@sbt/shared-types";
 import { supabase } from "../lib/supabase";
 
@@ -310,7 +310,23 @@ export function TripsPage() {
               },
             },
             { key: "route", header: "Route", render: (t) => <span className="font-semibold">{routeLabel(t.route_id)}</span> },
-            { key: "bus", header: "Bus", render: (t) => busLabel(t.bus_id) },
+            {
+              key: "bus",
+              header: "Bus",
+              render: (t) => {
+                const b = buses.find((bus) => bus.id === t.bus_id);
+                return (
+                  <div className="flex items-center gap-1.5">
+                    <span>{b?.bus_number ?? t.bus_id.slice(0, 8)}</span>
+                    {b?.is_wheelchair_accessible && (
+                      <span className="inline-flex items-center text-blue-600 dark:text-blue-400" title="Handicap / Wheelchair Accessible Bus">
+                        <WheelchairIcon size={14} />
+                      </span>
+                    )}
+                  </div>
+                );
+              },
+            },
             { key: "conductor", header: "Conductor", render: (t) => conductorLabel(t.conductor_id) },
             {
               key: "status",
@@ -379,7 +395,10 @@ export function TripsPage() {
             label="Bus Assignment"
             value={newBusId}
             onChange={(e) => setNewBusId(e.target.value)}
-            options={buses.map((b) => ({ value: b.id, label: `${b.bus_number} (${b.type})` }))}
+            options={buses.map((b) => ({
+              value: b.id,
+              label: `${b.bus_number} (${b.type.replace("_", "-")})${b.is_wheelchair_accessible ? " [♿ Handicap Accessible]" : ""}`,
+            }))}
           />
 
           <Select
@@ -436,7 +455,10 @@ export function TripsPage() {
             label="Assigned Bus"
             value={editBusId}
             onChange={(e) => setEditBusId(e.target.value)}
-            options={buses.map((b) => ({ value: b.id, label: `${b.bus_number} (${b.type})` }))}
+            options={buses.map((b) => ({
+              value: b.id,
+              label: `${b.bus_number} (${b.type.replace("_", "-")})${b.is_wheelchair_accessible ? " [♿ Handicap Accessible]" : ""}`,
+            }))}
           />
 
           <Select

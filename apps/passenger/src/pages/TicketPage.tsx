@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { BoardingPassCard, Badge, LoadingState, Alert, TicketCountdown, Dialog, Button, Input, ShieldAlertIcon } from "@sbt/ui";
+import { BoardingPassCard, Badge, LoadingState, Alert, TicketCountdown, Dialog, Button, Input, ShieldAlertIcon, WheelchairIcon } from "@sbt/ui";
 import type { Stop, Bus } from "@sbt/shared-types";
 import { CheckCircle2, ArrowLeft, Home } from "lucide-react";
 import { supabase } from "../lib/supabase";
@@ -359,7 +359,20 @@ export function TicketPage() {
         statusBadge={<Badge tone={statusTone[ticket.status]}>{ticket.status}</Badge>}
         qrValue={`${ticket.qr_payload}.${ticket.qr_signature}`}
         fields={[
-          { label: "Bus", value: bus?.bus_number ?? "—" },
+          {
+            label: "Bus",
+            value: (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span>{bus?.bus_number ?? "—"}</span>
+                {bus?.is_wheelchair_accessible && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-bold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="Handicap / Wheelchair Accessible Bus">
+                    <WheelchairIcon size={12} className="text-blue-600 dark:text-blue-400" />
+                    <span>Accessible</span>
+                  </span>
+                )}
+              </div>
+            ),
+          },
           { label: "Type", value: bus ? bus.type.replace("_", "-") : "—" },
           { label: "Passengers", value: ticket.passenger_count },
           { label: "Concession", value: (ticket as unknown as { concession_type?: string }).concession_type ?? "NORMAL" },

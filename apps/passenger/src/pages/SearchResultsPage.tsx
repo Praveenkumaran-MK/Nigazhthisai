@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Card, Badge, EmptyState, LoadingState, ErrorState, RouteVisualization, AppHeader } from "@sbt/ui";
+import { Button, Card, Badge, EmptyState, LoadingState, ErrorState, RouteVisualization, AppHeader, WheelchairIcon } from "@sbt/ui";
 import type { Stop } from "@sbt/shared-types";
 import { getFare } from "@sbt/supabase-client";
 import { supabase } from "../lib/supabase";
@@ -133,7 +133,15 @@ export function SearchResultsPage() {
                 {/* Top Row: Bus number + Type */}
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{bus.bus_number}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{bus.bus_number}</h3>
+                      {bus.is_wheelchair_accessible && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800 shadow-xs" title="Handicap Accessible Seats & Facilities">
+                          <WheelchairIcon size={14} className="text-blue-600 dark:text-blue-400" />
+                          <span>Handicap Accessible</span>
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                       Currently near: <span className="font-medium text-slate-700 dark:text-slate-300">{bus.current_stop_name ?? "En route"}</span>
                     </p>
@@ -149,8 +157,15 @@ export function SearchResultsPage() {
                     <span className="truncate font-medium">
                       {originStop.name} <span className="text-slate-400">→</span> {destStop.name}
                     </span>
-                    <span className="shrink-0 font-semibold text-brand-600 dark:text-brand-400">
-                      {bus.is_wheelchair_accessible ? "Accessible" : "Direct"}
+                    <span className="shrink-0 inline-flex items-center gap-1 font-semibold text-brand-600 dark:text-brand-400">
+                      {bus.is_wheelchair_accessible ? (
+                        <>
+                          <WheelchairIcon size={13} className="text-blue-600 dark:text-blue-400" />
+                          <span>Accessible</span>
+                        </>
+                      ) : (
+                        <span>Direct</span>
+                      )}
                     </span>
                   </div>
                 )}
