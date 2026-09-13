@@ -13,6 +13,7 @@ export async function createSecureTicket(client: SupabaseClient, input: CreateTi
     p_origin_stop_id: input.origin_stop_id,
     p_dest_stop_id: input.dest_stop_id,
     p_passenger_count: input.passenger_count,
+    p_concession_type: input.concession_type ?? "NORMAL",
   });
   if (error) throw toAppError(error);
   return data as unknown as Ticket;

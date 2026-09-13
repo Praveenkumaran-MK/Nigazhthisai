@@ -119,15 +119,27 @@ export function FleetPage() {
       const stopMap = new Map((sData ?? []).map((s) => [s.id, s]));
       const rStopMap = new Map((rStops ?? []).map((s: any) => [s.stop_id, s.expected_arrival_time]));
 
-      // 4. Live GPS Telemetry
-      setGpsTelemetry({
-        speed: 36,
-        latitude: 11.1085,
-        longitude: 77.3411,
-        recordedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      });
+      // 4. Live GPS Telemetry from gps_logs table
+      const { data: latestGps } = await supabase
+        .from("gps_logs")
+        .select("speed, latitude, longitude, recorded_at")
+        .eq("trip_id", activeTrip.id)
+        .order("recorded_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      // 5. Build pipeline representation with ±5 minutes on-time rule
+      if (latestGps) {
+        setGpsTelemetry({
+          speed: Math.round(latestGps.speed ?? 0),
+          latitude: latestGps.latitude,
+          longitude: latestGps.longitude,
+          recordedAt: new Date(latestGps.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        });
+      } else {
+        setGpsTelemetry(null);
+      }
+
+      // 5. Build pipeline representation with accurate stop status and ±5 minutes on-time rule
       const baseStart = activeTrip.started_at
         ? new Date(activeTrip.started_at)
         : activeTrip.scheduled_departure
@@ -142,42 +154,41 @@ export function FleetPage() {
         const meta = stopMap.get(s.stop_id);
         const configuredEta = rStopMap.get(s.stop_id) || s.expected_arrival_time;
 
-        // Compute simulated or scheduled ETA
         let scheduledEtaStr = configuredEta;
         if (!scheduledEtaStr) {
           const etaDate = new Date(baseStart.getTime() + idx * 14 * 60 * 1000);
           scheduledEtaStr = etaDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         }
 
+        // Accurately determine node status from DB stop status first, then trip current_stop_id
         let nodeStatus: PipelineStop["status"] = "UPCOMING";
-        if (currentStopIndex === -1) {
-          nodeStatus = idx === 0 ? "CURRENT" : "UPCOMING";
-        } else if (idx < currentStopIndex) {
+        if (s.status === "DEPARTED") {
           nodeStatus = "DEPARTED";
-        } else if (idx === currentStopIndex) {
+        } else if (s.status === "ARRIVED" || s.stop_id === activeTrip.current_stop_id) {
           nodeStatus = "CURRENT";
-        } else if (idx === currentStopIndex + 1) {
+        } else if (currentStopIndex !== -1 && idx === currentStopIndex + 1) {
           nodeStatus = "NEXT";
+        } else if (currentStopIndex === -1 && idx === 0) {
+          nodeStatus = "CURRENT";
+        } else if (currentStopIndex !== -1 && idx < currentStopIndex) {
+          nodeStatus = "DEPARTED";
         } else {
           nodeStatus = "UPCOMING";
         }
 
         // Delay Calculation:
-        // Rule: If bus arrived 5mins before or 5mins after expected ETA -> "ON-TIME"
-        // Else -> "DELAYED"
         let delayMinutes = 0;
         let actualArrivalStr: string | null = null;
 
         if (s.arrival_time) {
           const act = new Date(s.arrival_time);
           actualArrivalStr = act.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-          // Difference in minutes
           const expectedMs = baseStart.getTime() + idx * 14 * 60 * 1000;
           delayMinutes = Math.round((act.getTime() - expectedMs) / 60000);
         } else if (nodeStatus === "CURRENT") {
           delayMinutes = 2; // on time
         } else if (nodeStatus === "DEPARTED") {
-          delayMinutes = 3; // departed on time
+          delayMinutes = 1; // departed on time
         }
 
         // ±5 minutes threshold
@@ -203,10 +214,96 @@ export function FleetPage() {
     void loadPipeline(trip);
   }, [selectedTrip]);
 
+  // Realtime subscription for Trip, TripStops, and GPS Logs
+  useEffect(() => {
+    if (!selectedTripId) return;
+
+    const reloadData = async () => {
+      const { data: updatedTrip } = await supabase
+        .from("trips")
+        .select("*")
+        .eq("id", selectedTripId)
+        .single();
+      if (updatedTrip) {
+        setActiveTrips((prev) => prev.map((t) => (t.id === selectedTripId ? (updatedTrip as Trip) : t)));
+      }
+    };
+
+    const channel = supabase
+      .channel(`fleet-realtime-${selectedTripId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trips", filter: `id=eq.${selectedTripId}` },
+        () => void reloadData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trip_stops", filter: `trip_id=eq.${selectedTripId}` },
+        () => void reloadData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "gps_logs", filter: `trip_id=eq.${selectedTripId}` },
+        (payload) => {
+          const gps = payload.new as any;
+          if (gps) {
+            setGpsTelemetry({
+              speed: Math.round(gps.speed ?? 0),
+              latitude: gps.latitude,
+              longitude: gps.longitude,
+              recordedAt: new Date(gps.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedTripId]);
+
   // Determine overall trip on-time status
   const currentStopNode = tripStops.find((s) => s.status === "CURRENT") || tripStops[0];
   const isTripOverallOnTime = currentStopNode ? currentStopNode.isOnTime : true;
   const overallDelayMins = currentStopNode ? currentStopNode.delayMinutes : 0;
+
+  const [isActionLoading, setIsActionLoading] = useState(false);
+
+  const handleAdvanceStop = async () => {
+    if (!selectedTrip) return;
+    setIsActionLoading(true);
+    try {
+      await supabase.rpc("admin_advance_trip_stop", { p_trip_id: selectedTrip.id });
+      const { data: updated } = await supabase.from("trips").select("*").eq("id", selectedTrip.id).single();
+      if (updated) {
+        setActiveTrips((prev) => prev.map((t) => (t.id === selectedTrip.id ? (updated as Trip) : t)));
+      }
+    } catch (err) {
+      console.error("Failed to advance stop:", err);
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleDepartCurrentStop = async () => {
+    if (!selectedTrip || !currentStopNode?.stopId) return;
+    setIsActionLoading(true);
+    try {
+      await supabase.rpc("depart_stop_and_expire_tickets", {
+        p_trip_id: selectedTrip.id,
+        p_stop_id: currentStopNode.stopId,
+      });
+      const { data: updated } = await supabase.from("trips").select("*").eq("id", selectedTrip.id).single();
+      if (updated) {
+        setActiveTrips((prev) => prev.map((t) => (t.id === selectedTrip.id ? (updated as Trip) : t)));
+      }
+    } catch (err) {
+      console.error("Failed to depart stop:", err);
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -340,13 +437,34 @@ export function FleetPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-3 text-xs font-bold">
+              <div className="flex flex-wrap items-center gap-3 text-xs font-bold">
                 <span className="flex items-center gap-1.5 text-emerald-500">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 inline-block"></span> On-Time (±5m)
                 </span>
                 <span className="flex items-center gap-1.5 text-amber-500">
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-500 inline-block"></span> Delayed (&gt;5m)
                 </span>
+
+                {selectedTrip && (
+                  <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={handleDepartCurrentStop}
+                      disabled={isActionLoading || !currentStopNode}
+                      className="rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-3 py-1.5 text-xs font-bold transition disabled:opacity-50"
+                    >
+                      Depart Current Stop
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAdvanceStop}
+                      disabled={isActionLoading}
+                      className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 text-xs font-bold transition disabled:opacity-50 shadow-sm"
+                    >
+                      Advance Next Stop →
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 

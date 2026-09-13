@@ -147,6 +147,7 @@ export interface Bus {
   type: BusType;
   district_id: string | null;
   is_active: boolean;
+  status?: string;
   is_wheelchair_accessible: boolean;
   registration_number: string | null;
   bus_qr_payload: string | null;
@@ -162,6 +163,7 @@ export interface BusInsert {
   capacity: number;
   type: BusType;
   district_id?: string | null;
+  status?: string;
   is_wheelchair_accessible?: boolean;
   registration_number?: string | null;
 }
@@ -293,6 +295,7 @@ export interface CreateTicketInput {
   origin_stop_id: string;
   dest_stop_id: string;
   passenger_count: number;
+  concession_type?: string;
 }
 
 export interface ValidateTicketInput {

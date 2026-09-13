@@ -3,13 +3,13 @@ import { Button, Alert, Card, useToast, BusIcon, UserIcon, RouteIcon, MapPinIcon
 import { supabase } from "../lib/supabase";
 
 interface AuthorityConfig {
-  id: string;
-  authority_name: string | null;
+  id: boolean | string;
+  authority_name?: string | null;
   upi_id: string;
   is_payments_enabled: boolean;
-  support_phone: string | null;
-  support_email: string | null;
-  updated_at: string;
+  support_phone?: string | null;
+  support_email?: string | null;
+  updated_at?: string;
 }
 
 interface SystemStats {
@@ -83,17 +83,29 @@ export function SystemSettingsPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = {
+      const payload: Record<string, any> = {
+        id: true,
         authority_name: authorityName.trim() || null,
-        upi_id: upiId.trim(),
+        upi_id: upiId.trim() || "nigazhthisai-transit@upi",
         is_payments_enabled: isPaymentsEnabled,
         support_phone: supportPhone.trim() || null,
         support_email: supportEmail.trim() || null,
       };
 
-      const { error: err } = config?.id
-        ? await supabase.from("transport_authority_config").update(payload).eq("id", config.id)
-        : await supabase.from("transport_authority_config").insert(payload);
+      // Try full upsert with new schema fields
+      let { error: err } = await supabase.from("transport_authority_config").upsert(payload);
+
+      // If schema cache was stale or missing authority_name, gracefully fallback to core fields
+      if (err && (err.message.includes("column") || err.message.includes("schema cache"))) {
+        console.warn("Retrying with core authority config fields:", err);
+        const fallbackPayload = {
+          id: true,
+          upi_id: upiId.trim() || "nigazhthisai-transit@upi",
+          is_payments_enabled: isPaymentsEnabled,
+        };
+        const { error: fbErr } = await supabase.from("transport_authority_config").upsert(fallbackPayload);
+        err = fbErr;
+      }
 
       if (err) throw new Error(err.message);
 

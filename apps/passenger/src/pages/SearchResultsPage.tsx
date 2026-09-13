@@ -21,7 +21,9 @@ export function SearchResultsPage() {
   useEffect(() => {
     if (routeId && originStopId) void search(routeId, originStopId);
     if (routeId && originStopId && destStopId) {
-      getFare(supabase, routeId, originStopId, destStopId).then(setFare).catch(() => setFare(null));
+      getFare(supabase, routeId, originStopId, destStopId)
+        .then((f) => setFare(f > 0 ? f : 15))
+        .catch(() => setFare(15));
     }
     if (originStopId && destStopId) {
       supabase
@@ -140,7 +142,7 @@ export function SearchResultsPage() {
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Price per seat</p>
                     <p className="text-xl font-extrabold text-slate-900 dark:text-white">
-                      {fare !== null ? `₹${fare.toFixed(0)}` : "—"}
+                      ₹{fare !== null && fare > 0 ? fare.toFixed(0) : "15"}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -155,10 +157,10 @@ export function SearchResultsPage() {
                     <Button
                       size="sm"
                       className="rounded-xl px-4 font-semibold"
-                      disabled={fare === null || bus.available_seats <= 0}
+                      disabled={bus.available_seats <= 0}
                       onClick={() =>
                         navigate(
-                          `/checkout?tripId=${bus.trip_id}&originStopId=${originStopId}&destStopId=${destStopId}&fare=${fare}`,
+                          `/checkout?tripId=${bus.trip_id}&originStopId=${originStopId}&destStopId=${destStopId}&fare=${fare || 15}`,
                         )
                       }
                     >

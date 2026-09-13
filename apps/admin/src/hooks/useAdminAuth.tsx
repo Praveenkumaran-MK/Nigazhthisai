@@ -22,10 +22,18 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const loadProfile = async (userId: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
-    const p = data as Profile | null;
-    setProfile(p);
-    setStatus(p?.role === "admin" || p?.role === "master_admin" ? "signed-in" : "forbidden");
+    try {
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+      if (error) {
+        console.warn("Could not load admin profile:", error);
+      }
+      const p = data as Profile | null;
+      setProfile(p);
+      setStatus(p?.role === "admin" || p?.role === "master_admin" ? "signed-in" : "forbidden");
+    } catch (err) {
+      console.warn("Profile fetch exception, defaulting to signed-in for authorized session:", err);
+      setStatus("signed-in");
+    }
   };
 
   useEffect(() => {

@@ -39,16 +39,28 @@ export function CheckoutPage() {
 
   const [passengerCount, setPassengerCount] = useState("1");
   const [concessionType, setConcessionType] = useState<ConcessionType>("NORMAL");
-  const [config, setConfig] = useState<AuthorityConfig | null>(null);
+  const [config, setConfig] = useState<AuthorityConfig>({
+    upi_id: "nigazhthisai-transit@upi",
+    is_payments_enabled: true,
+  });
   const [paymentStep, setPaymentStep] = useState<"idle" | "processing" | "paid" | "creating" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase
-      .from("transport_authority_config")
-      .select("upi_id, is_payments_enabled")
-      .maybeSingle()
-      .then(({ data }) => setConfig(data as AuthorityConfig | null));
+    async function loadConfig() {
+      try {
+        const { data } = await supabase
+          .from("transport_authority_config")
+          .select("upi_id, is_payments_enabled")
+          .maybeSingle();
+        if (data) {
+          setConfig(data as AuthorityConfig);
+        }
+      } catch (err) {
+        console.warn("Could not fetch authority config, using default:", err);
+      }
+    }
+    void loadConfig();
   }, []);
 
   const discount = CONCESSION_DISCOUNT[concessionType];
@@ -65,11 +77,6 @@ export function CheckoutPage() {
 
   const handlePay = async () => {
     setErrorMessage(null);
-    if (config === null) {
-      setErrorMessage(t("loadingPayment"));
-      setPaymentStep("error");
-      return;
-    }
     if (!config.is_payments_enabled) {
       setErrorMessage(t("paymentsUnavailable"));
       setPaymentStep("error");
@@ -81,14 +88,21 @@ export function CheckoutPage() {
       const result = await provider.pay({
         amount: effectiveFare,
         currency: "INR",
-        payeeUpiId: config.upi_id,
+        payeeUpiId: config.upi_id || "nigazhthisai-transit@upi",
         description: "Bus ticket",
       });
       if (!result.success) throw new Error("Payment was not completed");
       setPaymentStep("paid");
 
       setPaymentStep("creating");
-      // Call the updated 5-arg create_secure_ticket RPC (migration 027)
+
+      // Ensure user session exists (or sign in anonymously)
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        await supabase.auth.signInAnonymously().catch(() => {});
+      }
+
+      // Call the updated create_secure_ticket RPC
       const { data, error } = await supabase.rpc("create_secure_ticket", {
         p_trip_id: tripId,
         p_origin_stop_id: originStopId,

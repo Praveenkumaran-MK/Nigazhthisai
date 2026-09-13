@@ -24,7 +24,7 @@ import { useSosLongPress } from "../hooks/useSosLongPress";
 import { createAlert } from "@sbt/supabase-client";
 import { PocketMode } from "../components/PocketMode";
 import { BusQrScannerModal } from "../components/BusQrScannerModal";
-import { Play, Ticket, Camera, Lock, AlertTriangle, QrCode, Bus as BusIcon } from "lucide-react";
+import { Play, Ticket, Camera, Lock, AlertTriangle, QrCode, Bus as BusIcon, ArrowLeft, MessageSquare, Send, CheckCircle2, ShieldAlert } from "lucide-react";
 
 interface StopRow extends TripStop {
   stop: Stop;
@@ -38,6 +38,15 @@ interface IssuedTicket {
   concession_type: string;
   qr_payload: string;
   qr_signature: string;
+  created_at: string;
+}
+
+interface SosChatMessage {
+  id: string;
+  alert_id: string;
+  sender_id: string;
+  sender_role: string;
+  message: string;
   created_at: string;
 }
 
@@ -66,6 +75,13 @@ export function TripPage() {
   const [isIssuing, setIsIssuing] = useState(false);
   const [issuedTicket, setIssuedTicket] = useState<IssuedTicket | null>(null);
   const [estimatedFare, setEstimatedFare] = useState<number>(15);
+
+  // SOS & Dispatch Chat State
+  const [activeAlertId, setActiveAlertId] = useState<string | null>(null);
+  const [showSosChat, setShowSosChat] = useState(false);
+  const [sosMessages, setSosMessages] = useState<SosChatMessage[]>([]);
+  const [sosMsgInput, setSosMsgInput] = useState("");
+  const [isSendingSosMsg, setIsSendingSosMsg] = useState(false);
 
   const wakeLock = useWakeLock();
 
@@ -255,10 +271,83 @@ export function TripPage() {
     }
   };
 
+  // Check for any existing active SOS alert for this trip
+  useEffect(() => {
+    if (!tripId) return;
+    supabase
+      .from("alerts")
+      .select("id, status")
+      .eq("trip_id", tripId)
+      .in("status", ["TRIGGERED", "ACKNOWLEDGED"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setActiveAlertId(data.id);
+        }
+      });
+  }, [tripId]);
+
+  // Realtime subscription for SOS Chat messages
+  useEffect(() => {
+    if (!activeAlertId) return;
+
+    const loadSosMsgs = async () => {
+      const { data } = await supabase
+        .from("alert_messages")
+        .select("*")
+        .eq("alert_id", activeAlertId)
+        .order("created_at", { ascending: true });
+      if (data) setSosMessages(data as SosChatMessage[]);
+    };
+    void loadSosMsgs();
+
+    const channel = supabase
+      .channel(`conductor-sos-chat-${activeAlertId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "alert_messages", filter: `alert_id=eq.${activeAlertId}` },
+        (payload) => {
+          setSosMessages((prev) => {
+            const newMsg = payload.new as SosChatMessage;
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeAlertId]);
+
+  const handleSendSosMsg = async (presetText?: string) => {
+    const text = (presetText ?? sosMsgInput).trim();
+    if (!text || !activeAlertId) return;
+    setIsSendingSosMsg(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error: sendErr } = await supabase.from("alert_messages").insert({
+        alert_id: activeAlertId,
+        sender_id: user?.id ?? conductor?.id,
+        sender_role: "conductor",
+        message: text,
+      });
+      if (sendErr) throw sendErr;
+      setSosMsgInput("");
+    } catch (err: any) {
+      push({ tone: "danger", title: "Message failed", description: err.message ?? "Could not send message" });
+    } finally {
+      setIsSendingSosMsg(false);
+    }
+  };
+
   const handleSos = async () => {
     if (!conductor) return;
     try {
-      await createAlert(supabase, {
+      const alert = await createAlert(supabase, {
         trip_id: trip?.id ?? null,
         bus_id: trip?.bus_id ?? null,
         conductor_id: conductor.id,
@@ -267,7 +356,9 @@ export function TripPage() {
         latitude: telemetry.lastTelemetry?.latitude ?? null,
         longitude: telemetry.lastTelemetry?.longitude ?? null,
       });
-      push({ tone: "danger", title: "SOS sent", description: "Admin has been alerted." });
+      setActiveAlertId(alert.id);
+      setShowSosChat(true);
+      push({ tone: "danger", title: "SOS sent", description: "Admin alerted. Emergency dispatcher chat opened." });
     } catch (e) {
       push({ tone: "danger", title: "SOS failed to send", description: e instanceof Error ? e.message : undefined });
     }
@@ -347,10 +438,32 @@ export function TripPage() {
     <div className="flex flex-col min-h-dvh bg-slate-950 text-slate-100">
       <AppHeader
         sticky
+        leading={
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            aria-label="Back to Dashboard"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white transition-colors hover:bg-white/20 active:scale-95 shadow-sm"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        }
         title={
           <div className="flex items-center gap-2">
-            <Badge tone={trip.status === "ACTIVE" ? "success" : "neutral"}>{trip.status}</Badge>
+            <Badge tone={trip.status === "ACTIVE" ? "success" : trip.status === "COMPLETED" ? "brand" : "neutral"}>
+              {trip.status}
+            </Badge>
             <span className="text-xs font-bold text-slate-300">Trip #{trip.id.slice(0, 6).toUpperCase()}</span>
+            {activeAlertId && (
+              <button
+                type="button"
+                onClick={() => setShowSosChat(true)}
+                className="flex items-center gap-1 animate-pulse rounded-full bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 text-[10px] font-black text-rose-400"
+              >
+                <ShieldAlert className="h-3 w-3" />
+                <span>SOS CHAT</span>
+              </button>
+            )}
           </div>
         }
         subtitle={
@@ -377,6 +490,41 @@ export function TripPage() {
       </AppHeader>
 
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4 pb-36">
+        {/* TRIP COMPLETED HERO CARD */}
+        {trip.status === "COMPLETED" && (
+          <Card className="border-emerald-500/50 bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-900 shadow-2xl p-6 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-inner">
+              <CheckCircle2 className="h-8 w-8" />
+            </div>
+            <Badge tone="success" className="mt-3 inline-block font-extrabold tracking-wider uppercase text-[10px]">
+              TRIP COMPLETED
+            </Badge>
+            <h2 className="mt-2 text-xl font-black text-white">All Stops Serviced & Concluded</h2>
+            <p className="mt-1 text-xs text-slate-300 leading-relaxed">
+              This transit journey has reached its final destination. All passenger tickets have been reconciled.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-left rounded-xl bg-slate-950/70 p-3 text-xs border border-slate-800">
+              <div>
+                <span className="text-slate-400">Total Route Stops:</span>
+                <p className="font-bold text-slate-200">{stops.length} Stops</p>
+              </div>
+              <div>
+                <span className="text-slate-400">Assigned Bus:</span>
+                <p className="font-bold text-slate-200">{assignedBus?.bus_number ?? "Vehicle"}</p>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-col gap-2.5">
+              <Button
+                size="lg"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-12 rounded-xl shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2"
+                onClick={() => navigate("/")}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Return to Conductor Dashboard</span>
+              </Button>
+            </div>
+          </Card>
+        )}
         {trip.status === "SCHEDULED" && (
           <div className="flex flex-col gap-4">
             <ConductorHero className="h-36 w-full rounded-2xl shadow-xl" />
@@ -779,6 +927,108 @@ export function TripPage() {
         assignedBus={assignedBus}
         onVerify={handleVerifyAndStart}
       />
+
+      {/* Emergency SOS & Dispatch Control Room Chat Drawer */}
+      <Dialog
+        open={showSosChat}
+        onClose={() => setShowSosChat(false)}
+        title="Emergency Dispatch & Control Room Chat"
+      >
+        <div className="flex flex-col gap-4 py-1">
+          {/* Header Alert Strip */}
+          <div className="flex items-center justify-between rounded-xl bg-rose-500/10 border border-rose-500/30 p-3">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-rose-400" />
+              <div>
+                <p className="text-xs font-bold text-white uppercase tracking-wider">Live Control Room Channel</p>
+                <p className="text-[11px] text-rose-300">Central transit dispatchers are monitoring this trip.</p>
+              </div>
+            </div>
+            <Badge tone="danger" className="font-extrabold uppercase text-[10px]">
+              SOS ACTIVE
+            </Badge>
+          </div>
+
+          {/* Messages Feed */}
+          <div className="flex flex-col gap-2.5 max-h-[300px] min-h-[160px] overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+            {sosMessages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full py-8 text-center text-xs text-slate-400">
+                <MessageSquare className="h-8 w-8 text-slate-600 mb-1" />
+                <p>No messages yet.</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">Control room operators have received your SOS.</p>
+              </div>
+            ) : (
+              sosMessages.map((msg) => {
+                const isConductor = msg.sender_role === "conductor";
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed ${
+                      isConductor
+                        ? "self-end bg-amber-600/90 text-white rounded-tr-none"
+                        : "self-start bg-indigo-950/80 border border-indigo-500/40 text-indigo-100 rounded-tl-none"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3 text-[10px] font-bold opacity-80 mb-1">
+                      <span>{isConductor ? "You (Conductor)" : "Control Room (Admin)"}</span>
+                      <span>
+                        {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    <p className="font-medium">{msg.message}</p>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Quick Reply Preset Chips */}
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              "Medical assistance needed",
+              "Traffic roadblock / delayed",
+              "Vehicle mechanical issue",
+              "Patrol / Security requested",
+              "Situation under control",
+            ].map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => handleSendSosMsg(chip)}
+                className="rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold px-2.5 py-1 transition-colors border border-slate-700"
+              >
+                + {chip}
+              </button>
+            ))}
+          </div>
+
+          {/* Message Input Bar */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleSendSosMsg();
+            }}
+            className="flex items-center gap-2 pt-1"
+          >
+            <input
+              type="text"
+              placeholder="Type message to central dispatch..."
+              value={sosMsgInput}
+              onChange={(e) => setSosMsgInput(e.target.value)}
+              className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs text-white placeholder:text-slate-500 focus:border-brand-500 focus:outline-none"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              className="h-10 px-4 bg-brand-600 hover:bg-brand-500 font-bold rounded-xl shrink-0"
+              disabled={!sosMsgInput.trim() || isSendingSosMsg}
+              isLoading={isSendingSosMsg}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </form>
+        </div>
+      </Dialog>
     </div>
   );
 }

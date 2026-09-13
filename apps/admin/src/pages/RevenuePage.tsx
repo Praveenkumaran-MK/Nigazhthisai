@@ -42,7 +42,7 @@ export function RevenuePage() {
   const [districts, setDistricts] = useState<District[]>([]);
   const [selectedDistrict, setSelectedDistrict] = useState<string>("");
   const [groupBy, setGroupBy] = useState<"day" | "bus" | "route" | "concession" | "payment_method">("day");
-  const [presetRange, setPresetRange] = useState<"7" | "30" | "90" | "custom">("30");
+  const [presetRange, setPresetRange] = useState<"7" | "30" | "90" | "all" | "custom">("30");
 
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
   const thirtyDaysAgoStr = useMemo(() => {
@@ -68,9 +68,14 @@ export function RevenuePage() {
       .then(({ data: d }) => setDistricts(d ?? []));
   }, []);
 
-  const handlePresetChange = (preset: "7" | "30" | "90" | "custom") => {
+  const handlePresetChange = (preset: "7" | "30" | "90" | "all" | "custom") => {
     setPresetRange(preset);
-    if (preset !== "custom") {
+    if (preset === "all") {
+      setStartDate("2024-01-01");
+      const end = new Date();
+      end.setDate(end.getDate() + 1);
+      setEndDate(end.toISOString().split("T")[0]);
+    } else if (preset !== "custom") {
       const days = parseInt(preset, 10);
       const end = new Date();
       const start = new Date();
@@ -227,7 +232,7 @@ export function RevenuePage() {
         <div className="flex flex-wrap items-center gap-2">
           {/* Preset Buttons */}
           <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-800 dark:bg-slate-900">
-            {(["7", "30", "90", "custom"] as const).map((preset) => (
+            {(["7", "30", "90", "all", "custom"] as const).map((preset) => (
               <button
                 key={preset}
                 type="button"
@@ -238,7 +243,7 @@ export function RevenuePage() {
                     : "text-slate-600 hover:text-slate-900 dark:text-slate-400"
                 }`}
               >
-                {preset === "custom" ? "Custom Range" : `${preset} Days`}
+                {preset === "custom" ? "Custom Range" : preset === "all" ? "All Time" : `${preset} Days`}
               </button>
             ))}
           </div>
