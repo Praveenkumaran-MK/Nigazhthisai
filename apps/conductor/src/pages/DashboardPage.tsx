@@ -35,6 +35,7 @@ import {
 import type { TripStop, TripOccupancy, Stop } from "@sbt/shared-types";
 import {
   startTrip,
+  endTrip,
   listTripStops,
   getTripOccupancy,
   verifyBusQr,
@@ -148,10 +149,20 @@ export function DashboardPage() {
   const [occupancy, setOccupancy] = useState<TripOccupancy | null>(null);
   const [pocketMode, setPocketMode] = useState(false);
 
-  // Vehicle verification modal state
+  // Vehicle verification modal state (both Start Service and End Shift)
   const [showBusScanner, setShowBusScanner] = useState(false);
+  const [qrModalMode, setQrModalMode] = useState<"start" | "end">("start");
   const [verifyingTrip, setVerifyingTrip] = useState<AssignedTrip | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
+  const [showEndShiftModal, setShowEndShiftModal] = useState(false);
+  const [completedShiftSummary, setCompletedShiftSummary] = useState<{
+    busNumber: string;
+    routeName: string;
+    endedAt: string;
+    ticketsIssued: number;
+    totalRevenue: number;
+  } | null>(null);
 
   // Cash POS Dialog & Receipt State
   const [showIssueTicket, setShowIssueTicket] = useState(false);
@@ -682,6 +693,65 @@ export function DashboardPage() {
     }
   };
 
+  // Conductor re-scans bus QR code to end ride / shift wherever they are
+  const handleEndTripWithBusQr = async (scannedValue: string) => {
+    if (!activeTrip) return;
+    setIsEnding(true);
+    try {
+      await verifyBusQr(
+        supabase,
+        scannedValue,
+        activeTrip.bus_id,
+        activeTrip.buses?.bus_number,
+        activeTrip.buses?.registration_number
+      );
+
+      if ("vibrate" in navigator) {
+        navigator.vibrate([150, 70, 150]);
+      }
+
+      await endTrip(supabase, activeTrip.id, scannedValue);
+      setShowBusScanner(false);
+
+      setCompletedShiftSummary({
+        busNumber: activeTrip.buses?.bus_number ?? "N/A",
+        routeName: activeTrip.routes?.name ?? "Transit Service",
+        endedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        ticketsIssued: stats?.tickets_issued ?? 0,
+        totalRevenue: stats?.total_revenue ?? 0,
+      });
+      setShowEndShiftModal(true);
+
+      push({
+        tone: "success",
+        title: "Ride & Shift Concluded",
+        description: `Bus #${activeTrip.buses?.bus_number ?? "vehicle"} service completed. GPS telemetry stopped.`,
+      });
+
+      try {
+        await wakeLock.release();
+      } catch {
+        /* ignore */
+      }
+
+      await loadData();
+    } catch (err: any) {
+      console.error("[Dashboard] End trip verification error:", err);
+      throw err;
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
+  // Unified handler routed by qrModalMode
+  const handleBusQrAction = async (scannedValue: string) => {
+    if (qrModalMode === "end") {
+      await handleEndTripWithBusQr(scannedValue);
+    } else {
+      await handleVerifyAndStart(scannedValue);
+    }
+  };
+
   // SOS & Dispatch Chat
   useEffect(() => {
     if (!activeTrip?.id) return;
@@ -933,6 +1003,25 @@ export function DashboardPage() {
                     />
                   </div>
                 )}
+
+                {/* Conductor Re-Scan Bus QR to End Ride / Shift Wherever You Are */}
+                <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold text-slate-200">Active Shift Service</p>
+                    <p className="text-[11px] text-slate-400">Scan bus QR plate again to conclude ride & shift</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-lg shadow-rose-950/40 flex items-center gap-1.5 px-3.5 py-2 rounded-xl shrink-0"
+                    onClick={() => {
+                      setQrModalMode("end");
+                      setShowBusScanner(true);
+                    }}
+                  >
+                    <QrCode className="h-4 w-4" />
+                    <span>Scan Bus QR to End Shift →</span>
+                  </Button>
+                </div>
               </Card>
 
               {/* Live Bus Occupancy Card */}
@@ -1505,16 +1594,67 @@ export function DashboardPage() {
         )}
       </Dialog>
 
-      {/* Bus QR Scanner & Vehicle Verification Modal */}
+      {/* Bus QR Scanner & Vehicle Verification Modal (Supports both Start Service and End Shift) */}
       <BusQrScannerModal
         isOpen={showBusScanner}
         onClose={() => {
           setShowBusScanner(false);
           setVerifyingTrip(null);
         }}
-        assignedBus={verifyingTrip?.buses ?? primaryScheduledTrip?.buses ?? null}
-        onVerify={handleVerifyAndStart}
+        assignedBus={
+          qrModalMode === "end"
+            ? (activeTrip?.buses ?? null)
+            : (verifyingTrip?.buses ?? primaryScheduledTrip?.buses ?? null)
+        }
+        onVerify={handleBusQrAction}
+        actionType={qrModalMode}
       />
+
+      {/* Shift & Ride Completion Summary Dialog */}
+      <Dialog
+        open={showEndShiftModal}
+        onClose={() => setShowEndShiftModal(false)}
+        title="Shift & Ride Completed"
+      >
+        {completedShiftSummary && (
+          <div className="flex flex-col items-center gap-4 py-2 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400">
+              <CheckCircle2 className="h-10 w-10" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-white">Ride Ended Successfully!</h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Bus #{completedShiftSummary.busNumber} • {completedShiftSummary.routeName}
+              </p>
+            </div>
+            <div className="w-full rounded-2xl border border-slate-800 bg-slate-900/80 p-4 font-mono text-xs text-slate-300 space-y-2 text-left">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Status:</span>
+                <span className="font-bold text-emerald-400">COMPLETED</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Ended At:</span>
+                <span className="font-bold text-white">{completedShiftSummary.endedAt}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">GPS Telemetry:</span>
+                <span className="font-bold text-amber-400">Stopped / Inactive</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Occupancy:</span>
+                <span className="font-bold text-slate-200">Cleared (0 Seats)</span>
+              </div>
+            </div>
+            <Button
+              className="w-full font-bold mt-2"
+              size="lg"
+              onClick={() => setShowEndShiftModal(false)}
+            >
+              Return to Dashboard
+            </Button>
+          </div>
+        )}
+      </Dialog>
 
       {/* Emergency SOS & Helpline Modal (Replicating Image 3 with Live Assistant, Helpline & SOS, and Trip Guide) */}
       <EmergencySosModal

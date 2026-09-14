@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, Alert, Badge, Card, Input, WheelchairIcon } from "@sbt/ui";
-import { Camera, Keyboard, ArrowLeft, Bus } from "lucide-react";
-import { validateTicket } from "@sbt/supabase-client";
+import { Button, Alert, Badge, Card, Input, WheelchairIcon, Dialog } from "@sbt/ui";
+import { Camera, Keyboard, ArrowLeft, Bus, QrCode } from "lucide-react";
+import { validateTicket, verifyBusQr, endTrip } from "@sbt/supabase-client";
 import { supabase } from "../lib/supabase";
 import { useCameraScanner } from "../hooks/useCameraScanner";
 import { useConductorAuth } from "../hooks/useConductorAuth";
@@ -28,12 +28,22 @@ export function ScannerPage() {
   const { t } = useConductorI18n();
 
   const [activeTripId, setActiveTripId] = useState<string | undefined>(paramTripId);
-  const [tripInfo, setTripInfo] = useState<{ bus_number?: string; route_name?: string; is_wheelchair_accessible?: boolean } | null>(null);
+  const [tripInfo, setTripInfo] = useState<{
+    bus_id?: string;
+    bus_number?: string;
+    registration_number?: string;
+    route_name?: string;
+    is_wheelchair_accessible?: boolean;
+  } | null>(null);
   const [mode, setMode] = useState<"camera" | "pnr">("camera");
   const [feedback, setFeedback] = useState<ScanFeedback>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [cooldown, setCooldown] = useState(false);
   const [pnrInput, setPnrInput] = useState("");
+
+  // Bus QR Re-Scan End Shift State
+  const [pendingEndShiftQr, setPendingEndShiftQr] = useState<string | null>(null);
+  const [isEndingShift, setIsEndingShift] = useState(false);
 
   // Resolve trip if not in route params
   useEffect(() => {
@@ -43,14 +53,16 @@ export function ScannerPage() {
         setActiveTripId(tid);
         const { data } = await supabase
           .from("trips")
-          .select("id, status, buses(bus_number, is_wheelchair_accessible), routes(route_number, name)")
+          .select("id, status, bus_id, buses(id, bus_number, registration_number, is_wheelchair_accessible), routes(route_number, name)")
           .eq("id", tid)
           .maybeSingle();
         if (data) {
           const bus = Array.isArray(data.buses) ? data.buses[0] : data.buses;
           const route = Array.isArray(data.routes) ? data.routes[0] : data.routes;
           setTripInfo({
+            bus_id: (data as any).bus_id || bus?.id,
             bus_number: bus?.bus_number,
+            registration_number: bus?.registration_number,
             is_wheelchair_accessible: bus?.is_wheelchair_accessible,
             route_name: route?.route_number ? `${route.route_number} - ${route.name}` : route?.name,
           });
@@ -58,7 +70,7 @@ export function ScannerPage() {
       } else if (conductor?.id) {
         const { data } = await supabase
           .from("trips")
-          .select("id, status, buses(bus_number, is_wheelchair_accessible), routes(route_number, name)")
+          .select("id, status, bus_id, buses(id, bus_number, registration_number, is_wheelchair_accessible), routes(route_number, name)")
           .eq("conductor_id", conductor.id)
           .in("status", ["ACTIVE", "SCHEDULED"])
           .order("created_at", { ascending: false })
@@ -70,7 +82,9 @@ export function ScannerPage() {
           const bus = Array.isArray(first.buses) ? first.buses[0] : first.buses;
           const route = Array.isArray(first.routes) ? first.routes[0] : first.routes;
           setTripInfo({
+            bus_id: first.bus_id || bus?.id,
             bus_number: bus?.bus_number,
+            registration_number: bus?.registration_number,
             is_wheelchair_accessible: bus?.is_wheelchair_accessible,
             route_name: route?.route_number ? `${route.route_number} - ${route.name}` : route?.name,
           });
@@ -84,7 +98,7 @@ export function ScannerPage() {
 
   const handleDecoded = useCallback(
     async (value: string) => {
-      if (isValidating || cooldown) return;
+      if (isValidating || cooldown || isEndingShift) return;
 
       if (!effectiveTripId) {
         setFeedback({
@@ -97,6 +111,37 @@ export function ScannerPage() {
 
       setIsValidating(true);
       setCooldown(true);
+
+      // Check if the scanned value matches the active trip's Bus QR code
+      if (tripInfo?.bus_id) {
+        let isBusPlate = false;
+        try {
+          isBusPlate = await verifyBusQr(
+            supabase,
+            value,
+            tripInfo.bus_id,
+            tripInfo.bus_number,
+            tripInfo.registration_number
+          );
+        } catch {
+          isBusPlate = false;
+        }
+
+        if (isBusPlate) {
+          if ("vibrate" in navigator) {
+            navigator.vibrate([150, 70, 150]);
+          }
+          setPendingEndShiftQr(value);
+          setFeedback({
+            tone: "warning",
+            title: "Bus QR Plate Detected",
+            message: `Scanned Bus #${tripInfo.bus_number ?? "assigned vehicle"}. Confirm below to end the ride & complete your shift.`,
+          });
+          setIsValidating(false);
+          return;
+        }
+      }
+
       try {
         const ticket = await validateTicket(supabase, { qr_payload: value, trip_id: effectiveTripId });
         if ("vibrate" in navigator) {
@@ -126,7 +171,7 @@ export function ScannerPage() {
         window.setTimeout(() => setCooldown(false), 2000);
       }
     },
-    [isValidating, cooldown, effectiveTripId],
+    [isValidating, cooldown, isEndingShift, effectiveTripId, tripInfo],
   );
 
   const { videoRef, status, start, stop } = useCameraScanner(handleDecoded);
@@ -343,6 +388,68 @@ export function ScannerPage() {
           </Alert>
         )}
       </div>
+
+      {/* End Shift & Complete Ride Confirmation Modal */}
+      <Dialog
+        open={Boolean(pendingEndShiftQr)}
+        onClose={() => setPendingEndShiftQr(null)}
+        title="End Shift & Complete Ride?"
+      >
+        <div className="flex flex-col items-center gap-4 py-2 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/20 text-rose-400">
+            <Bus className="h-8 w-8" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white">Vehicle QR Plate Scanned</h3>
+            <p className="text-xs text-slate-400 mt-1">
+              You scanned the QR plate for <strong className="text-white">Bus #{tripInfo?.bus_number ?? "assigned bus"}</strong>.
+              Would you like to end this ride and complete your shift wherever you are?
+            </p>
+          </div>
+          <div className="w-full rounded-xl bg-slate-900 border border-slate-800 p-3 text-xs text-slate-300 font-mono text-left space-y-1">
+            <div>• Trip status will become <strong className="text-emerald-400">COMPLETED</strong></div>
+            <div>• Remaining active tickets will be <strong className="text-amber-400">EXPIRED</strong></div>
+            <div>• Live GPS broadcasting will be <strong className="text-rose-400">STOPPED</strong></div>
+          </div>
+          <div className="flex gap-2 w-full mt-2">
+            <Button
+              variant="secondary"
+              className="flex-1 font-bold"
+              onClick={() => setPendingEndShiftQr(null)}
+              disabled={isEndingShift}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 font-bold bg-rose-600 hover:bg-rose-500 text-white"
+              isLoading={isEndingShift}
+              onClick={async () => {
+                if (!effectiveTripId || !pendingEndShiftQr) return;
+                setIsEndingShift(true);
+                try {
+                  await endTrip(supabase, effectiveTripId, pendingEndShiftQr);
+                  if ("vibrate" in navigator) {
+                    navigator.vibrate([200, 100, 200]);
+                  }
+                  navigate("/dashboard");
+                } catch (err: any) {
+                  setFeedback({
+                    tone: "danger",
+                    title: "End Shift Failed",
+                    message: err.message || "Failed to end ride",
+                  });
+                  setPendingEndShiftQr(null);
+                } finally {
+                  setIsEndingShift(false);
+                }
+              }}
+            >
+              Yes, End Shift Now
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }
+

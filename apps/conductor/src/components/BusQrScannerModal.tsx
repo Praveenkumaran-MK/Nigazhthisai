@@ -14,6 +14,7 @@ interface BusQrScannerModalProps {
     is_wheelchair_accessible?: boolean;
   } | null;
   onVerify: (scannedValue: string) => Promise<void>;
+  actionType?: "start" | "end";
 }
 
 export function BusQrScannerModal({
@@ -21,7 +22,9 @@ export function BusQrScannerModal({
   onClose,
   assignedBus,
   onVerify,
+  actionType = "start",
 }: BusQrScannerModalProps) {
+  const isEndingRide = actionType === "end";
   const [mode, setMode] = useState<"camera" | "manual">("camera");
   const [isVerifying, setIsVerifying] = useState(false);
   const [detectedText, setDetectedText] = useState<string | null>(null);
@@ -132,13 +135,13 @@ export function BusQrScannerModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800/80 p-4 bg-slate-900/60">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${isEndingRide ? "bg-rose-500/20 text-rose-400" : "bg-emerald-500/20 text-emerald-400"}`}>
               <Bus className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h2 className="text-base font-bold text-white">
-                  Verify Bus #{assignedBus?.bus_number ?? "Assigned"}
+                  {isEndingRide ? `End Shift & Ride — Bus #${assignedBus?.bus_number ?? "Assigned"}` : `Verify Bus #${assignedBus?.bus_number ?? "Assigned"}`}
                 </h2>
                 {assignedBus?.is_wheelchair_accessible && (
                   <span className="inline-flex items-center gap-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 text-[10px] font-bold" title="Handicap Accessible Vehicle">
@@ -148,8 +151,9 @@ export function BusQrScannerModal({
                 )}
               </div>
               <p className="text-xs text-slate-400">
-                {assignedBus?.registration_number ? `${assignedBus.registration_number} · ` : ""}
-                Scan official bus QR
+                {isEndingRide
+                  ? "Scan bus QR code to end ride wherever you are"
+                  : `${assignedBus?.registration_number ? `${assignedBus.registration_number} · ` : ""}Scan official bus QR`}
               </p>
             </div>
           </div>
@@ -170,7 +174,7 @@ export function BusQrScannerModal({
             onClick={() => setMode("camera")}
             className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition-all ${
               mode === "camera"
-                ? "bg-emerald-600 text-white shadow-md"
+                ? `${isEndingRide ? "bg-rose-600" : "bg-emerald-600"} text-white shadow-md`
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
@@ -182,7 +186,7 @@ export function BusQrScannerModal({
             onClick={() => setMode("manual")}
             className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition-all ${
               mode === "manual"
-                ? "bg-emerald-600 text-white shadow-md"
+                ? `${isEndingRide ? "bg-rose-600" : "bg-emerald-600"} text-white shadow-md`
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
@@ -198,7 +202,11 @@ export function BusQrScannerModal({
             <div
               className={`relative aspect-square w-full max-w-[300px] overflow-hidden rounded-2xl border-2 transition-all duration-300 bg-slate-900 shadow-inner ${
                 detectedText
-                  ? "border-emerald-400 ring-4 ring-emerald-500/50"
+                  ? isEndingRide
+                    ? "border-rose-400 ring-4 ring-rose-500/50"
+                    : "border-emerald-400 ring-4 ring-emerald-500/50"
+                  : isEndingRide
+                  ? "border-rose-500/60"
                   : "border-emerald-500/60"
               }`}
             >
@@ -211,26 +219,28 @@ export function BusQrScannerModal({
 
               {/* Viewfinder Corner Overlays */}
               <div className="pointer-events-none absolute inset-0">
-                <div className="absolute top-2 left-2 h-7 w-7 border-t-4 border-l-4 border-emerald-400 rounded-tl-lg" />
-                <div className="absolute top-2 right-2 h-7 w-7 border-t-4 border-r-4 border-emerald-400 rounded-tr-lg" />
-                <div className="absolute bottom-2 left-2 h-7 w-7 border-b-4 border-l-4 border-emerald-400 rounded-bl-lg" />
-                <div className="absolute bottom-2 right-2 h-7 w-7 border-b-4 border-r-4 border-emerald-400 rounded-br-lg" />
+                <div className={`absolute top-2 left-2 h-7 w-7 border-t-4 border-l-4 ${isEndingRide ? "border-rose-400" : "border-emerald-400"} rounded-tl-lg`} />
+                <div className={`absolute top-2 right-2 h-7 w-7 border-t-4 border-r-4 ${isEndingRide ? "border-rose-400" : "border-emerald-400"} rounded-tr-lg`} />
+                <div className={`absolute bottom-2 left-2 h-7 w-7 border-b-4 border-l-4 ${isEndingRide ? "border-rose-400" : "border-emerald-400"} rounded-bl-lg`} />
+                <div className={`absolute bottom-2 right-2 h-7 w-7 border-b-4 border-r-4 ${isEndingRide ? "border-rose-400" : "border-emerald-400"} rounded-br-lg`} />
 
                 {/* Animated Scan Line */}
                 {status === "scanning" && !isVerifying && (
-                  <div className="absolute inset-x-4 top-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_12px_#34d399] animate-scan" />
+                  <div className={`absolute inset-x-4 top-0 h-1 bg-gradient-to-r from-transparent ${isEndingRide ? "via-rose-400 shadow-[0_0_12px_#fb7185]" : "via-emerald-400 shadow-[0_0_12px_#34d399]"} to-transparent animate-scan`} />
                 )}
               </div>
 
               {/* Verifying Indicator Overlay */}
               {isVerifying && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4 text-center z-10 animate-fade-in">
-                  <div className="relative mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400">
+                  <div className={`relative mb-3 flex h-14 w-14 items-center justify-center rounded-2xl ${isEndingRide ? "bg-rose-500/20 text-rose-400" : "bg-emerald-500/20 text-emerald-400"}`}>
                     <RefreshCw className="h-8 w-8 animate-spin" />
                   </div>
                   <p className="text-sm font-bold text-white">QR Code Detected!</p>
-                  <p className="text-xs text-emerald-300 mt-1">
-                    Validating identity for Bus #{assignedBus?.bus_number}…
+                  <p className={`text-xs ${isEndingRide ? "text-rose-300" : "text-emerald-300"} mt-1`}>
+                    {isEndingRide
+                      ? `Concluding ride & ending shift for Bus #${assignedBus?.bus_number}…`
+                      : `Validating identity for Bus #${assignedBus?.bus_number}…`}
                   </p>
                   {detectedText && (
                     <p className="mt-2 max-w-[240px] truncate rounded bg-slate-900 px-2 py-1 font-mono text-[10px] text-slate-400 border border-slate-800">
@@ -243,7 +253,7 @@ export function BusQrScannerModal({
               {/* Camera Starting Overlay */}
               {status === "starting" && !isVerifying && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/70 p-4 text-center">
-                  <RefreshCw className="h-8 w-8 text-emerald-400 animate-spin mb-2" />
+                  <RefreshCw className={`h-8 w-8 ${isEndingRide ? "text-rose-400" : "text-emerald-400"} animate-spin mb-2`} />
                   <p className="text-xs text-slate-300 font-medium">Starting camera sensor…</p>
                 </div>
               )}
@@ -259,7 +269,9 @@ export function BusQrScannerModal({
 
             {/* Subtitle / Instructions */}
             <p className="mt-3 text-center text-xs text-slate-400">
-              Align the QR code sticker on <strong className="text-slate-200">Bus #{assignedBus?.bus_number}</strong> inside the frame.
+              {isEndingRide
+                ? <>Re-scan the QR code on <strong className="text-slate-200">Bus #{assignedBus?.bus_number}</strong> to finish this ride wherever you are.</>
+                : <>Align the QR code sticker on <strong className="text-slate-200">Bus #{assignedBus?.bus_number}</strong> inside the frame.</>}
             </p>
 
             {/* Quick Actions (Torch toggle & Quick Manual Fallback) */}
@@ -291,26 +303,26 @@ export function BusQrScannerModal({
           <form onSubmit={handleManualSubmit} className="flex flex-col gap-4 p-5 bg-slate-950">
             {/* Quick 1-Click Verification for Assigned Bus */}
             {assignedBus && (
-              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-3.5 shadow-sm">
+              <div className={`rounded-2xl border ${isEndingRide ? "border-rose-500/30 bg-rose-950/30" : "border-emerald-500/30 bg-emerald-950/30"} p-3.5 shadow-sm`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <CheckCircle2 className={`h-4 w-4 ${isEndingRide ? "text-rose-400" : "text-emerald-400"} shrink-0`} />
                     <div>
-                      <p className="text-xs font-bold text-white">Assigned to Trip</p>
-                      <p className="text-xs text-emerald-300 font-mono">Bus #{assignedBus.bus_number}</p>
+                      <p className="text-xs font-bold text-white">{isEndingRide ? "Active Vehicle" : "Assigned to Trip"}</p>
+                      <p className={`text-xs ${isEndingRide ? "text-rose-300" : "text-emerald-300"} font-mono`}>Bus #{assignedBus.bus_number}</p>
                     </div>
                   </div>
                   <Button
                     type="button"
                     size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5"
+                    className={`${isEndingRide ? "bg-rose-600 hover:bg-rose-500" : "bg-emerald-600 hover:bg-emerald-500"} text-white text-xs font-bold px-3 py-1.5`}
                     isLoading={isVerifying}
                     onClick={() => {
                       setManualCode(assignedBus.bus_number);
                       void handleManualSubmit(undefined, assignedBus.bus_number);
                     }}
                   >
-                    Use This Bus
+                    {isEndingRide ? "End Shift for This Bus" : "Use This Bus"}
                   </Button>
                 </div>
               </div>
@@ -328,18 +340,18 @@ export function BusQrScannerModal({
                 className="w-full uppercase font-mono tracking-wide"
               />
               <p className="text-[11px] text-slate-500 mt-1">
-                Enter the assigned vehicle number or the verification token printed beneath the bus QR sticker.
+                Enter the vehicle number or the verification token from the bus QR plate to complete shift.
               </p>
             </div>
 
             <Button
               type="submit"
               size="lg"
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-12 text-sm"
+              className={`w-full ${isEndingRide ? "bg-rose-600 hover:bg-rose-500" : "bg-emerald-600 hover:bg-emerald-500"} text-white font-bold h-12 text-sm`}
               isLoading={isVerifying}
               disabled={!manualCode.trim()}
             >
-              Verify Vehicle & Activate Service
+              {isEndingRide ? "End Shift & Complete Ride Now →" : "Verify Vehicle & Activate Service"}
             </Button>
           </form>
         )}

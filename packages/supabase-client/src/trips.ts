@@ -110,3 +110,79 @@ export async function getConductorScheduledTrip(client: SupabaseClient, conducto
   if (error) throw toAppError(error);
   return data as Trip | null;
 }
+
+export async function endTrip(
+  client: SupabaseClient,
+  tripId: string,
+  busQr?: string,
+): Promise<{ success: boolean; status: string; trip_id?: string; bus_number?: string }> {
+  // 1. Try end_trip RPC
+  const res = await client.rpc("end_trip", {
+    p_trip_id: tripId,
+    p_bus_qr: busQr ?? null,
+  });
+
+  if (res.error) {
+    // Graceful fallback if RPC is not yet loaded in schema cache
+    if (
+      res.error.code === "PGRST202" ||
+      res.error.message?.includes("schema cache") ||
+      res.error.message?.includes("function") ||
+      res.error.message?.includes("end_trip")
+    ) {
+      console.warn("[endTrip] end_trip RPC missing, executing direct fallback:", res.error);
+      const now = new Date().toISOString();
+
+      // Update trip status to COMPLETED
+      const { data: updatedTrip, error: tripErr } = await client
+        .from("trips")
+        .update({
+          status: "COMPLETED",
+          ended_at: now,
+        })
+        .eq("id", tripId)
+        .select("id, status, bus_id, buses(bus_number)")
+        .single();
+
+      if (tripErr) throw toAppError(tripErr);
+
+      // Mark current ARRIVED stops as DEPARTED
+      await client
+        .from("trip_stops")
+        .update({ status: "DEPARTED", departure_time: now })
+        .eq("trip_id", tripId)
+        .eq("status", "ARRIVED");
+
+      // Expire all remaining active/paid/validated tickets for this trip
+      await client
+        .from("tickets")
+        .update({ status: "EXPIRED" })
+        .eq("trip_id", tripId)
+        .in("status", ["PAID", "VALIDATED"]);
+
+      // Reset occupancy
+      await client
+        .from("trip_occupancy")
+        .update({ current_passenger_count: 0 })
+        .eq("trip_id", tripId);
+
+      const bus = Array.isArray(updatedTrip?.buses) ? updatedTrip.buses[0] : updatedTrip?.buses;
+      return {
+        success: true,
+        status: "COMPLETED",
+        trip_id: tripId,
+        bus_number: bus?.bus_number,
+      };
+    }
+
+    throw toAppError(res.error);
+  }
+
+  return (res.data ?? { success: true, status: "COMPLETED" }) as {
+    success: boolean;
+    status: string;
+    trip_id?: string;
+    bus_number?: string;
+  };
+}
+

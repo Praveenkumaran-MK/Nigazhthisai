@@ -2,6 +2,7 @@
 
 A Turborepo monorepo containing three independent PWAs (Passenger, Conductor,
 District Admin) on a shared Supabase/PostgreSQL/PostGIS backend. See
+[USER_GUIDE.md](./USER_GUIDE.md) for the complete end-to-end role workflows and operational user manual,
 [ARCHITECTURE.md](./ARCHITECTURE.md) for the data-flow, realtime, and
 security-model deep dive, and the [Final Audit](#final-audit) below for a
 requirement-by-requirement status table.
