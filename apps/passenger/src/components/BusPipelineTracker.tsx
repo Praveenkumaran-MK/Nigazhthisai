@@ -99,6 +99,64 @@ export function BusPipelineTracker({
     return stops[currentIndex + 1] ?? currentStop ?? null;
   }, [stops, currentIndex, trip.current_stop_id, currentStop]);
 
+  // Melodic Transit Bell Chime (Ding-Dong-Dang railway arrival chime)
+  const playTransitChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (ctx.state === "suspended") void ctx.resume();
+
+      // Gentle 3-tone harmonic chime: E5 (659Hz) -> G#5 (830Hz) -> B5 (987Hz)
+      const notes = [
+        { freq: 659.25, time: 0.0, dur: 0.4 },
+        { freq: 830.61, time: 0.25, dur: 0.45 },
+        { freq: 987.77, time: 0.5, dur: 0.7 },
+      ];
+
+      notes.forEach(({ freq, time, dur }) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + time);
+
+        // Smooth attack & natural bell exponential decay
+        gain.gain.setValueAtTime(0.001, ctx.currentTime + time);
+        gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + time + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + time + dur);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + time);
+        osc.stop(ctx.currentTime + time + dur);
+      });
+    } catch (e) {
+      console.warn("[TransitChime] AudioContext playback notice:", e);
+    }
+  };
+
+  const playPreviewChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (ctx.state === "suspended") void ctx.resume();
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.35);
+    } catch {}
+  };
+
   // Alight alarm proximity checker
   useEffect(() => {
     if (alarmStopId) {
@@ -106,6 +164,7 @@ export function BusPipelineTracker({
       // If bus is at the stop immediately prior or at the alarm stop itself
       if (currentIndex >= alarmIdx - 1 && currentIndex <= alarmIdx) {
         setAlarmTriggered(true);
+        playTransitChime();
         if (navigator.vibrate) {
           navigator.vibrate([300, 150, 300, 150, 400]);
         }
@@ -644,6 +703,7 @@ export function BusPipelineTracker({
                             } else {
                               setAlarmStopId(row.stop_id);
                               setAlarmTriggered(false);
+                              playPreviewChime();
                             }
                           }}
                           className={`ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold transition-all ${
