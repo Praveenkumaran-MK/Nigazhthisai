@@ -358,16 +358,19 @@ Conductors can execute this re-scan via two intuitive paths:
    - Screen wake lock is released.
    - Any unexpired active passenger tickets on board are cleanly marked `EXPIRED`.
    - A **Shift & Ride Completed** dialog appears with an official summary of total tickets issued, passengers transported, and revenue collected.
+   - Tap **Sign Out of Shift** to conclude duty and log out directly, or tap **Return to Dashboard** if you have another trip scheduled.
 
-#### Option B: Directly While Scanning Tickets (`/trip/:tripId/scan`)
-1. If you are already holding the camera scanner on the moving bus checking passenger tickets:
-2. Direct the camera at the vehicle's dashboard QR plate.
-3. The scanner automatically detects that this is the vehicle's QR plate rather than a passenger boarding pass.
+#### Option B: Directly While Scanning Tickets (`/trip/:tripId/scan` or `/scan`)
+1. If you are holding the camera scanner checking passenger tickets:
+2. Direct the camera at the vehicle's dashboard QR plate (or re-scan after arriving late at the depot).
+3. The scanner intelligently recognizes that this is a **Bus QR plate** (even if the trip ended late or the session expired) and will **never** mistake it for an expired passenger ticket.
 4. An **"End Shift & Complete Ride?"** confirmation dialog opens:
-   - Displays: *"You scanned the QR plate for Bus #[bus_number]. Would you like to end this ride and complete your shift wherever you are?"*
-5. Tap **Yes, End Shift Now**:
-   - Executes `endTrip` instantly.
-   - Telemetry stops and you are redirected to the shift summary dashboard.
+   - Displays: *"You scanned the QR plate for Bus #[bus_number]. Would you like to end this ride, stop GPS broadcasting, and complete your shift?"*
+   - If the bus arrived late or the session was already completed, it displays: *"Vehicle Session Concluded — Bus #[bus_number]. Would you like to sign out now?"*
+5. Tap **✓ End Shift & Sign Out Now**:
+   - Executes `endTrip` instantly (stops live GPS broadcasting, marks active tickets expired, resets occupancy).
+   - Cleanly signs the conductor out and returns to the Login screen.
+   - Or tap **End Ride Only (Stay Logged In)** to return to the conductor dashboard.
 
 ---
 

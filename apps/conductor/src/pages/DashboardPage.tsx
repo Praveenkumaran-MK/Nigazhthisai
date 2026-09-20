@@ -59,6 +59,7 @@ interface AssignedTrip {
   scheduled_departure?: string | null;
   scheduled_arrival?: string | null;
   started_at?: string | null;
+  ended_at?: string | null;
   current_stop_id?: string | null;
   schedule_adherence?: "ON_TIME" | "DELAYED" | "EARLY" | null;
   delay_minutes?: number | null;
@@ -225,7 +226,7 @@ export function DashboardPage() {
   const loadData = useCallback(async () => {
     if (!conductor?.id) return;
     try {
-      // 1. Fetch live assigned trips (both SCHEDULED and ACTIVE)
+      // 1. Fetch live assigned trips (active, scheduled, and recent completed shifts)
       const { data: tripsData, error: tripsErr } = await supabase
         .from("trips")
         .select(`
@@ -236,6 +237,7 @@ export function DashboardPage() {
           scheduled_departure,
           scheduled_arrival,
           started_at,
+          ended_at,
           current_stop_id,
           buses (
             id,
@@ -252,8 +254,8 @@ export function DashboardPage() {
           )
         `)
         .eq("conductor_id", conductor.id)
-        .in("status", ["ACTIVE", "SCHEDULED"])
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(10);
 
       if (tripsErr) {
         console.error("[Dashboard] Error fetching assigned trips:", tripsErr);
@@ -268,6 +270,7 @@ export function DashboardPage() {
           scheduled_departure: t.scheduled_departure,
           scheduled_arrival: t.scheduled_arrival,
           started_at: t.started_at,
+          ended_at: t.ended_at,
           current_stop_id: t.current_stop_id,
           schedule_adherence: (t as any).schedule_adherence ?? "ON_TIME",
           delay_minutes: (t as any).delay_minutes ?? 0,
@@ -462,6 +465,7 @@ export function DashboardPage() {
   const scheduledTrips = assignedTrips.filter((t) => t.status === "SCHEDULED");
   const primaryScheduledTrip = !activeTrip && scheduledTrips.length > 0 ? scheduledTrips[0] : null;
   const otherScheduledTrips = !activeTrip && scheduledTrips.length > 1 ? scheduledTrips.slice(1) : (activeTrip ? scheduledTrips : []);
+  const lastCompletedTrip = assignedTrips.find((t) => t.status === "COMPLETED") ?? null;
 
   // Fetch stops & occupancy when an active trip is present
   const loadActiveTripDetails = useCallback(async () => {
@@ -695,27 +699,32 @@ export function DashboardPage() {
 
   // Conductor re-scans bus QR code to end ride / shift wherever they are
   const handleEndTripWithBusQr = async (scannedValue: string) => {
-    if (!activeTrip) return;
+    const targetTrip = activeTrip || verifyingTrip || lastCompletedTrip;
+    if (!targetTrip) return;
     setIsEnding(true);
     try {
-      await verifyBusQr(
-        supabase,
-        scannedValue,
-        activeTrip.bus_id,
-        activeTrip.buses?.bus_number,
-        activeTrip.buses?.registration_number
-      );
+      if (targetTrip.bus_id) {
+        await verifyBusQr(
+          supabase,
+          scannedValue,
+          targetTrip.bus_id,
+          targetTrip.buses?.bus_number,
+          targetTrip.buses?.registration_number,
+        );
+      }
 
       if ("vibrate" in navigator) {
         navigator.vibrate([150, 70, 150]);
       }
 
-      await endTrip(supabase, activeTrip.id, scannedValue);
+      if (targetTrip.status === "ACTIVE") {
+        await endTrip(supabase, targetTrip.id, scannedValue);
+      }
       setShowBusScanner(false);
 
       setCompletedShiftSummary({
-        busNumber: activeTrip.buses?.bus_number ?? "N/A",
-        routeName: activeTrip.routes?.name ?? "Transit Service",
+        busNumber: targetTrip.buses?.bus_number ?? "N/A",
+        routeName: targetTrip.routes?.name ?? "Transit Service",
         endedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         ticketsIssued: stats?.tickets_issued ?? 0,
         totalRevenue: stats?.total_revenue ?? 0,
@@ -725,7 +734,7 @@ export function DashboardPage() {
       push({
         tone: "success",
         title: "Ride & Shift Concluded",
-        description: `Bus #${activeTrip.buses?.bus_number ?? "vehicle"} service completed. GPS telemetry stopped.`,
+        description: `Bus #${targetTrip.buses?.bus_number ?? "vehicle"} service completed. GPS telemetry stopped.`,
       });
 
       try {
@@ -1179,6 +1188,48 @@ export function DashboardPage() {
                 </Button>
               </div>
             </Card>
+          ) : lastCompletedTrip ? (
+            <Card className="border-slate-800 bg-slate-900/80 shadow-lg">
+              <div className="flex items-center justify-between">
+                <Badge tone="neutral" className="font-bold">SHIFT CONCLUDED</Badge>
+                <span className="text-xs text-slate-400">
+                  {lastCompletedTrip.ended_at
+                    ? `Concluded at ${new Date(lastCompletedTrip.ended_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                    : "Trip Completed"}
+                </span>
+              </div>
+              <div className="mt-2.5">
+                <h2 className="text-base font-bold text-slate-100 flex items-center gap-1.5">
+                  <BusIcon className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span>Bus #{lastCompletedTrip.buses?.bus_number ?? "Assigned"} — {lastCompletedTrip.routes?.name ?? "Service Completed"}</span>
+                </h2>
+                <p className="mt-1 text-xs text-slate-400">
+                  Vehicle service has completed. Re-scan the bus QR plate or sign out below to finish your shift.
+                </p>
+              </div>
+              <div className="mt-3.5 flex gap-2">
+                <Button
+                  size="sm"
+                  className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold inline-flex items-center justify-center gap-1.5 shadow-md shadow-rose-950/40"
+                  onClick={() => {
+                    setVerifyingTrip(lastCompletedTrip);
+                    setQrModalMode("end");
+                    setShowBusScanner(true);
+                  }}
+                >
+                  <QrCode className="h-4 w-4" />
+                  <span>Scan Bus QR to Sign Out</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="font-bold"
+                  onClick={() => logout()}
+                >
+                  Sign Out
+                </Button>
+              </div>
+            </Card>
           ) : (
             <Card className="border-slate-800 bg-slate-900/60">
               <div className="flex items-center justify-between">
@@ -1603,7 +1654,7 @@ export function DashboardPage() {
         }}
         assignedBus={
           qrModalMode === "end"
-            ? (activeTrip?.buses ?? null)
+            ? (activeTrip?.buses ?? verifyingTrip?.buses ?? lastCompletedTrip?.buses ?? null)
             : (verifyingTrip?.buses ?? primaryScheduledTrip?.buses ?? null)
         }
         onVerify={handleBusQrAction}
@@ -1645,13 +1696,26 @@ export function DashboardPage() {
                 <span className="font-bold text-slate-200">Cleared (0 Seats)</span>
               </div>
             </div>
-            <Button
-              className="w-full font-bold mt-2"
-              size="lg"
-              onClick={() => setShowEndShiftModal(false)}
-            >
-              Return to Dashboard
-            </Button>
+            <div className="flex flex-col gap-2 w-full mt-2">
+              <Button
+                className="w-full font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-950/40"
+                size="lg"
+                onClick={async () => {
+                  setShowEndShiftModal(false);
+                  await logout();
+                }}
+              >
+                ✓ Sign Out of Shift
+              </Button>
+              <Button
+                variant="secondary"
+                className="w-full font-bold text-slate-300 hover:text-white"
+                size="md"
+                onClick={() => setShowEndShiftModal(false)}
+              >
+                Return to Dashboard
+              </Button>
+            </div>
           </div>
         )}
       </Dialog>

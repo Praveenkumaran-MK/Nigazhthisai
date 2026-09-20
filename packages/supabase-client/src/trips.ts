@@ -123,6 +123,15 @@ export async function endTrip(
   });
 
   if (res.error) {
+    // Handle already completed trip idempotently
+    if (
+      res.error.message?.includes("COMPLETED") ||
+      res.error.message?.includes("already") ||
+      res.error.message?.includes("already_completed")
+    ) {
+      return { success: true, status: "COMPLETED", trip_id: tripId };
+    }
+
     // Graceful fallback if RPC is not yet loaded in schema cache
     if (
       res.error.code === "PGRST202" ||
