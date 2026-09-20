@@ -46,6 +46,7 @@ export function CheckoutPage() {
   const [paymentStep, setPaymentStep] = useState<"idle" | "processing" | "paid" | "creating" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [isTripInactive, setIsTripInactive] = useState(false);
   const [busDetails, setBusDetails] = useState<{
     bus_number: string;
     type: string;
@@ -71,12 +72,22 @@ export function CheckoutPage() {
     if (tripId) {
       supabase
         .from("trips")
-        .select("id, bus_id, buses(bus_number, type, is_wheelchair_accessible)")
+        .select("id, bus_id, status, buses(bus_number, type, is_wheelchair_accessible, is_active, status)")
         .eq("id", tripId)
         .maybeSingle()
         .then(({ data }) => {
-          if (data && (data as any).buses) {
-            setBusDetails((data as any).buses);
+          if (data) {
+            const bus = Array.isArray((data as any).buses) ? (data as any).buses[0] : (data as any).buses;
+            if (
+              data.status !== "ACTIVE" ||
+              (bus && (bus.is_active === false || bus.status === "INACTIVE" || bus.status === "MAINTENANCE"))
+            ) {
+              setIsTripInactive(true);
+              setErrorMessage("This bus is no longer active. Please return to search and choose an active bus.");
+            }
+            if (bus) {
+              setBusDetails(bus);
+            }
           }
         });
     }
@@ -96,6 +107,10 @@ export function CheckoutPage() {
 
   const handlePay = async () => {
     setErrorMessage(null);
+    if (isTripInactive) {
+      setErrorMessage("This bus is no longer active. Please choose an active bus from the search results.");
+      return;
+    }
     if (!config.is_payments_enabled) {
       setErrorMessage(t("paymentsUnavailable"));
       setPaymentStep("error");
@@ -233,7 +248,7 @@ export function CheckoutPage() {
         size="lg"
         className="w-full"
         isLoading={paymentStep === "processing" || paymentStep === "creating"}
-        disabled={config === null}
+        disabled={config === null || isTripInactive}
         onClick={handlePay}
       >
         {paymentStep === "processing" && (
@@ -243,7 +258,9 @@ export function CheckoutPage() {
         )}
         {paymentStep === "creating" && t("issuingTicket")}
         {(paymentStep === "idle" || paymentStep === "error") &&
-          `${t("payButton")} ₹${effectiveFare.toFixed(2)}`}
+          (isTripInactive
+            ? "Bus Trip Inactive"
+            : `${t("payButton")} ₹${effectiveFare.toFixed(2)}`)}
         {paymentStep === "paid" && t("paymentReceived")}
       </Button>
     </div>

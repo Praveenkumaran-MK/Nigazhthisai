@@ -94,7 +94,7 @@ export function SearchResultsPage() {
               const byTrip = new Map<string, TripSeqItem>();
               for (const row of ts) {
                 const tripInfo = row.trips as any;
-                if (tripInfo?.status !== "ACTIVE" && tripInfo?.status !== "SCHEDULED") continue;
+                if (tripInfo?.status !== "ACTIVE") continue;
                 const item: TripSeqItem = byTrip.get(row.trip_id) || { routeId: tripInfo.route_id };
                 if (row.stop_id === originStopId) item.originSeq = row.sequence_order;
                 if (row.stop_id === destStopId) item.destSeq = row.sequence_order;
@@ -228,6 +228,9 @@ export function SearchResultsPage() {
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{bus.bus_number}</h3>
+                      <Badge tone="success" className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5">
+                        ● LIVE ACTIVE
+                      </Badge>
                       {bus.is_wheelchair_accessible && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800 shadow-xs" title="Handicap Accessible Seats & Facilities">
                           <WheelchairIcon size={14} className="text-blue-600 dark:text-blue-400" />

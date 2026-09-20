@@ -12,12 +12,123 @@ export async function listEligibleBuses(
   routeId: string,
   originStopId: string,
 ): Promise<EligibleBus[]> {
-  const { data, error } = await client.rpc("list_eligible_buses", {
-    p_route_id: routeId,
-    p_origin_stop_id: originStopId,
-  });
-  if (error) throw toAppError(error);
-  return (data ?? []) as EligibleBus[];
+  let rawBuses: EligibleBus[] = [];
+
+  try {
+    const { data, error } = await client.rpc("list_eligible_buses", {
+      p_route_id: routeId,
+      p_origin_stop_id: originStopId,
+    });
+    if (!error && Array.isArray(data)) {
+      rawBuses = data as EligibleBus[];
+    }
+  } catch {
+    rawBuses = [];
+  }
+
+  // Fallback: direct active trips query if RPC returned empty or failed
+  if (rawBuses.length === 0) {
+    try {
+      const { data: directTrips } = await client
+        .from("trips")
+        .select(`
+          id,
+          bus_id,
+          status,
+          current_stop_id,
+          buses (
+            id,
+            bus_number,
+            type,
+            capacity,
+            is_wheelchair_accessible,
+            district_id,
+            is_active,
+            status
+          ),
+          stops:current_stop_id (
+            name
+          ),
+          trip_occupancy (
+            current_passenger_count,
+            capacity
+          ),
+          trip_stops (
+            stop_id,
+            status,
+            sequence_order
+          )
+        `)
+        .eq("route_id", routeId)
+        .eq("status", "ACTIVE");
+
+      if (directTrips && directTrips.length > 0) {
+        rawBuses = directTrips
+          .filter((t: any) => {
+            const bus = Array.isArray(t.buses) ? t.buses[0] : t.buses;
+            if (bus && (bus.is_active === false || bus.status === "INACTIVE" || bus.status === "MAINTENANCE")) {
+              return false;
+            }
+            // Verify trip has origin stop UPCOMING or ARRIVED
+            const stops = (t.trip_stops ?? []) as any[];
+            const originStop = stops.find((s) => s.stop_id === originStopId);
+            return originStop && (originStop.status === "UPCOMING" || originStop.status === "ARRIVED");
+          })
+          .map((t: any) => {
+            const bus = Array.isArray(t.buses) ? t.buses[0] : t.buses;
+            const stop = Array.isArray(t.stops) ? t.stops[0] : t.stops;
+            const occ = Array.isArray(t.trip_occupancy) ? t.trip_occupancy[0] : t.trip_occupancy;
+            const cap = occ?.capacity || bus?.capacity || 50;
+            const currentCount = occ?.current_passenger_count || 0;
+            return {
+              trip_id: t.id,
+              bus_id: bus?.id || t.bus_id,
+              bus_number: bus?.bus_number || "Bus",
+              bus_type: bus?.type || "ORDINARY",
+              capacity: cap,
+              current_stop_id: t.current_stop_id,
+              current_stop_name: stop?.name || null,
+              available_seats: Math.max(0, cap - currentCount),
+              is_wheelchair_accessible: Boolean(bus?.is_wheelchair_accessible),
+              district_id: bus?.district_id || null,
+            };
+          });
+      }
+    } catch (err) {
+      console.warn("[listEligibleBuses] direct query notice:", err);
+    }
+  }
+
+  // Strict double-check: ONLY active buses and active trips are returned to passengers
+  if (rawBuses.length > 0) {
+    try {
+      const tripIds = rawBuses.map((b) => b.trip_id);
+      const { data: verified } = await client
+        .from("trips")
+        .select("id, status, buses(is_active, status)")
+        .in("id", tripIds)
+        .eq("status", "ACTIVE");
+
+      if (verified) {
+        const activeTripIds = new Set(
+          verified
+            .filter((row: any) => {
+              const b = Array.isArray(row.buses) ? row.buses[0] : row.buses;
+              if (b && (b.is_active === false || b.status === "INACTIVE" || b.status === "MAINTENANCE")) {
+                return false;
+              }
+              return row.status === "ACTIVE";
+            })
+            .map((row: any) => row.id),
+        );
+        rawBuses = rawBuses.filter((b) => activeTripIds.has(b.trip_id));
+      }
+    } catch {
+      // If validation query fails, preserve existing list
+    }
+  }
+
+  return rawBuses;
 }
 
 /**

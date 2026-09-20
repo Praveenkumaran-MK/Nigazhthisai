@@ -260,7 +260,16 @@ export function LiveMapPage() {
                   <span>Accessible</span>
                 </span>
               )}
-              {trip?.schedule_adherence && (
+              {trip?.status === "ACTIVE" && bus?.is_active !== false && bus?.status === "ACTIVE" ? (
+                <Badge tone="success" className="font-extrabold uppercase tracking-wider text-[10px]">
+                  ● ACTIVE
+                </Badge>
+              ) : (
+                <Badge tone="neutral" className="font-extrabold uppercase tracking-wider text-[10px]">
+                  {trip?.status !== "ACTIVE" ? (trip?.status ?? "INACTIVE") : (bus?.status ?? "INACTIVE")}
+                </Badge>
+              )}
+              {trip?.schedule_adherence && trip.status === "ACTIVE" && (
                 <Badge tone={trip.schedule_adherence === "DELAYED" ? "warning" : "success"}>
                   {trip.schedule_adherence === "DELAYED"
                     ? `Delayed (+${trip.delay_minutes ?? 0}m)`
@@ -268,8 +277,21 @@ export function LiveMapPage() {
                 </Badge>
               )}
             </div>
-            <StatusIndicator status={isLive ? "online" : "connecting"} label={isLive ? "Live" : "Connecting…"} />
+            <StatusIndicator status={isLive && trip?.status === "ACTIVE" && bus?.is_active !== false ? "online" : "connecting"} label={isLive && trip?.status === "ACTIVE" && bus?.is_active !== false ? "Live" : "Standby"} />
           </div>
+
+          {(trip?.status !== "ACTIVE" || bus?.is_active === false || bus?.status === "MAINTENANCE" || bus?.status === "INACTIVE") && (
+            <div className="mt-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 p-3 text-xs text-amber-200 flex items-center justify-between">
+              <span>This bus is currently not in active service.</span>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="underline font-bold hover:text-white"
+              >
+                Back
+              </button>
+            </div>
+          )}
 
           <div className="mt-2 flex items-center justify-between">
             <p className="text-sm text-slate-600 dark:text-slate-400">

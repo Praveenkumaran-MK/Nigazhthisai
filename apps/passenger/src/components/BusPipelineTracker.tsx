@@ -178,9 +178,20 @@ export function BusPipelineTracker({
               <Bus className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white uppercase">
-                {routeCode}
-              </h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white uppercase">
+                  {routeCode}
+                </h2>
+                {trip.status === "ACTIVE" && bus?.is_active !== false && bus?.status === "ACTIVE" ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    ● ACTIVE
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                    {trip.status !== "ACTIVE" ? trip.status : (bus?.status ?? "STANDBY")}
+                  </span>
+                )}
+              </div>
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
                 {originStop?.name ?? "Origin"} <span className="text-slate-400">→</span> {destStop?.name ?? "Destination"}
               </p>
@@ -201,6 +212,19 @@ export function BusPipelineTracker({
             )}
           </div>
         </div>
+
+        {(trip.status !== "ACTIVE" || bus?.is_active === false || bus?.status === "MAINTENANCE" || bus?.status === "INACTIVE") && (
+          <div className="mt-2 rounded-xl bg-amber-500/15 border border-amber-500/30 p-2.5 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between">
+            <span>This bus is not actively in service.</span>
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="underline font-bold hover:opacity-80 ml-2"
+            >
+              Back
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── 3. Table Headers (Arrival | Stop / Location | Departure) ── */}

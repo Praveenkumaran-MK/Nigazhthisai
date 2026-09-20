@@ -209,7 +209,7 @@ export function HomePage() {
         if (ts && ts.length >= 2) {
           for (const row of ts) {
             const tripInfo = row.trips as any;
-            if (tripInfo?.route_id) {
+            if (tripInfo?.status === "ACTIVE" && tripInfo?.route_id) {
               const r = allRoutes.find((rt) => rt.id === tripInfo.route_id);
               if (r) {
                 setConnectingRoute(r);
