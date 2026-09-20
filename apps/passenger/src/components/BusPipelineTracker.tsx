@@ -158,18 +158,25 @@ export function BusPipelineTracker({
 
     const delayMin = trip.delay_minutes ?? 0;
 
+    let runningDepartureMs = anchorTime.getTime() + delayMin * 60 * 1000;
+
     return stops.map((row, idx) => {
       const isFirst = idx === 0;
       const isLast = idx === stops.length - 1;
 
-      // Distance from origin in km
-      const km = row.distanceKm !== undefined ? row.distanceKm : idx * 6;
+      let stopArrivalMs = runningDepartureMs;
+      if (!isFirst) {
+        const prevKm = stops[idx - 1]?.distanceKm ?? 0;
+        const curKm = row.distanceKm ?? prevKm + 2;
+        const legKm = Math.max(1, curKm - prevKm);
+        const legMinutes = Math.max(2, Math.round((legKm / 24) * 60));
+        stopArrivalMs = runningDepartureMs + legMinutes * 60 * 1000;
+      }
+      const stopDepartureMs = stopArrivalMs + 2 * 60 * 1000; // 2 min dwell
+      runningDepartureMs = stopDepartureMs;
 
-      // Realistic transit time: average transit speed ~ 25 km/h + 1.5 min dwell per station
-      const travelMinutes = Math.round((km / 26) * 60) + idx * 1.5;
-
-      const stopArrivalDate = new Date(anchorTime.getTime() + travelMinutes * 60 * 1000 + delayMin * 60 * 1000);
-      const stopDepartureDate = new Date(stopArrivalDate.getTime() + 2 * 60 * 1000); // 2 min dwell
+      const stopArrivalDate = new Date(stopArrivalMs);
+      const stopDepartureDate = new Date(stopDepartureMs);
 
       const timeFmt = (d: Date) =>
         d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });

@@ -105,23 +105,23 @@ export function LiveMapPage() {
     trip?.bus_id ?? null,
   );
 
-  // Calculate cumulative distance and platform for the pipeline view
+  // Calculate cumulative route corridor distance and platform for the pipeline view
   const pipelineStops: PipelineStopRow[] = useMemo(() => {
     if (stopRows.length === 0) return [];
-    const originLoc = stopRows[0]?.stop?.location;
+    let cumulativeKm = 0;
     return stopRows.map((s, idx) => {
-      let distKm = idx * 8;
-      if (originLoc && s.stop?.location) {
-        distKm = calculateDistanceKm(
-          originLoc.latitude,
-          originLoc.longitude,
-          s.stop.location.latitude,
-          s.stop.location.longitude
-        );
+      if (idx > 0) {
+        const prevLoc = stopRows[idx - 1]?.stop?.location;
+        const curLoc = s.stop?.location;
+        let legKm = 3;
+        if (prevLoc && curLoc) {
+          legKm = Math.max(1, calculateDistanceKm(prevLoc.latitude, prevLoc.longitude, curLoc.latitude, curLoc.longitude));
+        }
+        cumulativeKm += legKm;
       }
       return {
         ...s,
-        distanceKm: distKm,
+        distanceKm: cumulativeKm,
         platform: (idx % 3) + 1,
       };
     });
