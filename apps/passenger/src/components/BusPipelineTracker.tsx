@@ -17,11 +17,12 @@ import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Music
 } from "lucide-react";
 import type { Trip, RouteWithStops, TripStop, Bus as BusType, Stop, TripOccupancy } from "@sbt/shared-types";
 import { WheelchairIcon } from "@sbt/ui";
-import { playTransitChime, playPreviewChime } from "../utils/transitAudio";
+import { playTransitChime, playPreviewChime, playSong, stopSong } from "../utils/transitAudio";
 
 export interface PipelineStopRow extends TripStop {
   stop: Stop;
@@ -64,6 +65,17 @@ export function BusPipelineTracker({
   const [copiedLink, setCopiedLink] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
   const [secondsAgo, setSecondsAgo] = useState(0);
+  const [isPlayingSong, setIsPlayingSong] = useState(false);
+
+  const toggleSong = () => {
+    if (isPlayingSong) {
+      stopSong();
+      setIsPlayingSong(false);
+    } else {
+      setIsPlayingSong(true);
+      playSong(() => setIsPlayingSong(false));
+    }
+  };
 
   // Auto-refresh countdown timer
   useEffect(() => {
@@ -301,7 +313,21 @@ export function BusPipelineTracker({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={toggleSong}
+            title={isPlayingSong ? "Stop Song" : "Play Song (Just for no reason!)"}
+            className={`flex h-9 items-center gap-1.5 px-2.5 rounded-xl transition-all font-bold text-xs ${
+              isPlayingSong
+                ? "bg-amber-400 text-slate-950 animate-pulse shadow-md"
+                : "bg-white/10 hover:bg-white/20 active:scale-95 text-white/90"
+            }`}
+          >
+            <Music className="h-3.5 w-3.5" />
+            <span>{isPlayingSong ? "Pause" : "Song"}</span>
+          </button>
+
           <button
             type="button"
             onClick={handleManualRefresh}
