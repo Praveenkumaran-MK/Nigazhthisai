@@ -14,14 +14,31 @@ export function useEligibleBuses() {
   // stale data.
   const requestIdRef = useRef(0);
 
-  const search = useCallback(async (routeId: string, originStopId: string) => {
+  const search = useCallback(async (routeIdOrIds: string | string[], originStopId: string) => {
     const requestId = ++requestIdRef.current;
     setStatus("loading");
     setError(null);
     try {
-      const result = await listEligibleBuses(supabase, routeId, originStopId);
-      if (requestId !== requestIdRef.current) return; // a newer search has since started
-      setBuses(result);
+      const ids = Array.isArray(routeIdOrIds)
+        ? routeIdOrIds.filter(Boolean)
+        : [routeIdOrIds].filter(Boolean);
+
+      if (ids.length === 0 || !originStopId) {
+        setBuses([]);
+        setStatus("success");
+        return;
+      }
+
+      const results = await Promise.all(
+        ids.map((rId) => listEligibleBuses(supabase, rId, originStopId).catch(() => []))
+      );
+
+      if (requestId !== requestIdRef.current) return;
+
+      const combined = results.flat();
+      // Deduplicate by trip_id
+      const unique = Array.from(new Map(combined.map((b) => [b.trip_id, b])).values());
+      setBuses(unique);
       setStatus("success");
     } catch (e) {
       if (requestId !== requestIdRef.current) return;
@@ -30,5 +47,11 @@ export function useEligibleBuses() {
     }
   }, []);
 
-  return { buses, status, error, search };
+  const setEmpty = useCallback(() => {
+    setBuses([]);
+    setStatus("success");
+    setError(null);
+  }, []);
+
+  return { buses, status, error, search, setEmpty };
 }

@@ -13,49 +13,128 @@ export function SearchResultsPage() {
   const originStopId = params.get("originStopId") ?? "";
   const destStopId = params.get("destStopId") ?? "";
 
-  const { buses, status, error, search } = useEligibleBuses();
+  const { buses, status, error, search, setEmpty } = useEligibleBuses();
   const [activeRouteId, setActiveRouteId] = useState(routeId);
   const [fare, setFare] = useState<number | null>(null);
   const [originStop, setOriginStop] = useState<Stop | null>(null);
   const [destStop, setDestStop] = useState<Stop | null>(null);
 
   useEffect(() => {
+    let isCancelled = false;
+
     async function initSearch() {
-      let rId = routeId;
-      if (!rId && originStopId && destStopId) {
-        // Query route_stops connecting origin and destination
-        const { data: rsOrigin } = await supabase
-          .from("route_stops")
-          .select("route_id, sequence_order")
-          .eq("stop_id", originStopId);
+      const candidateRouteIds = new Set<string>();
+      if (routeId) candidateRouteIds.add(routeId);
 
-        const { data: rsDest } = await supabase
-          .from("route_stops")
-          .select("route_id, sequence_order")
-          .eq("stop_id", destStopId);
+      if (originStopId && destStopId) {
+        // 1. Check route_day_stops (primary for custom and scheduled stops)
+        try {
+          const { data: rds } = await supabase
+            .from("route_day_stops")
+            .select("route_id, stop_id, sequence_order")
+            .in("stop_id", [originStopId, destStopId]);
 
-        if (rsOrigin && rsDest) {
-          const match = rsOrigin.find((o) =>
-            rsDest.some((d) => d.route_id === o.route_id && o.sequence_order < d.sequence_order)
-          );
-          if (match) {
-            rId = match.route_id;
-          } else {
-            const anyMatch = rsOrigin.find((o) => rsDest.some((d) => d.route_id === o.route_id));
-            if (anyMatch) rId = anyMatch.route_id;
+          if (rds && rds.length > 0) {
+            const byRoute = new Map<string, { originSeq?: number; destSeq?: number }>();
+            for (const row of rds) {
+              const item = byRoute.get(row.route_id) || {};
+              if (row.stop_id === originStopId) item.originSeq = row.sequence_order;
+              if (row.stop_id === destStopId) item.destSeq = row.sequence_order;
+              byRoute.set(row.route_id, item);
+            }
+            for (const [rId, { originSeq, destSeq }] of byRoute.entries()) {
+              if (originSeq !== undefined && destSeq !== undefined && originSeq < destSeq) {
+                candidateRouteIds.add(rId);
+              } else if (originSeq !== undefined && destSeq !== undefined) {
+                candidateRouteIds.add(rId);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("[SearchResults] route_day_stops lookup notice:", err);
+        }
+
+        // 2. Check standard route_stops (fallback)
+        try {
+          const { data: rs } = await supabase
+            .from("route_stops")
+            .select("route_id, stop_id, sequence_order")
+            .in("stop_id", [originStopId, destStopId]);
+
+          if (rs && rs.length > 0) {
+            const byRoute = new Map<string, { originSeq?: number; destSeq?: number }>();
+            for (const row of rs) {
+              const item = byRoute.get(row.route_id) || {};
+              if (row.stop_id === originStopId) item.originSeq = row.sequence_order;
+              if (row.stop_id === destStopId) item.destSeq = row.sequence_order;
+              byRoute.set(row.route_id, item);
+            }
+            for (const [rId, { originSeq, destSeq }] of byRoute.entries()) {
+              if (originSeq !== undefined && destSeq !== undefined && originSeq < destSeq) {
+                candidateRouteIds.add(rId);
+              } else if (originSeq !== undefined && destSeq !== undefined) {
+                candidateRouteIds.add(rId);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("[SearchResults] route_stops lookup notice:", err);
+        }
+
+        // 3. Check active trips trip_stops as live fallback
+        if (candidateRouteIds.size === 0) {
+          try {
+            const { data: ts } = await supabase
+              .from("trip_stops")
+              .select("trip_id, stop_id, sequence_order, trips(id, route_id, status)")
+              .in("stop_id", [originStopId, destStopId]);
+
+            if (ts && ts.length > 0) {
+              interface TripSeqItem { originSeq?: number; destSeq?: number; routeId?: string; }
+              const byTrip = new Map<string, TripSeqItem>();
+              for (const row of ts) {
+                const tripInfo = row.trips as any;
+                if (tripInfo?.status !== "ACTIVE" && tripInfo?.status !== "SCHEDULED") continue;
+                const item: TripSeqItem = byTrip.get(row.trip_id) || { routeId: tripInfo.route_id };
+                if (row.stop_id === originStopId) item.originSeq = row.sequence_order;
+                if (row.stop_id === destStopId) item.destSeq = row.sequence_order;
+                byTrip.set(row.trip_id, item);
+              }
+              for (const { originSeq, destSeq, routeId: rId } of byTrip.values()) {
+                if (rId && originSeq !== undefined && destSeq !== undefined && originSeq < destSeq) {
+                  candidateRouteIds.add(rId);
+                }
+              }
+            }
+          } catch (err) {
+            console.warn("[SearchResults] trip_stops fallback notice:", err);
           }
         }
       }
 
-      setActiveRouteId(rId);
+      if (isCancelled) return;
 
-      if (rId && originStopId) {
-        void search(rId, originStopId);
+      const foundRouteIds = Array.from(candidateRouteIds);
+      const primaryRouteId = foundRouteIds[0] || routeId;
+      setActiveRouteId(primaryRouteId);
+
+      if (foundRouteIds.length > 0 && originStopId) {
+        void search(foundRouteIds, originStopId);
+      } else {
+        // No connecting route found: Immediately complete search with empty results
+        setEmpty();
       }
-      if (rId && originStopId && destStopId) {
-        getFare(supabase, rId, originStopId, destStopId)
-          .then((f) => setFare(f > 0 ? f : 15))
-          .catch(() => setFare(15));
+
+      if (primaryRouteId && originStopId && destStopId) {
+        getFare(supabase, primaryRouteId, originStopId, destStopId)
+          .then((f) => {
+            if (!isCancelled) setFare(f > 0 ? f : 15);
+          })
+          .catch(() => {
+            if (!isCancelled) setFare(15);
+          });
+      } else {
+        setFare(15);
       }
     }
 
@@ -67,12 +146,17 @@ export function SearchResultsPage() {
         .select("*")
         .in("id", [originStopId, destStopId])
         .then(({ data }) => {
+          if (isCancelled) return;
           const rows = (data ?? []) as Stop[];
           setOriginStop(rows.find((s) => s.id === originStopId) ?? null);
           setDestStop(rows.find((s) => s.id === destStopId) ?? null);
         });
     }
-  }, [routeId, originStopId, destStopId, search]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [routeId, originStopId, destStopId, search, setEmpty]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col pb-24">
@@ -102,11 +186,20 @@ export function SearchResultsPage() {
 
       <div className="flex flex-col gap-3 px-5 pt-4">
         <p className="text-sm font-medium text-slate-500 dark:text-slate-500">
-          {status === "success" ? `${buses.length} bus${buses.length === 1 ? "" : "es"} available` : "Searching…"}
+          {status === "loading"
+            ? "Looking for buses…"
+            : status === "success"
+              ? `${buses.length} bus${buses.length === 1 ? "" : "es"} available`
+              : "Searching…"}
         </p>
 
         {status === "loading" && <LoadingState label="Looking for buses…" />}
-        {status === "error" && <ErrorState description={error ?? undefined} onRetry={() => search(activeRouteId || routeId, originStopId)} />}
+        {status === "error" && (
+          <ErrorState
+            description={error ?? undefined}
+            onRetry={() => search(activeRouteId || routeId, originStopId)}
+          />
+        )}
         {status === "success" && buses.length === 0 && (
           <EmptyState
             title="No buses available right now"

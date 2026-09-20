@@ -5,6 +5,7 @@ import type { Stop } from "@sbt/shared-types";
 import { supabase } from "../lib/supabase";
 import { useMyTickets } from "../hooks/useTicket";
 import { useI18n } from "../lib/i18n";
+import { Bus } from "lucide-react";
 
 const statusTone = {
   CREATED: "neutral",
@@ -114,6 +115,22 @@ export function MyTicketsPage() {
                 {" · "}
                 {ticket.passenger_count} {ticket.passenger_count === 1 ? t("passenger") : t("passengers")} · ₹{ticket.total_fare.toFixed(2)}
               </p>
+
+              {Boolean(ticket.trip_id && (ticket.status === "PAID" || ticket.status === "VALIDATED")) && (
+                <div className="mt-3 flex items-center justify-end border-t border-slate-100 pt-2.5 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/bus/${ticket.trip_id}?view=pipeline`);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/60 transition"
+                  >
+                    <Bus className="h-3.5 w-3.5" />
+                    <span>Track Live Bus →</span>
+                  </button>
+                </div>
+              )}
             </Card>
           );
         })}

@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { BoardingPassCard, Badge, LoadingState, Alert, TicketCountdown, Dialog, Button, Input, ShieldAlertIcon, WheelchairIcon } from "@sbt/ui";
-import type { Stop, Bus } from "@sbt/shared-types";
-import { CheckCircle2, ArrowLeft, Home } from "lucide-react";
+import type { Stop, Bus as BusModel } from "@sbt/shared-types";
+import { CheckCircle2, ArrowLeft, Home, Bus, ArrowRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useLoadTicket } from "../hooks/useTicket";
 import { useGeofenceAlighting } from "../hooks/useGeofenceAlighting";
@@ -71,7 +71,9 @@ export function TicketPage() {
 
   const [originStop, setOriginStop] = useState<Stop | null>(null);
   const [destStop, setDestStop] = useState<Stop | null>(null);
-  const [bus, setBus] = useState<Bus | null>(null);
+  const [bus, setBus] = useState<BusModel | null>(null);
+  const [trip, setTrip] = useState<any | null>(null);
+  const [currentStopName, setCurrentStopName] = useState<string | null>(null);
 
   // Rating state
   const [ratingValue, setRatingValue] = useState(0);
@@ -138,7 +140,48 @@ export function TicketPage() {
         setOriginStop(rows.find((s) => s.id === ticket.origin_stop_id) ?? null);
         setDestStop(rows.find((s) => s.id === ticket.dest_stop_id) ?? null);
       });
-    supabase.from("buses").select("*").eq("id", ticket.bus_id).single().then(({ data }) => setBus(data as Bus | null));
+    supabase.from("buses").select("*").eq("id", ticket.bus_id).single().then(({ data }) => setBus(data as BusModel | null));
+
+    if (ticket.trip_id) {
+      supabase
+        .from("trips")
+        .select("*, stops:current_stop_id(name)")
+        .eq("id", ticket.trip_id)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            setTrip(data);
+            if ((data as any).stops?.name) {
+              setCurrentStopName((data as any).stops.name);
+            }
+          }
+        });
+
+      const tripChannel = supabase
+        .channel(`ticket-trip:${ticket.trip_id}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "trips", filter: `id=eq.${ticket.trip_id}` },
+          (payload) => {
+            setTrip((prev: any) => ({ ...(prev || {}), ...payload.new }));
+            if (payload.new.current_stop_id) {
+              supabase
+                .from("stops_public")
+                .select("name")
+                .eq("id", payload.new.current_stop_id)
+                .single()
+                .then(({ data: s }) => {
+                  if (s?.name) setCurrentStopName(s.name);
+                });
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(tripChannel);
+      };
+    }
   }, [ticket]);
 
   // Load existing rating from localStorage or Supabase trip_ratings
@@ -437,6 +480,60 @@ export function TicketPage() {
           { label: "Status", value: ticket.status },
         ]}
       />
+
+      {/* ── Live Bus Tracking (Pipeline Station View) ── */}
+      {ticketActive && ticket.trip_id && (
+        <div className="w-full rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50/90 to-indigo-50/80 p-4 shadow-sm dark:border-blue-900/60 dark:from-blue-950/40 dark:to-indigo-950/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-md shadow-blue-600/20">
+                <Bus className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                  Live Station Pipeline Tracker
+                </p>
+                <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                  Bus #{bus?.bus_number ?? "Transit Bus"}
+                </h4>
+              </div>
+            </div>
+
+            <div>
+              {trip?.schedule_adherence === "DELAYED" ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:bg-amber-950/60 dark:border-amber-800 dark:text-amber-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span>+{trip.delay_minutes ?? 0}m Delay</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  <span>On Time</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3.5 flex items-center justify-between border-t border-blue-100/80 pt-3 dark:border-blue-900/40">
+            <div>
+              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Current Bus Position</p>
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                {currentStopName ? `Near ${currentStopName}` : "Approaching origin station"}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate(`/bus/${ticket.trip_id}?view=pipeline`)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-extrabold text-white shadow-md shadow-blue-600/20 hover:bg-blue-700 active:scale-95 transition-all"
+            >
+              <Bus className="h-3.5 w-3.5" />
+              <span>Track Live Pipeline</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Real-time Admin SOS Reply Alert Banner */}
       {hasUnreadAdminMessage && !showEmergencyChat && (

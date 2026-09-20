@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Polyline, Popup } from "react-leaflet";
 import L from "leaflet";
-import type { Trip, RouteWithStops, TripStop, Bus, Stop } from "@sbt/shared-types";
+import type { Trip, RouteWithStops, TripStop, Bus as BusModel, Stop } from "@sbt/shared-types";
 import { getRouteWithStops, listTripStops } from "@sbt/supabase-client";
 import { MapFrame, Badge, LoadingState, StatusIndicator, AppHeader, TransitBusRunner, WheelchairIcon } from "@sbt/ui";
+import { Bus, GitCommitVertical } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useRealtimeBusTracking } from "../hooks/useRealtimeBusTracking";
+import { BusPipelineTracker, PipelineStopRow } from "../components/BusPipelineTracker";
 
 const stopIcon = L.divIcon({
   className: "",
@@ -29,40 +31,90 @@ interface StopRow extends TripStop {
   stop: Stop;
 }
 
+function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
 export function LiveMapPage() {
   const { tripId } = useParams<{ tripId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Default to pipeline view (Where is My Train style from Image 2)
+  const [viewMode, setViewMode] = useState<"pipeline" | "map">(
+    searchParams.get("view") === "map" ? "map" : "pipeline"
+  );
+
   const [trip, setTrip] = useState<Trip | null>(null);
   const [route, setRoute] = useState<RouteWithStops | null>(null);
-  const [bus, setBus] = useState<Bus | null>(null);
+  const [bus, setBus] = useState<BusModel | null>(null);
   const [stopRows, setStopRows] = useState<StopRow[]>([]);
   const [sheetExpanded, setSheetExpanded] = useState(false);
 
+  const loadTripData = useCallback(async () => {
+    if (!tripId) return;
+    const { data } = await supabase.from("trips").select("*").eq("id", tripId).single();
+    if (!data) return;
+    const t = data as Trip;
+    setTrip(t);
+    const [routeDetail, busRow, tripStops] = await Promise.all([
+      getRouteWithStops(supabase, t.route_id),
+      supabase.from("buses").select("*").eq("id", t.bus_id).single().then(({ data: b }) => b as BusModel | null),
+      listTripStops(supabase, tripId),
+    ]);
+    setRoute(routeDetail);
+    setBus(busRow);
+    const { data: stopsData } = await supabase
+      .from("stops_public")
+      .select("*")
+      .in("id", tripStops.map((s) => s.stop_id));
+    const byId = new Map(((stopsData ?? []) as Stop[]).map((s) => [s.id, s]));
+    setStopRows(tripStops.map((s) => ({ ...s, stop: byId.get(s.stop_id)! })).filter((s) => s.stop));
+  }, [tripId]);
+
+  useEffect(() => {
+    void loadTripData();
+  }, [loadTripData]);
+
+  // Real-time telemetry & stop progression subscription (par with Admin Fleet monitoring)
   useEffect(() => {
     if (!tripId) return;
-    supabase
-      .from("trips")
-      .select("*")
-      .eq("id", tripId)
-      .single()
-      .then(async ({ data }) => {
-        if (!data) return;
-        const t = data as Trip;
-        setTrip(t);
-        const [routeDetail, busRow, tripStops] = await Promise.all([
-          getRouteWithStops(supabase, t.route_id),
-          supabase.from("buses").select("*").eq("id", t.bus_id).single().then(({ data: b }) => b as Bus | null),
-          listTripStops(supabase, tripId),
-        ]);
-        setRoute(routeDetail);
-        setBus(busRow);
-        const { data: stopsData } = await supabase
-          .from("stops_public")
-          .select("*")
-          .in("id", tripStops.map((s) => s.stop_id));
-        const byId = new Map(((stopsData ?? []) as Stop[]).map((s) => [s.id, s]));
-        setStopRows(tripStops.map((s) => ({ ...s, stop: byId.get(s.stop_id)! })).filter((s) => s.stop));
-      });
+
+    const channel = supabase
+      .channel(`live-trip-sync:${tripId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "trips", filter: `id=eq.${tripId}` },
+        (payload) => {
+          setTrip((prev) => (prev ? { ...prev, ...(payload.new as Trip) } : (payload.new as Trip)));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trip_stops", filter: `trip_id=eq.${tripId}` },
+        () => {
+          void listTripStops(supabase, tripId).then(async (tripStops) => {
+            const { data: stopsData } = await supabase
+              .from("stops_public")
+              .select("*")
+              .in("id", tripStops.map((s) => s.stop_id));
+            const byId = new Map(((stopsData ?? []) as Stop[]).map((s) => [s.id, s]));
+            setStopRows(tripStops.map((s) => ({ ...s, stop: byId.get(s.stop_id)! })).filter((s) => s.stop));
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [tripId]);
 
   const { connectionState, position, telemetry, isStale } = useRealtimeBusTracking(
@@ -70,22 +122,56 @@ export function LiveMapPage() {
     trip?.bus_id ?? null,
   );
 
+  // Calculate cumulative distance and platform for the pipeline view
+  const pipelineStops: PipelineStopRow[] = useMemo(() => {
+    if (stopRows.length === 0) return [];
+    const originLoc = stopRows[0]?.stop?.location;
+    return stopRows.map((s, idx) => {
+      let distKm = idx * 15;
+      if (originLoc && s.stop?.location) {
+        distKm = calculateDistanceKm(
+          originLoc.latitude,
+          originLoc.longitude,
+          s.stop.location.latitude,
+          s.stop.location.longitude
+        );
+      }
+      return {
+        ...s,
+        distanceKm: distKm,
+        platform: (idx % 3) + 1,
+      };
+    });
+  }, [stopRows]);
+
   if (!trip || !route) {
     return (
       <div className="flex h-dvh items-center justify-center">
-        <LoadingState label="Loading route…" />
+        <LoadingState label="Loading bus live tracking…" />
       </div>
     );
   }
 
+  // If in Pipeline view ("Where is My Train" style)
+  if (viewMode === "pipeline") {
+    return (
+      <BusPipelineTracker
+        trip={trip}
+        route={route}
+        bus={bus}
+        stops={pipelineStops}
+        onToggleMap={() => setViewMode("map")}
+        onRefresh={() => void loadTripData()}
+      />
+    );
+  }
+
+  // If in Interactive Map view
   const polyline = route.stops.map((s) => [s.location.latitude, s.location.longitude] as [number, number]);
   const center = polyline[Math.floor(polyline.length / 2)] ?? [10.787, 79.1378];
   const currentStop = stopRows.find((s) => s.stop_id === trip.current_stop_id);
   const isLive = connectionState === "connected" && Boolean(position) && !isStale;
 
-  // Journey progress comes from real stop progression (trip_stops), not
-  // from GPS distance — it's the same source the eligibility rules use, so
-  // the bar can never disagree with the stop list rendered below it.
   const currentIndex = stopRows.findIndex((s) => s.stop_id === trip.current_stop_id);
   const lastIndex = Math.max(1, stopRows.length - 1);
   const journeyProgress = currentIndex >= 0 ? (currentIndex / lastIndex) * 100 : 0;
@@ -107,6 +193,16 @@ export function LiveMapPage() {
           </button>
         }
       />
+
+      {/* Floating Button to Switch to Pipeline View */}
+      <button
+        type="button"
+        onClick={() => setViewMode("pipeline")}
+        className="absolute top-16 right-4 z-20 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-1.5 text-xs font-bold text-blue-900 shadow-md backdrop-blur hover:bg-white active:scale-95 transition dark:bg-slate-900/95 dark:text-blue-300 dark:border dark:border-slate-800"
+      >
+        <GitCommitVertical className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <span>Station Pipeline</span>
+      </button>
 
       <div className="relative flex-1">
         <MapFrame heightClassName="h-full" className="rounded-none border-0">
@@ -138,9 +234,7 @@ export function LiveMapPage() {
         )}
       </div>
 
-      {/* Floating bottom tracking card — summary always visible, tap to
-          reveal the full ordered stop list (matches the reference's
-          bus-tracking sheet). */}
+      {/* Floating bottom tracking card */}
       <div className="z-10 -mt-6 rounded-t-3xl bg-white shadow-[0_-8px_24px_rgba(0,0,0,0.1)] dark:bg-surface-dark">
         <button
           type="button"
@@ -151,8 +245,6 @@ export function LiveMapPage() {
           <span className="mx-auto h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-700" aria-hidden="true" />
         </button>
 
-        {/* pb-5 (not pb-2): the progress runner sits last in this sheet and
-            was rendering flush against the viewport edge on short phones. */}
         <div className="px-5 pb-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -179,15 +271,26 @@ export function LiveMapPage() {
             <StatusIndicator status={isLive ? "online" : "connecting"} label={isLive ? "Live" : "Connecting…"} />
           </div>
 
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            {currentStop ? (
-              <>
-                Currently near <span className="font-semibold text-slate-900 dark:text-slate-100">{currentStop.stop.name}</span>
-              </>
-            ) : (
-              "En route"
-            )}
-          </p>
+          <div className="mt-2 flex items-center justify-between">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              {currentStop ? (
+                <>
+                  Currently near <span className="font-semibold text-slate-900 dark:text-slate-100">{currentStop.stop.name}</span>
+                </>
+              ) : (
+                "En route"
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => setViewMode("pipeline")}
+              className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              <Bus className="h-3.5 w-3.5" />
+              <span>Pipeline View →</span>
+            </button>
+          </div>
+
           {isStale && <Badge tone="warning" className="mt-2">Signal delayed — last update may be out of date</Badge>}
 
           {stopRows.length > 1 && (

@@ -119,15 +119,57 @@ export function HomePage() {
       setIsResolvingRoute(true);
       setRouteError(null);
       try {
+        const originId = originStop!.id;
+        const destId = destStop!.id;
+
+        // 1. Check route_day_stops (primary for day-wise & custom configured routes)
+        const { data: rds } = await supabase
+          .from("route_day_stops")
+          .select("route_id, sequence_order, stop_id")
+          .in("stop_id", [originId, destId]);
+
+        if (isCancelled) return;
+
+        if (rds && rds.length >= 2) {
+          const byRoute = new Map<string, { originSeq?: number; destSeq?: number }>();
+          for (const row of rds) {
+            const item = byRoute.get(row.route_id) || {};
+            if (row.stop_id === originId) item.originSeq = row.sequence_order;
+            if (row.stop_id === destId) item.destSeq = row.sequence_order;
+            byRoute.set(row.route_id, item);
+          }
+          // Direct directional match first
+          for (const [rId, { originSeq, destSeq }] of byRoute.entries()) {
+            if (originSeq !== undefined && destSeq !== undefined && originSeq < destSeq) {
+              const r = allRoutes.find((rt) => rt.id === rId);
+              if (r) {
+                setConnectingRoute(r);
+                return;
+              }
+            }
+          }
+          // Bidirectional match
+          for (const [rId, { originSeq, destSeq }] of byRoute.entries()) {
+            if (originSeq !== undefined && destSeq !== undefined) {
+              const r = allRoutes.find((rt) => rt.id === rId);
+              if (r) {
+                setConnectingRoute(r);
+                return;
+              }
+            }
+          }
+        }
+
+        // 2. Fallback to standard route_stops
         const { data: rsOrigin } = await supabase
           .from("route_stops")
           .select("route_id, sequence_order")
-          .eq("stop_id", originStop!.id);
+          .eq("stop_id", originId);
 
         const { data: rsDest } = await supabase
           .from("route_stops")
           .select("route_id, sequence_order")
-          .eq("stop_id", destStop!.id);
+          .eq("stop_id", destId);
 
         if (isCancelled) return;
 
@@ -156,7 +198,28 @@ export function HomePage() {
           }
         }
 
-        // If no explicit route_stops match found in database
+        // 3. Fallback to active trip_stops
+        const { data: ts } = await supabase
+          .from("trip_stops")
+          .select("trip_id, stop_id, sequence_order, trips(id, route_id, status)")
+          .in("stop_id", [originId, destId]);
+
+        if (isCancelled) return;
+
+        if (ts && ts.length >= 2) {
+          for (const row of ts) {
+            const tripInfo = row.trips as any;
+            if (tripInfo?.route_id) {
+              const r = allRoutes.find((rt) => rt.id === tripInfo.route_id);
+              if (r) {
+                setConnectingRoute(r);
+                return;
+              }
+            }
+          }
+        }
+
+        // If no explicit route match found in database
         setConnectingRoute(null);
         setRouteError("No direct bus route between these stops. Try a nearby connecting stop.");
       } catch (err) {
