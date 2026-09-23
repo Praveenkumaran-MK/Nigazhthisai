@@ -146,7 +146,7 @@ export function AlertsPage() {
                 .from("alerts")
                 .select("id")
                 .eq("trip_id", trip.id)
-                .in("status", ["OPEN", "ACKNOWLEDGED", "INVESTIGATING"])
+                .in("status", ["ACTIVE", "ACKNOWLEDGED"])
                 .limit(1);
 
               if (!existing || existing.length === 0) {
@@ -158,7 +158,7 @@ export function AlertsPage() {
                   conductor_id: trip.conductor_id,
                   district_id: trip.district_id,
                   severity: "WARNING",
-                  status: "OPEN",
+                  status: "ACTIVE",
                   title: `Bus #${busNum} Idle Detected`,
                   message: `Vehicle #${busNum} has had no GPS movement or telemetry heartbeat for ${Math.round(elapsedMins)} minutes while on an active service trip.`,
                 });
