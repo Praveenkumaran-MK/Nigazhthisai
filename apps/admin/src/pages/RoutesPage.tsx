@@ -313,44 +313,72 @@ export function RoutesPage() {
     try {
       const currentList = dayStopsMap[selectedDayKey] ?? [];
 
-      if (selectedDayKey === -1) {
-        // Standard route stops
-        await supabase.from("route_stops").delete().eq("route_id", activeRoute.id);
-        if (currentList.length > 0) {
-          const stdRows = currentList.map((s, idx) => ({
-            route_id: activeRoute.id,
-            stop_id: s.stop_id,
-            sequence_order: idx + 1,
-            expected_arrival_time: s.expected_arrival_time || null,
-          }));
-          const { error: stdErr } = await supabase.from("route_stops").insert(stdRows);
-          if (stdErr) throw stdErr;
-        }
-      } else {
-        // Day-specific schedule in route_day_stops
-        await supabase
-          .from("route_day_stops")
-          .delete()
-          .eq("route_id", activeRoute.id)
-          .eq("day_of_week", selectedDayKey);
+      // Deduplicate stops by stop_id to guarantee no duplicate key violations
+      const seen = new Set<string>();
+      const uniqueStops = currentList.filter((s) => {
+        if (!s.stop_id || seen.has(s.stop_id)) return false;
+        seen.add(s.stop_id);
+        return true;
+      });
 
-        if (currentList.length > 0) {
-          const dayRows = currentList.map((s, idx) => ({
-            route_id: activeRoute.id,
-            day_of_week: selectedDayKey,
-            stop_id: s.stop_id,
-            sequence_order: idx + 1,
-            expected_arrival_time: s.expected_arrival_time || null,
-          }));
-          const { error: dayErr } = await supabase.from("route_day_stops").insert(dayRows);
-          if (dayErr) throw dayErr;
+      // 1. First try the atomic SECURITY DEFINER RPC
+      const rpcPayload = uniqueStops.map((s, idx) => ({
+        stop_id: s.stop_id,
+        sequence_order: idx + 1,
+        expected_arrival_time: s.expected_arrival_time || null,
+        eta: s.expected_arrival_time || null,
+      }));
+
+      const { error: rpcErr } = await supabase.rpc("save_route_day_stops", {
+        p_route_id: activeRoute.id,
+        p_day_of_week: selectedDayKey,
+        p_stops: rpcPayload,
+      });
+
+      // 2. Direct table fallback if RPC fails or is unmigrated
+      if (rpcErr) {
+        console.warn("save_route_day_stops RPC failed, falling back to direct mutations:", rpcErr);
+        if (selectedDayKey === -1) {
+          // Standard route stops
+          const { error: delErr } = await supabase.from("route_stops").delete().eq("route_id", activeRoute.id);
+          if (delErr) throw delErr;
+          if (uniqueStops.length > 0) {
+            const stdRows = uniqueStops.map((s, idx) => ({
+              route_id: activeRoute.id,
+              stop_id: s.stop_id,
+              sequence_order: idx + 1,
+              expected_arrival_time: s.expected_arrival_time || null,
+            }));
+            const { error: stdErr } = await supabase.from("route_stops").insert(stdRows);
+            if (stdErr) throw stdErr;
+          }
+        } else {
+          // Day-specific schedule in route_day_stops
+          const { error: delErr } = await supabase
+            .from("route_day_stops")
+            .delete()
+            .eq("route_id", activeRoute.id)
+            .eq("day_of_week", selectedDayKey);
+          if (delErr) throw delErr;
+
+          if (uniqueStops.length > 0) {
+            const dayRows = uniqueStops.map((s, idx) => ({
+              route_id: activeRoute.id,
+              day_of_week: selectedDayKey,
+              stop_id: s.stop_id,
+              sequence_order: idx + 1,
+              expected_arrival_time: s.expected_arrival_time || null,
+            }));
+            const { error: dayErr } = await supabase.from("route_day_stops").insert(dayRows);
+            if (dayErr) throw dayErr;
+          }
         }
       }
 
       push({
         tone: "success",
         title: "Corridor Updated",
-        description: `Saved ${currentList.length} stops for ${
+        description: `Saved ${uniqueStops.length} stops for ${
           DAYS.find((d) => d.key === selectedDayKey)?.label
         }.`,
       });
