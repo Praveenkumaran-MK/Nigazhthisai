@@ -63,6 +63,9 @@ $$;
 -- 2. UPGRADE update_district_admin_profile RPC
 --    Adds p_phone parameter and updates profiles.phone.
 -- -----------------------------------------------------------------------------
+drop function if exists public.update_district_admin_profile(uuid, text, uuid, boolean, text);
+drop function if exists public.update_district_admin_profile(uuid, text, uuid, boolean);
+
 create or replace function public.update_district_admin_profile(
   p_user_id      uuid,
   p_display_name text,
@@ -114,7 +117,9 @@ $$;
 -- -----------------------------------------------------------------------------
 alter table public.stops add column if not exists is_active boolean not null default true;
 
-create or replace view public.stops_public
+drop view if exists public.stops_public cascade;
+
+create view public.stops_public
 with (security_invoker = true)
 as
 select
@@ -122,15 +127,17 @@ select
   name,
   code,
   district,
-  district_id,
-  is_active,
   json_build_object(
     'latitude', st_y(location::geometry),
     'longitude', st_x(location::geometry)
   ) as location,
   created_at,
-  updated_at
+  updated_at,
+  district_id,
+  is_active
 from public.stops;
+
+grant select on public.stops_public to anon, authenticated;
 
 -- -----------------------------------------------------------------------------
 -- 4. SAFE BUS DELETION RPC (delete_bus_safe)
