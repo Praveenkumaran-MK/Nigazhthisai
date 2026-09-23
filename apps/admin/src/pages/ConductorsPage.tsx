@@ -122,27 +122,30 @@ export function ConductorsPage() {
     if (!editingConductor) return;
     setIsEditing(true);
     try {
-      const { error: err } = await supabase.rpc("update_conductor_profile", {
-        p_conductor_id: editingConductor.id,
-        p_display_name: editName.trim(),
-        p_phone_number: editPhone.trim() || null,
-        p_government_id: editGovId.trim(),
-        p_is_active: editActive,
-      });
+      const { error: directErr } = await supabase
+        .from("conductors")
+        .update({
+          display_name: editName.trim(),
+          phone: editPhone.trim() || null,
+          government_id: editGovId.trim(),
+          is_active: editActive,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingConductor.id);
 
-      if (err) {
-        // Fallback: direct update on conductors table
-        const { error: directErr } = await supabase
-          .from("conductors")
+      if (directErr) throw new Error(directErr.message);
+
+      if (editingConductor.user_id) {
+        await supabase
+          .from("profiles")
           .update({
             display_name: editName.trim(),
+            full_name: editName.trim(),
             phone: editPhone.trim() || null,
-            government_id: editGovId.trim(),
-            is_active: editActive,
+            status: editActive ? "ACTIVE" : "INACTIVE",
             updated_at: new Date().toISOString(),
           })
-          .eq("id", editingConductor.id);
-        if (directErr) throw new Error(directErr.message);
+          .eq("id", editingConductor.user_id);
       }
 
       setEditingConductor(null);

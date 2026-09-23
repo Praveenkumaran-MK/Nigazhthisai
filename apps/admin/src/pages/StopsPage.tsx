@@ -41,16 +41,47 @@ export function StopsPage() {
         location: `SRID=4326;POINT(${Number(values.longitude)} ${Number(values.latitude)})`,
       })}
       onDelete={async (stop) => {
-        const { data, error } = await supabase.rpc("delete_stop_safe", { p_stop_id: stop.id });
-        if (error) {
-          if (error.message.includes("function") || error.code === "PGRST202") {
-            const { error: delErr } = await supabase.from("stops").delete().eq("id", stop.id);
-            if (delErr) throw new Error(delErr.message);
-            return { message: "Stop deleted" };
-          }
-          throw new Error(error.message);
+        // 1. Guard against active trips currently serving this stop
+        const { data: activeTrips } = await supabase
+          .from("trips")
+          .select("id")
+          .eq("current_stop_id", stop.id)
+          .eq("status", "ACTIVE")
+          .limit(1);
+
+        if (activeTrips && activeTrips.length > 0) {
+          throw new Error(`Cannot delete stop "${stop.name}" because an active transit trip is currently at this stop.`);
         }
-        return { message: (data as any)?.message ?? "Stop deleted successfully" };
+
+        // 2. Unlink from route lines, day schedules, and fare matrix
+        await supabase.from("route_day_stops").delete().eq("stop_id", stop.id);
+        await supabase.from("route_stops").delete().eq("stop_id", stop.id);
+        await supabase.from("fare_matrix").delete().eq("origin_stop_id", stop.id);
+        await supabase.from("fare_matrix").delete().eq("dest_stop_id", stop.id);
+        await supabase.from("trips").update({ current_stop_id: null }).eq("current_stop_id", stop.id);
+
+        // 3. Check if historical tickets or trip stops reference this stop
+        const [{ count: ticketCount1 }, { count: ticketCount2 }, { count: tripStopCount }] = await Promise.all([
+          supabase.from("tickets").select("id", { count: "exact", head: true }).eq("origin_stop_id", stop.id),
+          supabase.from("tickets").select("id", { count: "exact", head: true }).eq("dest_stop_id", stop.id),
+          supabase.from("trip_stops").select("id", { count: "exact", head: true }).eq("stop_id", stop.id),
+        ]);
+
+        const hasHistory = (ticketCount1 ?? 0) > 0 || (ticketCount2 ?? 0) > 0 || (tripStopCount ?? 0) > 0;
+
+        if (hasHistory) {
+          // Decommission stop to preserve historical passenger tickets & receipts
+          await supabase
+            .from("stops")
+            .update({ name: `${stop.name} [DECOMMISSIONED]`, updated_at: new Date().toISOString() })
+            .eq("id", stop.id);
+          return { message: "Stop unlinked from all routes and fares. Historical ticket records preserved." };
+        } else {
+          // Clean delete for unreferenced stop
+          const { error: delErr } = await supabase.from("stops").delete().eq("id", stop.id);
+          if (delErr) throw new Error(delErr.message);
+          return { message: "Stop deleted successfully." };
+        }
       }}
     />
   );

@@ -465,18 +465,49 @@ export function RoutesPage() {
   const handleDeleteRoute = async (r: Route) => {
     if (!confirm(`Are you sure you want to delete route ${r.route_number} (${r.name})?`)) return;
     try {
-      const { data, error } = await supabase.rpc("delete_route_safe", { p_route_id: r.id });
-      if (error) {
-        if (error.message.includes("function") || error.code === "PGRST202") {
-          const { error: delErr } = await supabase.from("routes").delete().eq("id", r.id);
-          if (delErr) throw new Error(delErr.message);
-          push({ tone: "success", title: "Route Deleted" });
-          await loadData();
-          return;
-        }
-        throw error;
+      // 1. Guard against active trips on this route
+      const { data: activeTrips } = await supabase
+        .from("trips")
+        .select("id")
+        .eq("route_id", r.id)
+        .eq("status", "ACTIVE")
+        .limit(1);
+
+      if (activeTrips && activeTrips.length > 0) {
+        alert(`Cannot delete route ${r.route_number} because buses are currently active on this corridor.`);
+        return;
       }
-      push({ tone: "success", title: (data as any)?.message ?? "Route Deleted" });
+
+      // 2. Unassign fleet buses from this route
+      await supabase.from("buses").update({ route_id: null }).eq("route_id", r.id);
+
+      // 3. Clear configuration & schedules
+      await supabase.from("schedules").delete().eq("route_id", r.id);
+      await supabase.from("route_weekly_schedules").delete().eq("route_id", r.id);
+      await supabase.from("route_day_stops").delete().eq("route_id", r.id);
+      await supabase.from("route_stops").delete().eq("route_id", r.id);
+      await supabase.from("fare_matrix").delete().eq("route_id", r.id);
+      await supabase.from("trips").delete().eq("route_id", r.id).eq("status", "SCHEDULED");
+
+      // 4. Check if route has historical trips
+      const { count: tripCount } = await supabase
+        .from("trips")
+        .select("id", { count: "exact", head: true })
+        .eq("route_id", r.id);
+
+      if ((tripCount ?? 0) > 0) {
+        // Decommission route to preserve historical analytics and tickets
+        await supabase
+          .from("routes")
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .eq("id", r.id);
+        push({ tone: "success", title: "Route deactivated; historical trips preserved." });
+      } else {
+        // Clean delete for unreferenced route
+        const { error: delErr } = await supabase.from("routes").delete().eq("id", r.id);
+        if (delErr) throw new Error(delErr.message);
+        push({ tone: "success", title: "Route deleted successfully." });
+      }
       await loadData();
     } catch (e: any) {
       alert("Failed to delete route: " + e.message);

@@ -74,34 +74,32 @@ export function FaresPage() {
         flat_fare_amount: Number(values.flat_fare_amount),
       })}
       onSubmit={async (values, editingRow) => {
-        const { error } = await supabase.rpc("upsert_fare_matrix_entry", {
-          p_route_id: values.route_id as string,
-          p_origin_stop_id: values.origin_stop_id as string,
-          p_dest_stop_id: values.dest_stop_id as string,
-          p_flat_fare_amount: Number(values.flat_fare_amount),
-        });
-        if (error) {
-          if (editingRow) {
-            const { error: updErr } = await supabase
-              .from("fare_matrix")
-              .update({
+        if (editingRow) {
+          const { error: updErr } = await supabase
+            .from("fare_matrix")
+            .update({
+              route_id: values.route_id,
+              origin_stop_id: values.origin_stop_id,
+              dest_stop_id: values.dest_stop_id,
+              flat_fare_amount: Number(values.flat_fare_amount),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", editingRow.id);
+          if (updErr) throw new Error(updErr.message);
+        } else {
+          const { error: insErr } = await supabase
+            .from("fare_matrix")
+            .upsert(
+              {
                 route_id: values.route_id,
                 origin_stop_id: values.origin_stop_id,
                 dest_stop_id: values.dest_stop_id,
                 flat_fare_amount: Number(values.flat_fare_amount),
                 updated_at: new Date().toISOString(),
-              })
-              .eq("id", editingRow.id);
-            if (updErr) throw new Error(updErr.message);
-          } else {
-            const { error: insErr } = await supabase.from("fare_matrix").insert({
-              route_id: values.route_id,
-              origin_stop_id: values.origin_stop_id,
-              dest_stop_id: values.dest_stop_id,
-              flat_fare_amount: Number(values.flat_fare_amount),
-            });
-            if (insErr) throw new Error(insErr.message);
-          }
+              },
+              { onConflict: "route_id,origin_stop_id,dest_stop_id" },
+            );
+          if (insErr) throw new Error(insErr.message);
         }
       }}
     />

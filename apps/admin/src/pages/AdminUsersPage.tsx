@@ -85,32 +85,20 @@ export function AdminUsersPage() {
     setIsSaving(true);
     setSaveError(null);
     try {
-      // 1. Try update_district_admin_profile with role and phone parameters
-      const { error: rpcErr } = await supabase.rpc("update_district_admin_profile", {
-        p_user_id: editingAdmin.id,
-        p_display_name: editName.trim() || null,
-        p_district_id: editDistrictId ? editDistrictId : null,
-        p_is_active: editStatus === "active",
-        p_role: editRole,
-        p_phone: editPhone.trim() || null,
-      } as any);
+      const { error: updateErr } = await supabase
+        .from("profiles")
+        .update({
+          display_name: editName.trim() || null,
+          full_name: editName.trim() || null,
+          district_id: editDistrictId ? editDistrictId : null,
+          role: editRole,
+          phone: editPhone.trim() || null,
+          status: editStatus === "active" ? "ACTIVE" : "INACTIVE",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingAdmin.id);
 
-      if (rpcErr) {
-        // Fallback: update profiles table directly
-        const { error: updateErr } = await supabase
-          .from("profiles")
-          .update({
-            display_name: editName.trim() || null,
-            full_name: editName.trim() || null,
-            district_id: editDistrictId ? editDistrictId : null,
-            role: editRole,
-            phone: editPhone.trim() || null,
-            status: editStatus === "active" ? "ACTIVE" : "INACTIVE",
-          })
-          .eq("id", editingAdmin.id);
-
-        if (updateErr) throw new Error(updateErr.message);
-      }
+      if (updateErr) throw new Error(updateErr.message);
 
       setEditingAdmin(null);
       await load();
