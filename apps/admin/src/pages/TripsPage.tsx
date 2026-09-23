@@ -188,29 +188,12 @@ export function TripsPage() {
     setIsCancelling(true);
     setDeleteError(null);
     try {
-      const { error: updateErr } = await supabase
-        .from("trips")
-        .update({ status: "CANCELLED", last_edited_at: new Date().toISOString() })
-        .eq("id", t.id);
+      const { error: cancelErr } = await supabase.rpc("cancel_trip", {
+        p_trip_id: t.id,
+        p_reason: cancelReason.trim() || "Trip cancelled by administrator before dispatch",
+      });
 
-      if (updateErr) throw updateErr;
-
-      // Audit log entry
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData.session?.user?.id) {
-          await supabase.from("trip_edits").insert({
-            trip_id: t.id,
-            edited_by: sessionData.session.user.id,
-            field_name: "status",
-            old_value: t.status,
-            new_value: "CANCELLED",
-            reason: cancelReason.trim() || "Trip cancelled by administrator before dispatch",
-          });
-        }
-      } catch {
-        // non-fatal
-      }
+      if (cancelErr) throw cancelErr;
 
       push({
         tone: "success",
@@ -230,17 +213,11 @@ export function TripsPage() {
     setIsDeleting(true);
     setDeleteError(null);
     try {
-      const { error: delErr } = await supabase
-        .from("trips")
-        .delete()
-        .eq("id", t.id);
+      const { error: delErr } = await supabase.rpc("delete_trip", {
+        p_trip_id: t.id,
+      });
 
-      if (delErr) {
-        if (delErr.message.includes("foreign key") || (delErr as any).code === "23503") {
-          throw new Error("This trip already has passenger tickets or dependencies associated. Please choose 'Cancel Trip' instead of permanent deletion.");
-        }
-        throw delErr;
-      }
+      if (delErr) throw delErr;
 
       push({
         tone: "success",
