@@ -25,7 +25,6 @@ export const dictionary: Record<string, string> = {
   "Sign out": "வெளியேறு",
   "SIGN IN": "உள்நுழைக",
   "SIGNING IN…": "உள்நுழைகிறது…",
-  "FORGOT PASSWORD? CONTACT ADMINISTRATOR": "கடவுச்சொல் மறந்துவிட்டதா? நிர்வாகியைத் தொடர்பு கொள்ளவும்",
 
   // Navigation & Core Modules
   "Operations": "செயல்பாடுகள்",

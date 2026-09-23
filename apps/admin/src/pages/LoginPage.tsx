@@ -127,9 +127,6 @@ export function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          {t("FORGOT PASSWORD? CONTACT ADMINISTRATOR")}
-        </p>
       </div>
     </div>
   );
