@@ -1642,6 +1642,7 @@ create trigger trg_auto_advance_trip_on_gps
   for each row execute function public.auto_advance_trip_on_gps();
 
 -- 22. Bulletproof Idle Bus Detection Engine
+drop function if exists public.check_idle_buses();
 create or replace function public.check_idle_buses()
 returns int
 language plpgsql
@@ -1695,11 +1696,11 @@ begin
     v_elapsed_mins := extract(epoch from (now() - v_last_time)) / 60.0;
 
     if v_elapsed_mins >= v_idle_minutes then
-      -- Check if open alert already exists
+      -- Check if active or acknowledged alert already exists
       if not exists (
         select 1 from public.alerts
         where trip_id = v_trip.trip_id
-          and status in ('OPEN', 'ACKNOWLEDGED', 'INVESTIGATING')
+          and status in ('ACTIVE', 'ACKNOWLEDGED')
       ) then
         v_bus_number := coalesce(v_trip.bus_number, 'Assigned Vehicle');
 
@@ -1711,16 +1712,20 @@ begin
           severity,
           status,
           title,
-          message
+          message,
+          source_role,
+          bus_number_snapshot
         ) values (
           v_trip.trip_id,
           v_trip.bus_id,
           v_trip.conductor_id,
           v_trip.district_id,
           'WARNING',
-          'OPEN',
+          'ACTIVE',
           'Bus #' || v_bus_number || ' Idle Detected',
-          'Vehicle #' || v_bus_number || ' has reported no GPS movement or telemetry heartbeat for ' || round(v_elapsed_mins::numeric) || ' minutes while on active service.'
+          'Vehicle #' || v_bus_number || ' has reported no GPS movement or telemetry heartbeat for ' || round(v_elapsed_mins::numeric) || ' minutes while on active service.',
+          'system',
+          v_bus_number
         );
 
         v_flagged := v_flagged + 1;
