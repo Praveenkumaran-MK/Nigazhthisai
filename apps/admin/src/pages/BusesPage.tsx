@@ -102,51 +102,6 @@ export function BusesPage() {
         capacity: Number(values.capacity),
         is_wheelchair_accessible: Boolean(values.is_wheelchair_accessible),
       })}
-      onDelete={async (bus) => {
-        // 1. Guard against buses currently operating an active trip
-        const { data: activeTrips } = await supabase
-          .from("trips")
-          .select("id")
-          .eq("bus_id", bus.id)
-          .eq("status", "ACTIVE")
-          .limit(1);
-
-        if (activeTrips && activeTrips.length > 0) {
-          throw new Error(`Cannot delete bus ${bus.bus_number} because it is currently operating an active trip in transit.`);
-        }
-
-        // 2. Unlink future schedules and un-started scheduled trips
-        await supabase.from("schedules").delete().eq("bus_id", bus.id);
-        await supabase.from("trips").delete().eq("bus_id", bus.id).eq("status", "SCHEDULED");
-
-        // 3. Release route assignment
-        await supabase.from("buses").update({ route_id: null }).eq("id", bus.id);
-
-        // 4. Check if bus has operational history (completed trips or tickets)
-        const [{ count: tripCount }, { count: ticketCount }] = await Promise.all([
-          supabase.from("trips").select("id", { count: "exact", head: true }).eq("bus_id", bus.id),
-          supabase.from("tickets").select("id", { count: "exact", head: true }).eq("bus_id", bus.id),
-        ]);
-
-        if ((tripCount ?? 0) > 0 || (ticketCount ?? 0) > 0) {
-          // Decommission vehicle: remove from active dispatch while preserving ticket/trip audit
-          const { error: updErr } = await supabase
-            .from("buses")
-            .update({
-              status: "DECOMMISSIONED",
-              is_active: false,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", bus.id);
-          if (updErr) throw new Error(updErr.message);
-          return { message: "Bus has operational history. It was safely decommissioned to preserve ticket records." };
-        } else {
-          // Clean delete for unreferenced vehicle
-          const { error: delErr } = await supabase.from("buses").delete().eq("id", bus.id);
-          if (delErr) throw new Error(delErr.message);
-          return { message: "Bus was cleanly deleted." };
-        }
-      }}
     />
   );
 }
