@@ -18,6 +18,7 @@ export function AdminUsersPage() {
   // Edit Modal State
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
   const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
   const [editDistrictId, setEditDistrictId] = useState("");
   const [editRole, setEditRole] = useState("admin");
   const [editStatus, setEditStatus] = useState<"active" | "suspended">("active");
@@ -72,6 +73,7 @@ export function AdminUsersPage() {
   const openEditModal = (admin: AdminUser) => {
     setEditingAdmin(admin);
     setEditName(admin.display_name ?? admin.full_name ?? "");
+    setEditPhone(admin.phone ?? "");
     setEditDistrictId(admin.district_id ?? "");
     setEditRole(admin.role || "admin");
     setEditStatus((admin.status as "active" | "suspended") || "active");
@@ -83,13 +85,14 @@ export function AdminUsersPage() {
     setIsSaving(true);
     setSaveError(null);
     try {
-      // 1. Try update_district_admin_profile with role parameter
+      // 1. Try update_district_admin_profile with role and phone parameters
       const { error: rpcErr } = await supabase.rpc("update_district_admin_profile", {
         p_user_id: editingAdmin.id,
         p_display_name: editName.trim() || null,
         p_district_id: editDistrictId ? editDistrictId : null,
         p_is_active: editStatus === "active",
         p_role: editRole,
+        p_phone: editPhone.trim() || null,
       } as any);
 
       if (rpcErr) {
@@ -101,6 +104,7 @@ export function AdminUsersPage() {
             full_name: editName.trim() || null,
             district_id: editDistrictId ? editDistrictId : null,
             role: editRole,
+            phone: editPhone.trim() || null,
             status: editStatus === "active" ? "ACTIVE" : "INACTIVE",
           })
           .eq("id", editingAdmin.id);
@@ -268,6 +272,15 @@ export function AdminUsersPage() {
             key: "role",
             header: "Role",
             render: (a) => <Badge tone={roleTone(a.role)}>{roleLabel(a.role)}</Badge>,
+          },
+          {
+            key: "phone",
+            header: "Phone",
+            render: (a) => (
+              <span className="text-xs font-mono text-slate-600 dark:text-slate-400">
+                {a.phone || "—"}
+              </span>
+            ),
           },
           {
             key: "district",
@@ -454,6 +467,17 @@ export function AdminUsersPage() {
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 placeholder="Full display name"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 block">
+                Contact Phone Number
+              </label>
+              <Input
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="+91 98765 43210"
               />
             </div>
 

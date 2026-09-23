@@ -1,4 +1,5 @@
 import type { Stop } from "@sbt/shared-types";
+import { supabase } from "../lib/supabase";
 import { ResourceCrudPage } from "../components/crud/ResourceCrudPage";
 
 export function StopsPage() {
@@ -34,11 +35,23 @@ export function StopsPage() {
         longitude: s.location.longitude,
       })}
       transformSubmit={(values) => ({
-        name: values.name,
-        code: values.code,
-        district: values.district,
-        location: `SRID=4326;POINT(${values.longitude} ${values.latitude})`,
+        name: String(values.name ?? "").trim(),
+        code: String(values.code ?? "").trim().toUpperCase(),
+        district: String(values.district ?? "").trim(),
+        location: `SRID=4326;POINT(${Number(values.longitude)} ${Number(values.latitude)})`,
       })}
+      onDelete={async (stop) => {
+        const { data, error } = await supabase.rpc("delete_stop_safe", { p_stop_id: stop.id });
+        if (error) {
+          if (error.message.includes("function") || error.code === "PGRST202") {
+            const { error: delErr } = await supabase.from("stops").delete().eq("id", stop.id);
+            if (delErr) throw new Error(delErr.message);
+            return { message: "Stop deleted" };
+          }
+          throw new Error(error.message);
+        }
+        return { message: (data as any)?.message ?? "Stop deleted successfully" };
+      }}
     />
   );
 }

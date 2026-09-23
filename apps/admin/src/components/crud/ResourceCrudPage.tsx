@@ -16,6 +16,10 @@ export interface ResourceCrudPageProps<T extends { id: string }> {
   toFormValues?: (row: T) => Record<string, unknown>;
   /** Transforms form values before they are sent to Supabase (e.g. lat/lng -> PostGIS point). */
   transformSubmit?: (values: Record<string, unknown>) => Record<string, unknown>;
+  /** Custom submit handler overriding default create/update */
+  onSubmit?: (values: Record<string, unknown>, editingRow: T | null) => Promise<void>;
+  /** Custom safe delete handler (e.g. calling a safe lifecycle RPC) */
+  onDelete?: (row: T) => Promise<{ message?: string } | void>;
   emptyTitle?: string;
 }
 
@@ -29,6 +33,8 @@ export function ResourceCrudPage<T extends { id: string }>({
   fields,
   toFormValues,
   transformSubmit,
+  onSubmit,
+  onDelete,
   emptyTitle,
 }: ResourceCrudPageProps<T>) {
   const { rows, status, error, create, update, remove, reload } = useCrudResource<T>({ table, readTable, orderBy });
@@ -52,6 +58,12 @@ export function ResourceCrudPage<T extends { id: string }>({
 
   const handleSubmit = async (values: Record<string, unknown>) => {
     const payload = transformSubmit ? transformSubmit(values) : values;
+    if (onSubmit) {
+      await onSubmit(payload, editingRow);
+      push({ tone: "success", title: `${title.replace(/s$/, "")} ${editingRow ? "updated" : "saved"}` });
+      await reload();
+      return;
+    }
     if (editingRow) {
       await update(editingRow.id, payload as Partial<T>);
       push({ tone: "success", title: `${title.replace(/s$/, "")} updated` });
@@ -63,10 +75,20 @@ export function ResourceCrudPage<T extends { id: string }>({
 
   const handleDelete = async () => {
     if (!pendingDeleteId) return;
+    const targetRow = rows.find((r) => r.id === pendingDeleteId);
     setIsDeleting(true);
     try {
-      await remove(pendingDeleteId);
-      push({ tone: "success", title: "Deleted" });
+      if (onDelete && targetRow) {
+        const res = await onDelete(targetRow);
+        push({
+          tone: "success",
+          title: res && typeof res === "object" && res.message ? res.message : "Deleted successfully",
+        });
+        await reload();
+      } else {
+        await remove(pendingDeleteId);
+        push({ tone: "success", title: "Deleted" });
+      }
     } catch (e) {
       push({ tone: "danger", title: "Could not delete", description: e instanceof Error ? e.message : undefined });
     } finally {

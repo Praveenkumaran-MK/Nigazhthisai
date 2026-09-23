@@ -37,6 +37,12 @@ export function ResourceFormDialog({ open, title, fields, initialValues, onSubmi
         if (field.type === "number") {
           const raw = values[field.name];
           coerced[field.name] = raw === "" || raw === undefined || raw === null ? undefined : Number(raw);
+        } else if (field.type === "select") {
+          const raw = values[field.name];
+          coerced[field.name] = raw === "" || raw === undefined ? null : raw;
+        } else if (field.type === "text" && !field.required) {
+          const raw = values[field.name];
+          if (raw === "") coerced[field.name] = null;
         }
       }
       await onSubmit(coerced);

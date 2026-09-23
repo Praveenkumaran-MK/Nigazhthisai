@@ -61,6 +61,49 @@ export function FaresPage() {
         { name: "dest_stop_id", label: "Destination stop", type: "select", required: true, optionsForValues: stopOptionsForRoute("origin_stop_id") },
         { name: "flat_fare_amount", label: "Fare amount (₹)", type: "number", step: "0.01", required: true },
       ]}
+      toFormValues={(f) => ({
+        route_id: f.route_id,
+        origin_stop_id: f.origin_stop_id,
+        dest_stop_id: f.dest_stop_id,
+        flat_fare_amount: f.flat_fare_amount,
+      })}
+      transformSubmit={(values) => ({
+        route_id: values.route_id,
+        origin_stop_id: values.origin_stop_id,
+        dest_stop_id: values.dest_stop_id,
+        flat_fare_amount: Number(values.flat_fare_amount),
+      })}
+      onSubmit={async (values, editingRow) => {
+        const { error } = await supabase.rpc("upsert_fare_matrix_entry", {
+          p_route_id: values.route_id as string,
+          p_origin_stop_id: values.origin_stop_id as string,
+          p_dest_stop_id: values.dest_stop_id as string,
+          p_flat_fare_amount: Number(values.flat_fare_amount),
+        });
+        if (error) {
+          if (editingRow) {
+            const { error: updErr } = await supabase
+              .from("fare_matrix")
+              .update({
+                route_id: values.route_id,
+                origin_stop_id: values.origin_stop_id,
+                dest_stop_id: values.dest_stop_id,
+                flat_fare_amount: Number(values.flat_fare_amount),
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", editingRow.id);
+            if (updErr) throw new Error(updErr.message);
+          } else {
+            const { error: insErr } = await supabase.from("fare_matrix").insert({
+              route_id: values.route_id,
+              origin_stop_id: values.origin_stop_id,
+              dest_stop_id: values.dest_stop_id,
+              flat_fare_amount: Number(values.flat_fare_amount),
+            });
+            if (insErr) throw new Error(insErr.message);
+          }
+        }
+      }}
     />
   );
 }

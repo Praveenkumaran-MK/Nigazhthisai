@@ -7,7 +7,6 @@ const DISTRICT_SCOPED_TABLES = new Set([
   "routes",
   "stops",
   "schedules",
-  "fares",
   "conductors",
   "complaints",
 ]);
@@ -62,11 +61,16 @@ export function useCrudResource<T extends { id: string }>({ table, readTable, or
   // escape hatch — every other input value in this file stays fully typed.
   const create = useCallback(
     async (input: Partial<T>) => {
+      const cleaned: Record<string, unknown> = { ...input };
+      delete cleaned.id;
+      delete cleaned.created_at;
+      delete cleaned.updated_at;
+
       const payload = {
-        ...(profile?.district_id && DISTRICT_SCOPED_TABLES.has(table) && !("district_id" in (input as object))
+        ...(profile?.district_id && DISTRICT_SCOPED_TABLES.has(table) && !("district_id" in cleaned)
           ? { district_id: profile.district_id }
           : {}),
-        ...input,
+        ...cleaned,
       };
       const { error: err } = await supabase.from(table).insert(payload as never);
       if (err) throw new Error(err.message);
@@ -77,7 +81,12 @@ export function useCrudResource<T extends { id: string }>({ table, readTable, or
 
   const update = useCallback(
     async (id: string, input: Partial<T>) => {
-      const { error: err } = await supabase.from(table).update(input as never).eq("id", id);
+      const cleaned: Record<string, unknown> = { ...input };
+      delete cleaned.id;
+      delete cleaned.created_at;
+      delete cleaned.updated_at;
+
+      const { error: err } = await supabase.from(table).update(cleaned as never).eq("id", id);
       if (err) throw new Error(err.message);
       await reload();
     },

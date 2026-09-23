@@ -130,7 +130,20 @@ export function ConductorsPage() {
         p_is_active: editActive,
       });
 
-      if (err) throw err;
+      if (err) {
+        // Fallback: direct update on conductors table
+        const { error: directErr } = await supabase
+          .from("conductors")
+          .update({
+            display_name: editName.trim(),
+            phone: editPhone.trim() || null,
+            government_id: editGovId.trim(),
+            is_active: editActive,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingConductor.id);
+        if (directErr) throw new Error(directErr.message);
+      }
 
       setEditingConductor(null);
       await reload();

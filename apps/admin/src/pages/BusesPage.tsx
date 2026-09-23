@@ -86,6 +86,34 @@ export function BusesPage() {
           type: "checkbox",
         },
       ]}
+      toFormValues={(b) => ({
+        bus_number: b.bus_number,
+        district_id: b.district_id ?? "",
+        route_id: b.route_id ?? "",
+        type: b.type,
+        capacity: b.capacity,
+        is_wheelchair_accessible: b.is_wheelchair_accessible ?? false,
+      })}
+      transformSubmit={(values) => ({
+        bus_number: String(values.bus_number ?? "").trim(),
+        district_id: values.district_id || null,
+        route_id: values.route_id || null,
+        type: values.type,
+        capacity: Number(values.capacity),
+        is_wheelchair_accessible: Boolean(values.is_wheelchair_accessible),
+      })}
+      onDelete={async (bus) => {
+        const { data, error } = await supabase.rpc("delete_bus_safe", { p_bus_id: bus.id });
+        if (error) {
+          if (error.message.includes("function") || error.code === "PGRST202") {
+            const { error: delErr } = await supabase.from("buses").delete().eq("id", bus.id);
+            if (delErr) throw new Error(delErr.message);
+            return { message: "Bus deleted" };
+          }
+          throw new Error(error.message);
+        }
+        return { message: (data as any)?.message ?? "Bus deleted successfully" };
+      }}
     />
   );
 }

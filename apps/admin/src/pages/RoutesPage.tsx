@@ -465,9 +465,18 @@ export function RoutesPage() {
   const handleDeleteRoute = async (r: Route) => {
     if (!confirm(`Are you sure you want to delete route ${r.route_number} (${r.name})?`)) return;
     try {
-      const { error } = await supabase.from("routes").delete().eq("id", r.id);
-      if (error) throw error;
-      push({ tone: "success", title: "Route Deleted" });
+      const { data, error } = await supabase.rpc("delete_route_safe", { p_route_id: r.id });
+      if (error) {
+        if (error.message.includes("function") || error.code === "PGRST202") {
+          const { error: delErr } = await supabase.from("routes").delete().eq("id", r.id);
+          if (delErr) throw new Error(delErr.message);
+          push({ tone: "success", title: "Route Deleted" });
+          await loadData();
+          return;
+        }
+        throw error;
+      }
+      push({ tone: "success", title: (data as any)?.message ?? "Route Deleted" });
       await loadData();
     } catch (e: any) {
       alert("Failed to delete route: " + e.message);
