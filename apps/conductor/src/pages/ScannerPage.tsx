@@ -219,14 +219,15 @@ export function ScannerPage() {
             fare: ticket.total_fare,
           },
         });
-      } catch (e) {
+      } catch (e: any) {
         if ("vibrate" in navigator) {
           navigator.vibrate([100, 50, 100]);
         }
+        const errMessage = e?.message || (e instanceof Error ? e.message : "Invalid or expired ticket");
         setFeedback({
           tone: "danger",
           title: "Ticket Rejected",
-          message: e instanceof Error ? e.message : "Invalid or expired ticket",
+          message: errMessage,
         });
       } finally {
         setIsValidating(false);

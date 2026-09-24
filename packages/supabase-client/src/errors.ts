@@ -25,14 +25,27 @@ const KNOWN_RPC_MESSAGES: Record<string, string> = {
   RATE_LIMITED: "You're doing that a bit too fast — please wait a moment and try again.",
 };
 
+export class ServiceAppError extends Error implements AppError {
+  code: string;
+  override cause?: unknown;
+
+  constructor(code: string, message: string, cause?: unknown) {
+    super(message, { cause });
+    this.name = "ServiceAppError";
+    this.code = code;
+    this.cause = cause;
+    Object.setPrototypeOf(this, ServiceAppError.prototype);
+  }
+}
+
 /**
  * Converts a raw Supabase/PostgREST error (which may leak a Postgres
- * exception message via RPC) into a stable, user-safe AppError. RPC
+ * exception message via RPC) into a stable, user-safe ServiceAppError. RPC
  * functions in supabase/migrations/...008_functions.sql raise exceptions
  * with a leading UPPER_SNAKE_CASE code (e.g. "TICKET_EXPIRED: ..."); we
  * parse that code out and show a friendly message instead of raw SQL text.
  */
-export function toAppError(error: unknown): AppError {
+export function toAppError(error: unknown): ServiceAppError {
   if (error && typeof error === "object" && "message" in error) {
     const rawMessage = String((error as { message: unknown }).message ?? "");
     const codeMatch = rawMessage.match(/^([A-Z_]+):?/);
@@ -42,11 +55,11 @@ export function toAppError(error: unknown): AppError {
       // eslint-disable-next-line no-console
       console.warn("Unmapped Supabase error (shown to user as a generic message):", rawMessage);
     }
-    return {
+    return new ServiceAppError(
       code,
-      message: friendly ?? "Something went wrong. Please try again.",
-      cause: error,
-    };
+      friendly ?? (rawMessage && !rawMessage.startsWith("{") ? rawMessage : "Something went wrong. Please try again."),
+      error,
+    );
   }
-  return { code: "UNKNOWN_ERROR", message: "Something went wrong. Please try again.", cause: error };
+  return new ServiceAppError("UNKNOWN_ERROR", "Something went wrong. Please try again.", error);
 }
