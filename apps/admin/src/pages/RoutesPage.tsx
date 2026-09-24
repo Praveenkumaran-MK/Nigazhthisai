@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
-import { Dialog, Button, Badge, useToast } from "@sbt/ui";
+import { useNavigate } from "react-router-dom";
+import { Dialog, Button, Badge, useToast, Spinner } from "@sbt/ui";
 import {
   MapPin,
   Clock,
@@ -18,6 +19,10 @@ import {
   ArrowDown,
   X,
   Compass,
+  AlertTriangle,
+  ShieldCheck,
+  ShieldAlert,
+  ExternalLink,
 } from "lucide-react";
 import type { Route, Stop, District } from "@sbt/shared-types";
 import { supabase } from "../lib/supabase";
@@ -97,6 +102,16 @@ export function RoutesPage() {
   const [editRouteDistrictId, setEditRouteDistrictId] = useState("");
   const [editRouteStatus, setEditRouteStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
   const [isUpdatingRoute, setIsUpdatingRoute] = useState(false);
+
+  const navigate = useNavigate();
+
+  // Route Deletion & Safety Inspection Modal State
+  const [deleteTargetRoute, setDeleteTargetRoute] = useState<Route | null>(null);
+  const [isCheckingDelete, setIsCheckingDelete] = useState(false);
+  const [activeTripsBlocking, setActiveTripsBlocking] = useState<any[] | null>(null);
+  const [routeTripHistoryCount, setRouteTripHistoryCount] = useState<number>(0);
+  const [isProcessingDelete, setIsProcessingDelete] = useState(false);
+  const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -489,56 +504,119 @@ export function RoutesPage() {
     }
   };
 
-  // Delete Route
-  const handleDeleteRoute = async (r: Route) => {
-    if (!confirm(`Are you sure you want to delete route ${r.route_number} (${r.name})?`)) return;
+  // Delete Route — Open safety inspection modal instead of raw browser alert
+  const handleInitiateDelete = async (r: Route) => {
+    setDeleteTargetRoute(r);
+    setIsCheckingDelete(true);
+    setActiveTripsBlocking(null);
+    setRouteTripHistoryCount(0);
+    setDeleteModalError(null);
+
     try {
-      // 1. Guard against active trips on this route
-      const { data: activeTrips } = await supabase
+      // 1. Inspect for active trips on this corridor
+      const { data: activeTrips, error: activeErr } = await supabase
         .from("trips")
-        .select("id")
+        .select(`
+          id,
+          status,
+          started_at,
+          scheduled_departure,
+          bus_id,
+          conductor_id,
+          buses (id, bus_number, registration_number),
+          conductors (id, name, government_id)
+        `)
         .eq("route_id", r.id)
-        .eq("status", "ACTIVE")
-        .limit(1);
+        .eq("status", "ACTIVE");
+
+      if (activeErr) throw activeErr;
 
       if (activeTrips && activeTrips.length > 0) {
-        alert(`Cannot delete route ${r.route_number} because buses are currently active on this corridor.`);
-        return;
-      }
-
-      // 2. Unassign fleet buses from this route
-      await supabase.from("buses").update({ route_id: null }).eq("route_id", r.id);
-
-      // 3. Clear configuration & schedules
-      await supabase.from("schedules").delete().eq("route_id", r.id);
-      await supabase.from("route_weekly_schedules").delete().eq("route_id", r.id);
-      await supabase.from("route_day_stops").delete().eq("route_id", r.id);
-      await supabase.from("route_stops").delete().eq("route_id", r.id);
-      await supabase.from("fare_matrix").delete().eq("route_id", r.id);
-      await supabase.from("trips").delete().eq("route_id", r.id).eq("status", "SCHEDULED");
-
-      // 4. Check if route has historical trips
-      const { count: tripCount } = await supabase
-        .from("trips")
-        .select("id", { count: "exact", head: true })
-        .eq("route_id", r.id);
-
-      if ((tripCount ?? 0) > 0) {
-        // Decommission route to preserve historical analytics and tickets
-        await supabase
-          .from("routes")
-          .update({ is_active: false, updated_at: new Date().toISOString() })
-          .eq("id", r.id);
-        push({ tone: "success", title: "Route deactivated; historical trips preserved." });
+        setActiveTripsBlocking(activeTrips);
       } else {
-        // Clean delete for unreferenced route
-        const { error: delErr } = await supabase.from("routes").delete().eq("id", r.id);
-        if (delErr) throw new Error(delErr.message);
-        push({ tone: "success", title: "Route deleted successfully." });
+        setActiveTripsBlocking([]);
+        // 2. Check for historical trips (completed, cancelled)
+        const { count, error: countErr } = await supabase
+          .from("trips")
+          .select("id", { count: "exact", head: true })
+          .eq("route_id", r.id);
+
+        if (countErr) throw countErr;
+        setRouteTripHistoryCount(count ?? 0);
       }
+    } catch (err: any) {
+      setDeleteModalError(err?.message || "Failed to inspect corridor activity");
+    } finally {
+      setIsCheckingDelete(false);
+    }
+  };
+
+  // Perform Route Decommission (safe deactivation when historical trips exist)
+  const handleDecommissionRoute = async (targetRoute: Route) => {
+    setIsProcessingDelete(true);
+    setDeleteModalError(null);
+    try {
+      // 1. Release assigned fleet buses
+      await supabase.from("buses").update({ route_id: null }).eq("route_id", targetRoute.id);
+
+      // 2. Clear future scheduled trips (that have no tickets)
+      await supabase.from("trips").delete().eq("route_id", targetRoute.id).eq("status", "SCHEDULED");
+
+      // 3. Mark route inactive
+      const { error: updErr } = await supabase
+        .from("routes")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq("id", targetRoute.id);
+
+      if (updErr) throw updErr;
+
+      push({
+        tone: "success",
+        title: "Corridor Decommissioned",
+        description: `Route ${targetRoute.route_number} is now inactive. Historical tickets and reports are preserved.`,
+      });
+
+      setDeleteTargetRoute(null);
       await loadData();
-    } catch (e: any) {
-      alert("Failed to delete route: " + e.message);
+    } catch (err: any) {
+      setDeleteModalError(err?.message || "Failed to decommission route");
+    } finally {
+      setIsProcessingDelete(false);
+    }
+  };
+
+  // Perform Hard Permanent Delete (only when zero trip history exists)
+  const handlePermanentDeleteRoute = async (targetRoute: Route) => {
+    setIsProcessingDelete(true);
+    setDeleteModalError(null);
+    try {
+      // Unlink buses
+      await supabase.from("buses").update({ route_id: null }).eq("route_id", targetRoute.id);
+
+      // Clear schedules, stops, matrices
+      await supabase.from("schedules").delete().eq("route_id", targetRoute.id);
+      await supabase.from("route_weekly_schedules").delete().eq("route_id", targetRoute.id);
+      await supabase.from("route_day_stops").delete().eq("route_id", targetRoute.id);
+      await supabase.from("route_stops").delete().eq("route_id", targetRoute.id);
+      await supabase.from("fare_matrix").delete().eq("route_id", targetRoute.id);
+      await supabase.from("trips").delete().eq("route_id", targetRoute.id).eq("status", "SCHEDULED");
+
+      // Delete the route
+      const { error: delErr } = await supabase.from("routes").delete().eq("id", targetRoute.id);
+      if (delErr) throw delErr;
+
+      push({
+        tone: "success",
+        title: "Corridor Deleted",
+        description: `Route ${targetRoute.route_number} (${targetRoute.name}) was permanently deleted.`,
+      });
+
+      setDeleteTargetRoute(null);
+      await loadData();
+    } catch (err: any) {
+      setDeleteModalError(err?.message || "Failed to delete route");
+    } finally {
+      setIsProcessingDelete(false);
     }
   };
 
@@ -791,7 +869,7 @@ export function RoutesPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDeleteRoute(route)}
+                        onClick={() => handleInitiateDelete(route)}
                         title="Delete Route"
                         className="rounded-lg p-2 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 transition"
                       >
@@ -887,7 +965,7 @@ export function RoutesPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDeleteRoute(route)}
+                              onClick={() => handleInitiateDelete(route)}
                               title="Delete"
                               className="p-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900/40"
                             >
@@ -1272,6 +1350,258 @@ export function RoutesPage() {
               </Button>
             </div>
           </form>
+        )}
+      </Dialog>
+
+      {/* ─── ACTION BLOCKED / DELETE CORRIDOR SAFETY MODAL ─── */}
+      <Dialog
+        size="md"
+        open={Boolean(deleteTargetRoute)}
+        onClose={() => {
+          if (!isProcessingDelete) setDeleteTargetRoute(null);
+        }}
+        title={deleteTargetRoute ? `Corridor Management: ${deleteTargetRoute.route_number}` : "Corridor Operations"}
+      >
+        {deleteTargetRoute && (
+          <div className="flex flex-col gap-4 py-1">
+            {/* Header Identity Badge */}
+            <div className="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200 p-3 dark:bg-slate-950 dark:border-slate-800">
+              <div className="min-w-0 flex-1">
+                <span className="font-mono text-xs font-bold text-brand-600 dark:text-brand-400">
+                  {deleteTargetRoute.code ?? deleteTargetRoute.route_number}
+                </span>
+                <p className="text-sm font-black text-slate-900 dark:text-white truncate">
+                  {deleteTargetRoute.name}
+                </p>
+              </div>
+              <Badge tone={deleteTargetRoute.is_active !== false ? "success" : "neutral"} className="font-bold text-xs shrink-0">
+                {deleteTargetRoute.is_active !== false ? "ACTIVE CORRIDOR" : "INACTIVE"}
+              </Badge>
+            </div>
+
+            {/* Error Message if any */}
+            {deleteModalError && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-400">
+                {deleteModalError}
+              </div>
+            )}
+
+            {/* State 1: Inspecting Database Dependencies */}
+            {isCheckingDelete && (
+              <div className="flex flex-col items-center justify-center py-8 gap-3">
+                <Spinner size="lg" />
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  Inspecting corridor dependencies & live fleet activity…
+                </p>
+              </div>
+            )}
+
+            {/* State 2: ACTION BLOCKED — Live Active Trip in Progress */}
+            {!isCheckingDelete && activeTripsBlocking && activeTripsBlocking.length > 0 && (
+              <div className="flex flex-col gap-3">
+                <div className="rounded-2xl border border-amber-300/80 bg-amber-50/70 p-4 dark:border-amber-900/60 dark:bg-amber-950/30">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+                          Operation Blocked
+                        </span>
+                        <h4 className="text-sm font-black text-amber-900 dark:text-amber-200">
+                          Active Bus in Service
+                        </h4>
+                      </div>
+                      <p className="mt-1.5 text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
+                        Cannot delete or purge route <strong className="font-bold">{deleteTargetRoute.route_number}</strong> because{" "}
+                        <strong className="font-bold">{activeTripsBlocking.length} {activeTripsBlocking.length === 1 ? "bus is" : "buses are"} currently operating in active service</strong> on this corridor. Deleting an active route would break live GPS tracking pipelines and disrupt passengers holding active tickets.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* List of Blocking Active Trips */}
+                <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3 bg-white dark:bg-slate-900">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
+                    Active Vehicles on this Corridor:
+                  </span>
+                  <div className="flex flex-col gap-2 max-h-36 overflow-y-auto">
+                    {activeTripsBlocking.map((trip: any) => {
+                      const busObj = Array.isArray(trip.buses) ? trip.buses[0] : trip.buses;
+                      const condObj = Array.isArray(trip.conductors) ? trip.conductors[0] : trip.conductors;
+                      return (
+                        <div
+                          key={trip.id}
+                          className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                              <Bus className="h-3.5 w-3.5" />
+                            </span>
+                            <div>
+                              <p className="font-black text-slate-900 dark:text-white">
+                                {busObj?.bus_number ?? "Assigned Vehicle"}
+                              </p>
+                              <p className="text-[10px] text-slate-400">
+                                {condObj?.name ? `Conductor: ${condObj.name}` : `Trip #${trip.id.slice(0, 8)}`}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge tone="success" className="font-bold text-[10px]">
+                            ● ACTIVE TRIP
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Resolution Options Box */}
+                <div className="rounded-xl bg-slate-50 p-3 border border-slate-200 dark:bg-slate-950 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
+                  <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    How to proceed:
+                  </span>
+                  <ul className="list-disc list-inside space-y-1 text-[11px]">
+                    <li>Conclude or cancel the active trip from the <strong>Trips Control Center</strong>.</li>
+                    <li>Or click <strong>Deactivate Route Instead</strong> to immediately prevent any new schedules while allowing current buses to complete service safely.</li>
+                  </ul>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="mt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeleteTargetRoute(null)}
+                  >
+                    Dismiss
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    isLoading={isProcessingDelete}
+                    onClick={() => handleDecommissionRoute(deleteTargetRoute)}
+                    className="font-bold"
+                  >
+                    Deactivate Route Instead
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => navigate("/trips")}
+                    className="bg-brand-600 hover:bg-brand-500 font-bold text-white rounded-xl shadow-sm"
+                  >
+                    Go to Trips Control Center
+                    <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* State 3: DECOMMISSION — Historical Trips Exist (Safe Archive) */}
+            {!isCheckingDelete && activeTripsBlocking && activeTripsBlocking.length === 0 && routeTripHistoryCount > 0 && (
+              <div className="flex flex-col gap-3">
+                <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 p-4 dark:border-indigo-900/60 dark:bg-indigo-950/30">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
+                      <ShieldCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-indigo-200/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
+                          Audit Protection
+                        </span>
+                        <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-200">
+                          Corridor Decommissioning
+                        </h4>
+                      </div>
+                      <p className="mt-1.5 text-xs text-indigo-800 dark:text-indigo-300/90 leading-relaxed">
+                        Route <strong className="font-bold">{deleteTargetRoute.route_number}</strong> has{" "}
+                        <strong className="font-bold">{routeTripHistoryCount} completed trip records and passenger tickets</strong>. To protect passenger transaction records, tax audits, and revenue reports, this corridor will be{" "}
+                        <strong className="font-bold">safely deactivated</strong> rather than purged from the database.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-slate-50 p-3 border border-slate-200 dark:bg-slate-950 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
+                  <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    What happens during decommissioning:
+                  </span>
+                  <ul className="list-disc list-inside space-y-1 text-[11px]">
+                    <li>The corridor status is switched to <strong>INACTIVE</strong>.</li>
+                    <li>It is hidden from passenger search and removed from future dispatch schedules.</li>
+                    <li>Assigned fleet buses are unlinked and released back to the general pool.</li>
+                    <li>All past ticket validation logs and revenue histories remain 100% intact.</li>
+                  </ul>
+                </div>
+
+                <div className="mt-2 flex items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeleteTargetRoute(null)}
+                    disabled={isProcessingDelete}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    isLoading={isProcessingDelete}
+                    onClick={() => handleDecommissionRoute(deleteTargetRoute)}
+                    className="bg-amber-600 hover:bg-amber-500 font-bold text-white rounded-xl shadow-sm"
+                  >
+                    Decommission Corridor
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* State 4: PERMANENT PURGE — Unreferenced Route with 0 Trip History */}
+            {!isCheckingDelete && activeTripsBlocking && activeTripsBlocking.length === 0 && routeTripHistoryCount === 0 && (
+              <div className="flex flex-col gap-3">
+                <div className="rounded-2xl border border-rose-200/80 bg-rose-50/70 p-4 dark:border-rose-900/60 dark:bg-rose-950/30">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/20 text-rose-600 dark:text-rose-400">
+                      <Trash2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-rose-200/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-800 dark:bg-rose-900/50 dark:text-rose-300">
+                          Permanent Deletion
+                        </span>
+                        <h4 className="text-sm font-black text-rose-900 dark:text-rose-200">
+                          Confirm Corridor Removal
+                        </h4>
+                      </div>
+                      <p className="mt-1.5 text-xs text-rose-800 dark:text-rose-300/90 leading-relaxed">
+                        Route <strong className="font-bold">{deleteTargetRoute.route_number} ({deleteTargetRoute.name})</strong> has never been dispatched on any trip and contains zero passenger ticket records. It will be permanently removed along with its stop sequence and fare matrix entries.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeleteTargetRoute(null)}
+                    disabled={isProcessingDelete}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    isLoading={isProcessingDelete}
+                    onClick={() => handlePermanentDeleteRoute(deleteTargetRoute)}
+                    className="bg-rose-600 hover:bg-rose-500 font-bold text-white rounded-xl shadow-sm"
+                  >
+                    Delete Permanently
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </Dialog>
     </div>
