@@ -56,8 +56,12 @@ export function EmergencySosModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="relative flex flex-col w-full max-w-lg max-h-[92vh] overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+      <div className="relative flex flex-col w-full max-w-lg max-h-[88dvh] sm:max-h-[92vh] overflow-hidden rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl text-slate-100">
+        {/* Mobile drag handle */}
+        <div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
+          <div className="w-12 h-1 rounded-full bg-slate-700" />
+        </div>
         {/* Top Close Button */}
         <button
           type="button"

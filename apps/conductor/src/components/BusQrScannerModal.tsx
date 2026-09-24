@@ -130,8 +130,12 @@ export function BusQrScannerModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-md animate-fade-in">
-      <div className="relative flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 text-slate-100 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/90 p-0 sm:p-4 backdrop-blur-md animate-fade-in">
+      <div className="relative flex w-full max-w-md max-h-[90dvh] flex-col overflow-hidden rounded-t-3xl sm:rounded-3xl border border-slate-800 bg-slate-950 text-slate-100 shadow-2xl">
+        {/* Mobile drag handle */}
+        <div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
+          <div className="w-12 h-1 rounded-full bg-slate-700" />
+        </div>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800/80 p-4 bg-slate-900/60">
           <div className="flex items-center gap-2.5">
