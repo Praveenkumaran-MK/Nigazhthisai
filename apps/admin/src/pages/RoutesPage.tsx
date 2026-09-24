@@ -234,6 +234,8 @@ export function RoutesPage() {
 
       dayData.forEach((row: any) => {
         const d = row.day_of_week;
+        // Never append day_of_week === -1 to standard schedule (prevents 2x duplicates)
+        if (d < 0 || d > 6) return;
         if (!map[d]) map[d] = [];
         const meta = stopMap.get(row.stop_id);
         map[d]!.push({
@@ -243,6 +245,17 @@ export function RoutesPage() {
           code: meta?.code ?? "STP",
           sequence_order: row.sequence_order,
           expected_arrival_time: row.expected_arrival_time,
+        });
+      });
+
+      // Guarantee deduplication by stop_id across all day sequences
+      Object.keys(map).forEach((k) => {
+        const key = Number(k);
+        const seen = new Set<string>();
+        map[key] = (map[key] ?? []).filter((item) => {
+          if (!item.stop_id || seen.has(item.stop_id)) return false;
+          seen.add(item.stop_id);
+          return true;
         });
       });
 
@@ -1041,11 +1054,14 @@ export function RoutesPage() {
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                   >
                     <option value="">Select bus stop to insert…</option>
-                    {stops.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.code}) — {s.district}
-                      </option>
-                    ))}
+                    {stops.map((s) => {
+                      const alreadyInList = currentStopsList.some((cs) => cs.stop_id === s.id);
+                      return (
+                        <option key={s.id} value={s.id} disabled={alreadyInList}>
+                          {s.name} ({s.code}) — {s.district} {alreadyInList ? "✓ (Added)" : ""}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
