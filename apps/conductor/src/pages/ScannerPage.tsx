@@ -347,7 +347,7 @@ export function ScannerPage() {
           <button
             type="button"
             className={`inline-flex items-center gap-1.5 rounded px-3 py-1 text-xs font-semibold transition ${
-              mode === "camera" ? "bg-emerald-600 text-white" : "text-slate-500 hover:text-slate-800"
+              mode === "camera" ? "bg-[#0a192f] text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
             }`}
             onClick={() => setMode("camera")}
           >
@@ -357,7 +357,7 @@ export function ScannerPage() {
           <button
             type="button"
             className={`inline-flex items-center gap-1.5 rounded px-3 py-1 text-xs font-semibold transition ${
-              mode === "pnr" ? "bg-emerald-600 text-white" : "text-slate-500 hover:text-slate-800"
+              mode === "pnr" ? "bg-[#0a192f] text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
             }`}
             onClick={() => setMode("pnr")}
           >

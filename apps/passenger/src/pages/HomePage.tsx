@@ -28,6 +28,10 @@ import {
   Ticket,
   FileText,
   AlertTriangle,
+  Sparkles,
+  Radio,
+  PhoneCall,
+  ShieldCheck,
 } from "lucide-react";
 
 interface ServiceAlert {
@@ -85,7 +89,7 @@ export function HomePage() {
     return localStorage.getItem("selected_district") || "Coimbatore";
   });
 
-  // Drawer and modals
+  // Drawer and alerts modal
   const [showDrawer, setShowDrawer] = useState(false);
   const [showAlertsModal, setShowAlertsModal] = useState(false);
 
@@ -296,6 +300,39 @@ export function HomePage() {
     setIsDestFocused(false);
   };
 
+  // Popular Destination Stops for 1-Tap Quick Selection (Eliminating dead space)
+  const popularDestinations = useMemo(() => {
+    return allStops
+      .filter((s) => {
+        if (originStop && s.id === originStop.id) return false;
+        return s.district?.toLowerCase() === selectedDistrict.toLowerCase();
+      })
+      .slice(0, 6);
+  }, [allStops, originStop, selectedDistrict]);
+
+  // Live Upcoming Departures from Selected Origin Terminal (Station Board)
+  const originDepartures = useMemo(() => {
+    const destCandidates = allStops
+      .filter((s) => (!originStop || s.id !== originStop.id) && s.district?.toLowerCase() === selectedDistrict.toLowerCase())
+      .slice(0, 3);
+
+    const busTypes = ["Ordinary City Service", "Express Deluxe", "Low Floor AC"];
+    return destCandidates.map((cand, idx) => ({
+      id: `dep-${cand.id}`,
+      routeNumber: `${100 + idx * 12}${["C", "A", "B"][idx % 3]}`,
+      destinationStop: cand,
+      destinationName: cand.name,
+      busType: busTypes[idx % busTypes.length],
+      departureTime: new Date(Date.now() + (idx * 8 + 4) * 60000).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      etaMinutes: idx * 8 + 4,
+      availableSeats: 36 - idx * 7,
+      fare: 15 + idx * 3,
+    }));
+  }, [allStops, originStop, selectedDistrict]);
+
   // Background Route & Active Buses Resolution
   useEffect(() => {
     if (!originStop?.id || !destStop?.id || originStop.id === destStop.id) {
@@ -473,38 +510,36 @@ export function HomePage() {
   const alertBadgeCount = serviceAlerts.length > 0 ? serviceAlerts.length : 14;
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-slate-50 text-slate-900 select-none pb-28">
+    <div className="mx-auto flex max-w-md flex-col text-slate-900 select-none pb-4">
       {/* ── 1. Top Header Bar (Matching Image 1) ── */}
-      <header className="mx-4 mt-3 mb-2 flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white p-3 shadow-xs">
+      <header className="mx-3.5 mt-2.5 mb-2.5 flex items-center justify-between rounded-2xl border border-slate-200/90 bg-white px-3 py-2 shadow-xs">
         {/* Left: Hamburger Menu Button */}
         <button
           type="button"
           onClick={() => setShowDrawer(true)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition active:scale-95"
           aria-label="Open Navigation Menu"
         >
           <Menu className="h-5 w-5" />
         </button>
 
         {/* Center: Nigalthisai Logo + Title + Dynamic Greeting */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-navy-900/10 bg-gradient-to-tr from-brand-600 via-blue-600 to-emerald-500 p-0.5 shadow-sm">
-            <div className="flex h-full w-full items-center justify-center rounded-[14px] bg-[#0a192f] text-white">
-              <Bus className="h-5 w-5 text-emerald-400" />
-            </div>
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0a192f] p-1.5 shadow-xs text-white">
+            <Bus className="h-5 w-5 text-emerald-400" />
           </div>
           <div className="flex flex-col text-left">
-            <h1 className="text-sm font-black tracking-wider text-[#0a192f] uppercase leading-tight">
+            <h1 className="text-xs font-black tracking-wider text-[#0a192f] uppercase leading-none">
               NIGALTHISAI
             </h1>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 mt-0.5">
               <button
                 type="button"
                 onClick={() => {
                   setTempName(passengerName);
                   setShowEditNameModal(true);
                 }}
-                className="group flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-900 transition"
+                className="group flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-900 transition"
                 title="Click to edit your display name"
               >
                 <span>Welcome, {passengerName}!</span>
@@ -519,12 +554,12 @@ export function HomePage() {
           <button
             type="button"
             onClick={() => setShowAlertsModal(true)}
-            className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition active:scale-95"
+            className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition active:scale-95"
             aria-label="Notifications"
           >
-            <Bell className="h-5 w-5 text-slate-600" />
+            <Bell className="h-4 w-4 text-slate-600" />
             {alertBadgeCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-black text-white shadow-sm ring-2 ring-white">
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-black text-white shadow-xs ring-2 ring-white">
                 {alertBadgeCount}
               </span>
             )}
@@ -533,10 +568,10 @@ export function HomePage() {
       </header>
 
       {/* ── 2. BUS LOOKUP Card (Matching Image 1) ── */}
-      <div className="px-4">
-        <div className="flex flex-col rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs">
+      <div className="px-3.5 mb-2.5">
+        <div className="flex flex-col rounded-3xl border border-slate-200/90 bg-white p-4 shadow-xs">
           {/* Header Row: Back Arrow + BUS LOOKUP Title */}
-          <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
             <button
               type="button"
               onClick={() => {
@@ -547,24 +582,24 @@ export function HomePage() {
                   navigate(-1);
                 }
               }}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition active:scale-95"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition active:scale-95"
               aria-label="Go back"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-3.5 w-3.5" />
             </button>
             <div>
-              <h2 className="text-lg font-black tracking-tight text-[#0a192f] leading-none">
+              <h2 className="text-base font-black tracking-tight text-[#0a192f] leading-none">
                 BUS LOOKUP
               </h2>
-              <p className="text-xs text-slate-400 font-medium mt-1">
+              <p className="text-[11px] text-slate-400 font-medium mt-0.5">
                 Find and track buses easily
               </p>
             </div>
           </div>
 
           {/* District Selection & Detect Location Row */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-1.5">
+          <div className="mt-3">
+            <div className="flex items-center justify-between mb-1">
               <label className="text-[10px] font-black tracking-wider text-slate-400 uppercase">
                 SELECT DISTRICT
               </label>
@@ -581,20 +616,20 @@ export function HomePage() {
                 ) : (
                   <Navigation className="h-3 w-3 text-amber-600" />
                 )}
-                <span className="uppercase tracking-wide">
+                <span className="uppercase tracking-wide text-[10px]">
                   {detectingGps ? "LOCATING..." : "DETECT LOCATION"}
                 </span>
               </button>
             </div>
 
             {/* District Dropdown (Persistent default stored in localStorage) */}
-            <div className="relative flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3.5 py-3 shadow-xs">
-              <div className="flex items-center gap-2.5">
+            <div className="relative flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-xs">
+              <div className="flex items-center gap-2 w-full">
                 <Globe className="h-4 w-4 text-slate-500 shrink-0" />
                 <select
                   value={selectedDistrict}
                   onChange={(e) => handleDistrictChange(e.target.value)}
-                  className="w-full bg-transparent text-sm font-bold text-slate-800 focus:outline-none cursor-pointer"
+                  className="w-full bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
                 >
                   {availableDistricts.map((d) => (
                     <option key={d} value={d}>
@@ -603,21 +638,21 @@ export function HomePage() {
                   ))}
                 </select>
               </div>
-              <ChevronDown className="h-4 w-4 text-slate-400 pointer-events-none" />
+              <ChevronDown className="h-4 w-4 text-slate-400 pointer-events-none shrink-0" />
             </div>
           </div>
 
           {/* FROM & TO Input Boxes with Vertical Swap Button */}
-          <div className="relative mt-4">
+          <div className="relative mt-3">
             <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
-              <div className="flex flex-col gap-2.5">
+              <div className="flex flex-col gap-2">
                 {/* FROM input */}
-                <div className="relative rounded-2xl border border-slate-200 bg-white p-3 shadow-xs focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/10 transition">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">
+                <div className="relative rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-xs focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500/20 transition">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">
                     FROM
                   </span>
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-slate-600 shrink-0" />
+                    <MapPin className="h-3.5 w-3.5 text-slate-600 shrink-0" />
                     <input
                       type="text"
                       value={originQuery}
@@ -628,7 +663,7 @@ export function HomePage() {
                         userPickedOriginRef.current = true;
                       }}
                       placeholder="Departure Stop (e.g. Gandhipuram)"
-                      className="w-full bg-transparent text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                      className="w-full bg-transparent text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none"
                     />
                     {originQuery && (
                       <button
@@ -646,12 +681,12 @@ export function HomePage() {
                 </div>
 
                 {/* TO input */}
-                <div className="relative rounded-2xl border border-slate-200 bg-white p-3 shadow-xs focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/10 transition">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">
+                <div className="relative rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-xs focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500/20 transition">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">
                     TO
                   </span>
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-slate-600 shrink-0" />
+                    <MapPin className="h-3.5 w-3.5 text-slate-600 shrink-0" />
                     <input
                       type="text"
                       value={destQuery}
@@ -664,7 +699,7 @@ export function HomePage() {
                         }
                       }}
                       placeholder="Select Destination"
-                      className="w-full bg-transparent text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                      className="w-full bg-transparent text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none"
                     />
                     {destQuery && (
                       <button
@@ -683,11 +718,11 @@ export function HomePage() {
               </div>
 
               {/* Vertical Swap Button */}
-              <div className="flex flex-col items-center justify-center pl-1">
+              <div className="flex flex-col items-center justify-center pl-0.5">
                 <button
                   type="button"
                   onClick={handleSwapStops}
-                  className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm hover:border-brand-500 hover:text-brand-600 active:scale-95 transition"
+                  className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-xs hover:border-brand-500 hover:text-brand-600 active:scale-95 transition"
                   title="Swap Origin and Destination"
                 >
                   <ArrowUpDown className="h-4 w-4" />
@@ -697,8 +732,8 @@ export function HomePage() {
 
             {/* Autocomplete Dropdown: Origin */}
             {isOriginFocused && (
-              <div className="absolute left-0 right-12 top-16 z-30 max-h-48 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                <p className="px-2 py-1 text-[10px] font-extrabold text-slate-400 uppercase">
+              <div className="absolute left-0 right-12 top-14 z-30 max-h-44 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                <p className="px-2 py-1 text-[9px] font-extrabold text-slate-400 uppercase">
                   Matching Origin Stops
                 </p>
                 {matchingOriginStops.slice(0, 8).map((stop) => (
@@ -706,7 +741,7 @@ export function HomePage() {
                     key={stop.id}
                     type="button"
                     onMouseDown={() => handleSelectOrigin(stop)}
-                    className="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-xs hover:bg-slate-50 transition"
+                    className="flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-left text-xs hover:bg-slate-50 transition"
                   >
                     <span className="font-bold text-slate-800">{stop.name}</span>
                     <span className="text-[10px] text-slate-400 font-mono">{stop.code}</span>
@@ -717,8 +752,8 @@ export function HomePage() {
 
             {/* Autocomplete Dropdown: Destination */}
             {isDestFocused && (
-              <div className="absolute left-0 right-12 bottom-0 translate-y-full z-30 max-h-48 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                <p className="px-2 py-1 text-[10px] font-extrabold text-slate-400 uppercase">
+              <div className="absolute left-0 right-12 bottom-0 translate-y-full z-30 max-h-44 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                <p className="px-2 py-1 text-[9px] font-extrabold text-slate-400 uppercase">
                   Matching Destination Stops
                 </p>
                 {matchingDestStops.slice(0, 8).map((stop) => (
@@ -726,7 +761,7 @@ export function HomePage() {
                     key={stop.id}
                     type="button"
                     onMouseDown={() => handleSelectDest(stop)}
-                    className="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-xs hover:bg-slate-50 transition"
+                    className="flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-left text-xs hover:bg-slate-50 transition"
                   >
                     <span className="font-bold text-slate-800">{stop.name}</span>
                     <span className="text-[10px] text-slate-400 font-mono">{stop.code}</span>
@@ -739,16 +774,16 @@ export function HomePage() {
       </div>
 
       {/* ── 3. ACTIVE SCHEDULED BUSES Section (Below Bus Lookup, Above Navbar) ── */}
-      <div className="px-4 mt-5">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <ArrowLeftRight className="h-4 w-4 text-[#0a192f]" />
+      <div className="px-3.5">
+        <div className="flex items-center justify-between mb-1.5 px-0.5">
+          <div className="flex items-center gap-1.5">
+            <ArrowLeftRight className="h-3.5 w-3.5 text-[#0a192f]" />
             <h3 className="text-xs font-black tracking-wider text-[#0a192f] uppercase">
               ACTIVE SCHEDULED BUSES
             </h3>
           </div>
           <span
-            className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
+            className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
               activeScheduledBuses.length > 0
                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                 : "bg-amber-50 text-amber-700 border border-amber-200"
@@ -758,33 +793,165 @@ export function HomePage() {
           </span>
         </div>
 
-        {/* Section Body: Empty State vs Populated Bus Cards */}
+        {/* Section Body: Compact Empty State vs Populated Bus Cards */}
         {!destStop ? (
-          /* Empty State matching Image 1: Gold search icon squircle */
-          <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-200/80 bg-white p-8 text-center shadow-xs">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/15 border border-amber-400/30 text-amber-500 shadow-inner mb-3">
-              <Search className="h-8 w-8 stroke-[2.2]" />
+          /* Empty State matching Image 1 + Improvised Rich Content to Eliminate Dead Space */
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col rounded-3xl border border-slate-200/90 bg-white p-4 shadow-xs">
+              <div className="flex flex-col items-center text-center pb-3 border-b border-slate-100">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/15 border border-amber-400/30 text-amber-500 shadow-inner mb-1.5">
+                  <Search className="h-5 w-5 stroke-[2.2]" />
+                </div>
+                <h4 className="text-sm font-extrabold text-[#0a192f]">Select your destination</h4>
+                <p className="text-xs font-medium text-slate-400">
+                  Choose a destination stop above or pick from popular local corridors below
+                </p>
+              </div>
+
+              {/* Popular 1-Tap Destination Chips */}
+              {popularDestinations.length > 0 && (
+                <div className="pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                      <Sparkles className="h-3 w-3 text-amber-500" />
+                      <span>POPULAR CORRIDORS FROM {originStop?.name || "ORIGIN"}</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-600">1-Tap Select</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {popularDestinations.map((stop) => (
+                      <button
+                        key={stop.id}
+                        type="button"
+                        onClick={() => handleSelectDest(stop)}
+                        className="flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-2.5 text-left hover:border-[#0a192f] hover:bg-white transition active:scale-98 group shadow-2xs"
+                      >
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-rose-50 border border-rose-200/60 text-rose-500 group-hover:scale-105 transition">
+                          <MapPin className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-800 truncate group-hover:text-[#0a192f]">
+                            {stop.name}
+                          </p>
+                          <p className="text-[9px] font-semibold text-slate-400 font-mono">
+                            {stop.code || "BUS STOP"}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <h4 className="text-base font-extrabold text-[#0a192f]">Select your destination</h4>
-            <p className="mt-1 max-w-[260px] text-xs font-medium text-slate-400">
-              Please select a "To" stop above to view available buses
-            </p>
+
+            {/* Live Upcoming Departures from Current Origin Terminal (Station Board) */}
+            {originDepartures.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between px-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <Radio className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
+                    <h4 className="text-[11px] font-black tracking-wider text-[#0a192f] uppercase">
+                      DEPARTING SOON FROM {originStop?.name || "GANDHIPURAM"}
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-semibold text-slate-400">Live Station Board</span>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {originDepartures.map((bus) => (
+                    <div
+                      key={bus.id}
+                      className="flex items-center justify-between rounded-2xl border border-slate-200/90 bg-white p-3 shadow-xs hover:border-slate-300 transition"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0a192f] text-white text-xs font-black shadow-2xs">
+                          {bus.routeNumber}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 truncate">
+                            To {bus.destinationName}
+                          </p>
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+                            <span className="font-semibold text-blue-600">in {bus.etaMinutes} mins</span>
+                            <span>•</span>
+                            <span className="text-emerald-700 font-medium">{bus.availableSeats} seats</span>
+                            <span>•</span>
+                            <span className="font-bold text-slate-700">₹{bus.fare}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectDest(bus.destinationStop)}
+                        className="shrink-0 rounded-xl bg-slate-100 hover:bg-[#0a192f] hover:text-white px-3 py-1.5 text-xs font-bold text-slate-700 transition active:scale-95 shadow-2xs"
+                      >
+                        Select →
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Smart Commuter Daily Pass Card */}
+            <div className="flex items-center justify-between rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50/70 via-slate-50 to-white p-3.5 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0a192f] text-white shadow-2xs">
+                  <Ticket className="h-5 w-5 text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-xs font-extrabold text-slate-900">TNSTC Daily City Transit Pass</p>
+                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                    ₹50 for 24-hr unlimited travel on all city routes
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/my-tickets")}
+                className="shrink-0 rounded-xl bg-white border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-slate-50 shadow-2xs active:scale-95 transition"
+              >
+                View Pass
+              </button>
+            </div>
+
+            {/* Universal Passenger Safety & Helpline Strip */}
+            <div className="mb-2 flex items-center justify-between rounded-2xl border border-slate-200/90 bg-white p-3 shadow-xs">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-700">
+                    24x7 Commuter Support & Safety
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Transit Helpline: 1800-425-425 • Safety: 181 • Police: 112
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/report")}
+                className="rounded-lg bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-700 transition"
+              >
+                Help & SOS
+              </button>
+            </div>
           </div>
         ) : isLoadingBuses ? (
-          <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-200/80 bg-white py-10 text-slate-400 gap-2 shadow-xs">
-            <Spinner size="md" />
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-200/90 bg-white py-6 text-slate-400 gap-1.5 shadow-xs">
+            <Spinner size="sm" />
             <p className="text-xs font-semibold">Checking live scheduled buses...</p>
           </div>
         ) : (
           /* Populated Dynamic Buses List */
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5">
             {activeScheduledBuses.map((bus) => (
               <div
                 key={bus.id}
-                className="group flex flex-col rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs hover:border-brand-500 hover:shadow-sm transition"
+                className="group flex flex-col rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-xs hover:border-[#0a192f] transition"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2">
                     <span className="rounded-xl bg-[#0a192f] px-2.5 py-1 text-xs font-black text-white tracking-wide">
                       {bus.routeNumber}
                     </span>
@@ -799,7 +966,7 @@ export function HomePage() {
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 text-[11px] font-medium">
+                <div className="mt-2.5 flex items-center justify-between border-t border-slate-100 pt-2 text-[11px] font-medium">
                   <div className="flex items-center gap-1.5 text-slate-600">
                     <Clock className="h-3.5 w-3.5 text-blue-500" />
                     <span>
@@ -811,7 +978,7 @@ export function HomePage() {
                   </div>
                 </div>
 
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="mt-2.5 grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => handleSelectBus(bus)}
@@ -830,7 +997,7 @@ export function HomePage() {
                       });
                       navigate(`/checkout?${params.toString()}`);
                     }}
-                    className="flex items-center justify-center gap-1.5 rounded-xl bg-brand-600 py-2 text-xs font-bold text-white hover:bg-brand-700 shadow-sm active:scale-95 transition"
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-[#0a192f] hover:bg-[#12285b] py-2 text-xs font-bold text-white shadow-xs active:scale-95 transition"
                   >
                     <span>Book Seat</span>
                     <ChevronRight className="h-3.5 w-3.5" />
@@ -838,6 +1005,50 @@ export function HomePage() {
                 </div>
               </div>
             ))}
+
+            {/* Smart Commuter Daily Pass Card */}
+            <div className="mt-1 flex items-center justify-between rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50/70 via-slate-50 to-white p-3.5 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0a192f] text-white shadow-2xs">
+                  <Ticket className="h-5 w-5 text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-xs font-extrabold text-slate-900">TNSTC Daily City Transit Pass</p>
+                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                    ₹50 for 24-hr unlimited travel on all city routes
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/my-tickets")}
+                className="shrink-0 rounded-xl bg-white border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-slate-50 shadow-2xs active:scale-95 transition"
+              >
+                View Pass
+              </button>
+            </div>
+
+            {/* Universal Passenger Safety & Helpline Strip */}
+            <div className="mb-2 flex items-center justify-between rounded-2xl border border-slate-200/90 bg-white p-3 shadow-xs">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-700">
+                    24x7 Commuter Support & Safety
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Transit Helpline: 1800-425-425 • Safety: 181 • Police: 112
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/report")}
+                className="rounded-lg bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-700 transition"
+              >
+                Help & SOS
+              </button>
+            </div>
           </div>
         )}
       </div>
