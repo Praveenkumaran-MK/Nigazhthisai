@@ -309,35 +309,132 @@ export function HomePage() {
       .slice(0, 6);
   }, [allStops, originStop, selectedDistrict]);
 
-  // Live Upcoming Departures from Selected Origin Terminal (Station Board)
-  const originDepartures = useMemo(() => {
-    const originName = originStop?.name.toLowerCase() || "";
-    const destCandidates = allStops
-      .filter((s) => {
-        if (!originStop) return true;
-        if (s.id === originStop.id) return false;
-        const sName = s.name.toLowerCase();
-        if (sName.includes(originName) || (originName.length > 4 && originName.includes(sName))) return false;
-        return s.district?.toLowerCase() === selectedDistrict.toLowerCase();
-      })
-      .slice(0, 3);
+  // Live Upcoming Departures from Selected Origin Terminal (Authentic Conductor-Scanned Trips Only)
+  const [originDepartures, setOriginDepartures] = useState<Array<{
+    id: string;
+    routeNumber: string;
+    destinationStop: Stop;
+    destinationName: string;
+    busType: string;
+    departureTime: string;
+    etaMinutes: number;
+    availableSeats: number;
+    fare: number;
+  }>>([]);
 
-    const busTypes = ["Ordinary City Service", "Express Deluxe", "Low Floor AC"];
-    return destCandidates.map((cand, idx) => ({
-      id: `dep-${cand.id}`,
-      routeNumber: `${100 + idx * 12}${["C", "A", "B"][idx % 3]}`,
-      destinationStop: cand,
-      destinationName: cand.name,
-      busType: busTypes[idx % busTypes.length],
-      departureTime: new Date(Date.now() + (idx * 8 + 4) * 60000).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      etaMinutes: idx * 8 + 4,
-      availableSeats: 36 - idx * 7,
-      fare: 15 + idx * 3,
-    }));
-  }, [allStops, originStop, selectedDistrict]);
+  useEffect(() => {
+    if (!originStop?.id || destStop) {
+      setOriginDepartures([]);
+      return;
+    }
+
+    let isCancelled = false;
+    async function loadOriginDepartures() {
+      try {
+        const { data: activeTrips, error } = await supabase
+          .from("trips")
+          .select(`
+            id,
+            route_id,
+            status,
+            conductor_id,
+            started_at,
+            delay_minutes,
+            buses (
+              id,
+              bus_number,
+              registration_number,
+              type,
+              capacity
+            ),
+            routes (
+              id,
+              route_number,
+              name
+            ),
+            trip_stops (
+              stop_id,
+              status,
+              sequence_order
+            )
+          `)
+          .eq("status", "ACTIVE")
+          .not("conductor_id", "is", null)
+          .not("started_at", "is", null);
+
+        if (isCancelled || error || !activeTrips) {
+          if (!isCancelled) setOriginDepartures([]);
+          return;
+        }
+
+        const validDepartures: Array<{
+          id: string;
+          routeNumber: string;
+          destinationStop: Stop;
+          destinationName: string;
+          busType: string;
+          departureTime: string;
+          etaMinutes: number;
+          availableSeats: number;
+          fare: number;
+        }> = [];
+
+        for (const trip of activeTrips) {
+          const stops = (trip.trip_stops || []) as { stop_id: string; status: string; sequence_order: number }[];
+          const originIdx = stops.findIndex((s) => s.stop_id === originStop!.id);
+          if (originIdx === -1) continue;
+
+          // Only include if bus has not departed past this origin stop
+          const originTripStop = stops[originIdx];
+          if (!originTripStop || originTripStop.status === "COMPLETED") continue;
+
+          const sortedStops = [...stops].sort((a, b) => a.sequence_order - b.sequence_order);
+          const terminalStop = sortedStops[sortedStops.length - 1];
+          const destObj = allStops.find((s) => s.id === terminalStop?.stop_id);
+          if (!destObj || destObj.id === originStop!.id) continue;
+
+          const rNum = (trip.routes as any)?.route_number || "City Bus";
+          const bType = (trip.buses as any)?.type === "AC" ? "AC Deluxe" : ((trip.buses as any)?.type || "Ordinary City Service");
+          const cap = (trip.buses as any)?.capacity || 48;
+
+          validDepartures.push({
+            id: trip.id,
+            routeNumber: rNum,
+            destinationStop: destObj,
+            destinationName: destObj.name,
+            busType: bType,
+            departureTime: new Date(Date.now() + 10 * 60000).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            etaMinutes: Math.max(2, 6 + (trip.delay_minutes || 0)),
+            availableSeats: Math.max(4, cap - 15),
+            fare: 20,
+          });
+        }
+
+        if (!isCancelled) {
+          setOriginDepartures(validDepartures);
+        }
+      } catch {
+        if (!isCancelled) setOriginDepartures([]);
+      }
+    }
+
+    void loadOriginDepartures();
+
+    const channel = supabase
+      .channel("origin-departures-" + originStop.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "trips" }, () => {
+        void loadOriginDepartures();
+      })
+      .subscribe();
+
+    return () => {
+      isCancelled = true;
+      void supabase.removeChannel(channel);
+    };
+  }, [originStop?.id, destStop, allStops]);
 
   // Background Route & Active Buses Resolution (100% Dynamic, Live Only)
   useEffect(() => {
@@ -456,7 +553,9 @@ export function HomePage() {
             )
           `)
           .in("route_id", matchingRouteIds)
-          .eq("status", "ACTIVE");
+          .eq("status", "ACTIVE")
+          .not("conductor_id", "is", null)
+          .not("started_at", "is", null);
 
         if (isCancelled) return;
 
@@ -467,7 +566,9 @@ export function HomePage() {
         }
 
         // Map live active buses with real telemetry & dynamic ETA
-        const liveBuses: ScheduledBusItem[] = liveTrips.map((t: any, idx: number) => {
+        const liveBuses: ScheduledBusItem[] = (liveTrips || [])
+          .filter((t: any) => t.status === "ACTIVE" && t.conductor_id && t.started_at)
+          .map((t: any, idx: number) => {
           const rNum = t.routes?.route_number || matchedRoute?.route_number || "City Service";
           const rName = t.routes?.name || `${originStop?.name} → ${destStop?.name}`;
           const busType = t.buses?.type === "AC" ? "AC Deluxe" : (t.buses?.type || "Ordinary City Service");
@@ -1004,7 +1105,7 @@ export function HomePage() {
             </div>
             <h4 className="text-sm font-bold text-slate-800">No Live Buses En Route Right Now</h4>
             <p className="mt-1 max-w-xs text-xs text-slate-500">
-              There are currently no active buses operating between <strong className="text-slate-700">{originStop?.name}</strong> and <strong className="text-slate-700">{destStop?.name}</strong>. Live tracking activates as soon as a conductor initiates a trip.
+              There are currently no active buses operating between <strong className="text-slate-700">{originStop?.name}</strong> and <strong className="text-slate-700">{destStop?.name}</strong>. Live tracking activates as soon as a conductor scans and initiates a trip.
             </p>
             <div className="mt-3.5 flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />

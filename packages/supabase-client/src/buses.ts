@@ -60,11 +60,14 @@ export async function listEligibleBuses(
           )
         `)
         .eq("route_id", routeId)
-        .eq("status", "ACTIVE");
+        .eq("status", "ACTIVE")
+        .not("conductor_id", "is", null)
+        .not("started_at", "is", null);
 
       if (directTrips && directTrips.length > 0) {
         rawBuses = directTrips
           .filter((t: any) => {
+            if (!t.conductor_id || !t.started_at || t.status !== "ACTIVE") return false;
             const bus = Array.isArray(t.buses) ? t.buses[0] : t.buses;
             if (bus && (bus.is_active === false || bus.status === "INACTIVE" || bus.status === "MAINTENANCE")) {
               return false;
@@ -105,9 +108,11 @@ export async function listEligibleBuses(
       const tripIds = rawBuses.map((b) => b.trip_id);
       const { data: verified } = await client
         .from("trips")
-        .select("id, status, buses(is_active, status)")
+        .select("id, status, conductor_id, started_at, buses(is_active, status)")
         .in("id", tripIds)
-        .eq("status", "ACTIVE");
+        .eq("status", "ACTIVE")
+        .not("conductor_id", "is", null)
+        .not("started_at", "is", null);
 
       if (verified) {
         const activeTripIds = new Set(
@@ -117,7 +122,7 @@ export async function listEligibleBuses(
               if (b && (b.is_active === false || b.status === "INACTIVE" || b.status === "MAINTENANCE")) {
                 return false;
               }
-              return row.status === "ACTIVE";
+              return row.status === "ACTIVE" && Boolean(row.conductor_id) && Boolean(row.started_at);
             })
             .map((row: any) => row.id),
         );

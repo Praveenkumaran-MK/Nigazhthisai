@@ -86,7 +86,7 @@ export function SearchResultsPage() {
           try {
             const { data: ts } = await supabase
               .from("trip_stops")
-              .select("trip_id, stop_id, sequence_order, trips(id, route_id, status)")
+              .select("trip_id, stop_id, sequence_order, trips(id, route_id, status, conductor_id, started_at)")
               .in("stop_id", [originStopId, destStopId]);
 
             if (ts && ts.length > 0) {
@@ -94,7 +94,7 @@ export function SearchResultsPage() {
               const byTrip = new Map<string, TripSeqItem>();
               for (const row of ts) {
                 const tripInfo = row.trips as any;
-                if (tripInfo?.status !== "ACTIVE") continue;
+                if (tripInfo?.status !== "ACTIVE" || !tripInfo?.conductor_id || !tripInfo?.started_at) continue;
                 const item: TripSeqItem = byTrip.get(row.trip_id) || { routeId: tripInfo.route_id };
                 if (row.stop_id === originStopId) item.originSeq = row.sequence_order;
                 if (row.stop_id === destStopId) item.destSeq = row.sequence_order;
