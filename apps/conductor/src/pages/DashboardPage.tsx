@@ -876,7 +876,7 @@ export function DashboardPage() {
     : 0;
 
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-5 p-5 pt-8 pb-32">
+    <div className="mx-auto flex min-h-dvh max-w-lg flex-col gap-4 p-4 pt-6 pb-24 text-slate-900">
       {/* Top Header */}
       <header className="flex items-center justify-between">
         <div>
@@ -935,7 +935,7 @@ export function DashboardPage() {
           {activeTrip ? (
             <div className="flex flex-col gap-4">
               {/* Active Trip Hero Banner */}
-              <Card className="border border-slate-200 bg-white shadow-xs rounded-2xl p-4">
+              <Card className="border border-slate-200/90 !bg-white shadow-xs rounded-2xl p-4 !text-slate-900">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Badge tone="success" className="font-extrabold uppercase tracking-wider">
@@ -964,11 +964,11 @@ export function DashboardPage() {
                 </div>
 
                 <div className="mt-3">
-                  <h2 className="text-lg font-bold text-slate-900">
+                  <h2 className="text-lg font-black !text-slate-900 leading-snug">
                     {activeTrip.routes?.route_number ? `Route ${activeTrip.routes.route_number}: ` : ""}
                     {activeTrip.routes?.name ?? "Live Transit Service"}
                   </h2>
-                  <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
+                  <div className="mt-1 flex items-center gap-3 text-xs !text-slate-500 font-medium">
                     <span>
                       Started{" "}
                       {activeTrip.started_at
@@ -976,7 +976,7 @@ export function DashboardPage() {
                         : "Recently"}
                     </span>
                     <span>•</span>
-                    <span className="font-mono text-slate-600">
+                    <span className="font-mono !text-slate-600 font-semibold">
                       ID: #{activeTrip.id.slice(0, 6).toUpperCase()}
                     </span>
                   </div>
@@ -1239,7 +1239,7 @@ export function DashboardPage() {
                 </div>
               </div>
               <div className="mt-3">
-                <h2 className="text-lg font-bold text-slate-900">
+                <h2 className="text-lg font-black !text-slate-900 leading-snug">
                   {primaryScheduledTrip.routes?.route_number ? `Route ${primaryScheduledTrip.routes.route_number}: ` : ""}
                   {primaryScheduledTrip.routes?.name ?? "Assigned Route"}
                 </h2>
@@ -1319,7 +1319,7 @@ export function DashboardPage() {
               </div>
             </Card>
           ) : (
-            <Card className="border-slate-200 bg-white">
+            <Card className="border border-slate-200/90 !bg-white !text-slate-900 shadow-xs">
               <div className="flex items-center justify-between">
                 <Badge tone="neutral">SCHEDULE</Badge>
                 <span className="text-xs text-slate-400">Today: {assignedTrips.length} Trips Assigned</span>
@@ -1417,7 +1417,7 @@ export function DashboardPage() {
           </div>
 
           {/* Financial Breakdown Card */}
-          <Card className="border-slate-200 bg-white">
+          <Card className="border border-slate-200/90 !bg-white !text-slate-900 shadow-xs">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-800">Today's Revenue Breakdown</h3>
               <button

@@ -510,7 +510,7 @@ export function HomePage() {
   const alertBadgeCount = serviceAlerts.length > 0 ? serviceAlerts.length : 14;
 
   return (
-    <div className="mx-auto flex max-w-md flex-col text-slate-900 select-none pb-4">
+    <div className="mx-auto flex min-h-[calc(100dvh-5.5rem)] max-w-md flex-col justify-between text-slate-900 select-none pb-4">
       {/* ── 1. Top Header Bar (Matching Image 1) ── */}
       <header className="mx-3.5 mt-2.5 mb-2.5 flex items-center justify-between rounded-2xl border border-slate-200/90 bg-white px-3 py-2 shadow-xs">
         {/* Left: Hamburger Menu Button */}
@@ -774,8 +774,9 @@ export function HomePage() {
       </div>
 
       {/* ── 3. ACTIVE SCHEDULED BUSES Section (Below Bus Lookup, Above Navbar) ── */}
-      <div className="px-3.5">
-        <div className="flex items-center justify-between mb-1.5 px-0.5">
+      <div className="flex-1 flex flex-col justify-between px-3.5 mt-1">
+        <div>
+        <div className="flex items-center justify-between mb-2 px-0.5">
           <div className="flex items-center gap-1.5">
             <ArrowLeftRight className="h-3.5 w-3.5 text-[#0a192f]" />
             <h3 className="text-xs font-black tracking-wider text-[#0a192f] uppercase">
@@ -794,9 +795,12 @@ export function HomePage() {
         </div>
 
         {/* Section Body: Compact Empty State vs Populated Bus Cards */}
+        </div>
+
+        {/* Section Body: Compact Empty State vs Populated Bus Cards */}
         {!destStop ? (
           /* Empty State matching Image 1 + Improvised Rich Content to Eliminate Dead Space */
-          <div className="flex flex-col gap-3">
+          <div className="flex-1 flex flex-col justify-between gap-3">
             <div className="flex flex-col rounded-3xl border border-slate-200/90 bg-white p-4 shadow-xs">
               <div className="flex flex-col items-center text-center pb-3 border-b border-slate-100">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/15 border border-amber-400/30 text-amber-500 shadow-inner mb-1.5">

@@ -3,6 +3,7 @@ import type { Config } from "tailwindcss";
 const preset = require("@sbt/ui/tailwind-preset");
 
 export default {
+  darkMode: ["class", '[data-theme="dark"]'],
   presets: [preset],
   content: [
     "./index.html",

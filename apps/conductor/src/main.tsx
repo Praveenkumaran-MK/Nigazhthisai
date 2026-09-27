@@ -9,7 +9,8 @@ import { ConductorI18nProvider } from "./lib/i18n";
 
 // The conductor app is dark-first (OLED battery efficiency during long
 // shifts, and Pocket Mode requires pure black) — always applied, no toggle.
-document.documentElement.classList.add("dark");
+// Ensure conductor app is strictly light theme matching passenger/admin apps
+document.documentElement.classList.remove("dark");
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

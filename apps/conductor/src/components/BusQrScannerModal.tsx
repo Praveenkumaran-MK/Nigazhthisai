@@ -144,7 +144,7 @@ export function BusQrScannerModal({
             </div>
             <div>
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h2 className="text-base font-bold text-white">
+                <h2 className="text-base font-black text-slate-900">
                   {isEndingRide ? `End Shift & Ride — Bus #${assignedBus?.bus_number ?? "Assigned"}` : `Verify Bus #${assignedBus?.bus_number ?? "Assigned"}`}
                 </h2>
                 {assignedBus?.is_wheelchair_accessible && (
@@ -154,7 +154,7 @@ export function BusQrScannerModal({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs font-medium text-slate-500">
                 {isEndingRide
                   ? "Scan bus QR code to end ride wherever you are"
                   : `${assignedBus?.registration_number ? `${assignedBus.registration_number} · ` : ""}Scan official bus QR`}
@@ -178,8 +178,8 @@ export function BusQrScannerModal({
             onClick={() => setMode("camera")}
             className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition-all ${
               mode === "camera"
-                ? `${isEndingRide ? "bg-rose-600" : "bg-emerald-600"} text-white shadow-md`
-                : "text-slate-400 hover:text-slate-800"
+                ? `${isEndingRide ? "bg-rose-600" : "bg-[#0a192f]"} text-white shadow-xs`
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             }`}
           >
             <Camera className="h-4 w-4" />
@@ -190,8 +190,8 @@ export function BusQrScannerModal({
             onClick={() => setMode("manual")}
             className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-bold transition-all ${
               mode === "manual"
-                ? `${isEndingRide ? "bg-rose-600" : "bg-emerald-600"} text-white shadow-md`
-                : "text-slate-400 hover:text-slate-800"
+                ? `${isEndingRide ? "bg-rose-600" : "bg-[#0a192f]"} text-white shadow-xs`
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             }`}
           >
             <Keyboard className="h-4 w-4" />
@@ -307,13 +307,13 @@ export function BusQrScannerModal({
           <form onSubmit={handleManualSubmit} className="flex flex-col gap-4 p-5 bg-white">
             {/* Quick 1-Click Verification for Assigned Bus */}
             {assignedBus && (
-              <div className={`rounded-2xl border ${isEndingRide ? "border-rose-500/30 bg-rose-950/30" : "border-emerald-500/30 bg-emerald-950/30"} p-3.5 shadow-sm`}>
+              <div className={`rounded-2xl border ${isEndingRide ? "border-rose-200 bg-rose-50/80" : "border-emerald-200 bg-emerald-50/80"} p-3.5 shadow-xs`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className={`h-4 w-4 ${isEndingRide ? "text-rose-400" : "text-emerald-400"} shrink-0`} />
+                    <CheckCircle2 className={`h-4 w-4 ${isEndingRide ? "text-rose-600" : "text-emerald-600"} shrink-0`} />
                     <div>
-                      <p className="text-xs font-bold text-white">{isEndingRide ? "Active Vehicle" : "Assigned to Trip"}</p>
-                      <p className={`text-xs ${isEndingRide ? "text-rose-300" : "text-emerald-300"} font-mono`}>Bus #{assignedBus.bus_number}</p>
+                      <p className={`text-xs font-bold ${isEndingRide ? "text-rose-900" : "text-emerald-900"}`}>{isEndingRide ? "Active Vehicle" : "Assigned to Trip"}</p>
+                      <p className={`text-xs ${isEndingRide ? "text-rose-700" : "text-emerald-700"} font-mono font-bold`}>Bus #{assignedBus.bus_number}</p>
                     </div>
                   </div>
                   <Button
@@ -333,15 +333,15 @@ export function BusQrScannerModal({
             )}
 
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-700 block mb-1.5">
                 Bus Verification Code or Bus Number
               </label>
-              <Input
+              <input
                 autoFocus
                 placeholder={`e.g. ${assignedBus?.bus_number || "TN-24-N-1023"}`}
                 value={manualCode}
-                onChange={(e) => setManualCode(e.target.value)}
-                className="w-full uppercase font-mono tracking-wide"
+                onChange={(e) => setManualCode(e.target.value.toUpperCase())}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm font-mono font-bold text-slate-900 placeholder:text-slate-400 focus:border-[#0a192f] focus:outline-none focus:ring-1 focus:ring-[#0a192f] shadow-xs"
               />
               <p className="text-[11px] text-slate-500 mt-1">
                 Enter the vehicle number or the verification token from the bus QR plate to complete shift.
@@ -351,23 +351,29 @@ export function BusQrScannerModal({
             <Button
               type="submit"
               size="lg"
-              className={`w-full ${isEndingRide ? "bg-rose-600 hover:bg-rose-500" : "bg-emerald-600 hover:bg-emerald-500"} text-white font-bold h-12 text-sm`}
+              className={`w-full ${
+                !manualCode.trim()
+                  ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                  : isEndingRide
+                  ? "bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
+                  : "bg-[#0a192f] hover:bg-slate-800 text-white shadow-xs"
+              } font-bold h-12 text-sm rounded-xl transition-all`}
               isLoading={isVerifying}
               disabled={!manualCode.trim()}
             >
-              {isEndingRide ? "End Shift & Complete Ride Now →" : "Verify Vehicle & Activate Service"}
+              {isEndingRide ? "End Shift & Complete Ride Now →" : "Verify Vehicle & Activate Service →"}
             </Button>
           </form>
         )}
 
         {/* Error Feedback Display */}
         {errorMessage && (
-          <div className="mx-4 mb-4 rounded-xl border border-rose-500/40 bg-rose-950/60 p-3.5 text-xs text-rose-200 shadow-md animate-shake">
+          <div className="mx-4 mb-4 rounded-xl border border-rose-300 bg-rose-50 p-3.5 text-xs text-rose-800 shadow-md animate-shake">
             <div className="flex items-start gap-2.5">
-              <ShieldAlert className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
+              <ShieldAlert className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
               <div>
-                <strong className="font-bold text-rose-300 block">Verification Failed</strong>
-                <p className="mt-0.5 text-rose-200/90 leading-relaxed">{errorMessage}</p>
+                <strong className="font-bold text-rose-900 block">Verification Failed</strong>
+                <p className="mt-0.5 text-rose-800 leading-relaxed">{errorMessage}</p>
               </div>
             </div>
           </div>
