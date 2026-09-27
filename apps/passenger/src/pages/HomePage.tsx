@@ -10,7 +10,6 @@ import { useI18n } from "../lib/i18n";
 import { LangToggle } from "../components/LangToggle";
 import {
   Menu,
-  Bell,
   ArrowLeft,
   ArrowUpDown,
   ArrowLeftRight,
@@ -27,7 +26,6 @@ import {
   User,
   Ticket,
   FileText,
-  AlertTriangle,
   Sparkles,
   Radio,
   PhoneCall,
@@ -76,7 +74,6 @@ export function HomePage() {
 
   // Drawer and alerts modal
   const [showDrawer, setShowDrawer] = useState(false);
-  const [showAlertsModal, setShowAlertsModal] = useState(false);
 
   // Transit state
   const [dbDistricts, setDbDistricts] = useState<string[]>([]);
@@ -514,7 +511,6 @@ export function HomePage() {
     navigate(`/search?${params.toString()}`);
   };
 
-  const alertBadgeCount = serviceAlerts.length > 0 ? serviceAlerts.length : 14;
 
   return (
     <div className="mx-auto flex max-w-md flex-col text-slate-900 select-none pb-6 gap-3">
@@ -556,22 +552,8 @@ export function HomePage() {
           </div>
         </div>
 
-        {/* Right: Notifications Bell Badge (SOS button removed from header as requested) */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowAlertsModal(true)}
-            className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition active:scale-95"
-            aria-label="Notifications"
-          >
-            <Bell className="h-4 w-4 text-slate-600" />
-            {alertBadgeCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-black text-white shadow-xs ring-2 ring-white">
-                {alertBadgeCount}
-              </span>
-            )}
-          </button>
-        </div>
+        {/* Right: Symmetrical spacer to keep center branding centered */}
+        <div className="w-9" aria-hidden="true" />
       </header>
 
       {/* ── 2. BUS LOOKUP Card (Matching Image 1) ── */}
@@ -1109,51 +1091,6 @@ export function HomePage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── 5. Notifications / Alerts Modal ── */}
-      {showAlertsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="flex max-h-[85vh] w-full max-w-sm flex-col rounded-3xl bg-white p-5 text-slate-900 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Bell className="h-4 w-4 text-brand-600" />
-                <h3 className="text-sm font-black text-slate-900">
-                  Transit Alerts ({alertBadgeCount})
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAlertsModal(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto py-2 flex flex-col gap-2">
-              {serviceAlerts.length > 0 ? (
-                serviceAlerts.map((a) => (
-                  <div key={a.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <div className="flex items-center gap-1.5 text-xs font-black text-slate-800">
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                      <span>{a.title || "Service Notice"}</span>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-600">{a.message}</p>
-                  </div>
-                ))
-              ) : (
-                <div className="p-4 text-center text-xs text-slate-500">
-                  🟢 All routes operating normally across {selectedDistrict}. No active disruptions reported.
-                </div>
-              )}
-            </div>
-            <div className="pt-2 border-t border-slate-100">
-              <Button size="sm" className="w-full" onClick={() => setShowAlertsModal(false)}>
-                Dismiss
-              </Button>
-            </div>
           </div>
         </div>
       )}
