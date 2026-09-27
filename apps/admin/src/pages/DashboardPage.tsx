@@ -400,7 +400,7 @@ export function DashboardPage() {
             </span>
           </div>
           <h1 className="mt-1 text-2xl font-black tracking-tight text-[#0D2A5D] dark:text-white">
-            Nigazhthisai — Executive Mission Control
+            Nigalthisai — Executive Mission Control
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Real-time telemetry pulse, database-verified operational highlights, and rapid access across transit systems

@@ -286,8 +286,8 @@ export type StringKey = keyof typeof strings.en;
 // Comprehensive Passenger transit dictionary
 export const passengerDictionary: Record<string, string> = {
   // Brand & Identity
-  "NIGAZHTHISAI": "நிகழ்த்திசை",
-  "Nigazhthisai": "நிகழ்த்திசை",
+  "NIGALTHISAI": "நிகழ்த்திசை",
+  "Nigalthisai": "நிகழ்த்திசை",
   "SMART BUS TRANSIT": "ஸ்மார்ட் பேருந்து போக்குவரத்து",
   "Where are you headed?": "எங்கே போக வேண்டும்?",
   "Tickets saved to this device": "இந்த சாதனத்தில் டிக்கெட்டுகள் சேமிக்கப்பட்டன",
@@ -420,7 +420,7 @@ export const passengerDictionary: Record<string, string> = {
   "Connected via": "வழியாக இணைக்கப்பட்டுள்ளது",
   "No Direct Route": "நேரடி வழித்தடம் இல்லை",
   "Emergency Assistance / SOS Chat": "அவசர உதவி / SOS அரட்டை",
-  "Help us improve the Nigazhthisai experience": "நிகழ்த்திசை சேவையை மேம்படுத்த உதவுங்கள்",
+  "Help us improve the Nigalthisai experience": "நிகழ்த்திசை சேவையை மேம்படுத்த உதவுங்கள்",
   "Optional comment…": "கூடுதல் கருத்து (விருப்பப்பட்டால்)…",
   "Optional comment...": "கூடுதல் கருத்து (விருப்பப்பட்டால்)…",
   "Terrible": "மிக மோசம்",

@@ -223,7 +223,7 @@ export function AdminUsersPage() {
         <div>
           <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Admin Users</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            District administrators and master authority personnel across Nigazhthisai transit districts.
+            District administrators and master authority personnel across Nigalthisai transit districts.
           </p>
         </div>
         <Button
@@ -559,7 +559,7 @@ export function AdminUsersPage() {
                 <span>Access Revocation Notice</span>
               </div>
               <p>
-                Deleting this account will permanently revoke their access to the Nigazhthisai Administrative Control Center
+                Deleting this account will permanently revoke their access to the Nigalthisai Administrative Control Center
                 {deletingAdmin.districtName ? (
                   <> and unassign them from the <strong className="font-bold">{deletingAdmin.districtName}</strong> district</>
                 ) : null}

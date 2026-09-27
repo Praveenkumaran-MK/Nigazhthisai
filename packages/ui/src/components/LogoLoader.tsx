@@ -18,7 +18,7 @@ const sizeClasses: Record<LogoLoaderSize, { container: string; spinner: string }
 };
 
 /**
- * Standard simple circular loader for all data states across Nigazhthisai apps.
+ * Standard simple circular loader for all data states across Nigalthisai apps.
  */
 export function LogoLoader({ size = "md", label, tone = "navy", className }: LogoLoaderProps) {
   const conf = sizeClasses[size];

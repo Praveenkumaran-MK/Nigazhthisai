@@ -86,7 +86,7 @@ export function SystemSettingsPage() {
       const payload: Record<string, any> = {
         id: true,
         authority_name: authorityName.trim() || null,
-        upi_id: upiId.trim() || "nigazhthisai-transit@upi",
+        upi_id: upiId.trim() || "nigalthisai-transit@upi",
         is_payments_enabled: isPaymentsEnabled,
         support_phone: supportPhone.trim() || null,
         support_email: supportEmail.trim() || null,
@@ -100,7 +100,7 @@ export function SystemSettingsPage() {
         console.warn("Retrying with core authority config fields:", err);
         const fallbackPayload = {
           id: true,
-          upi_id: upiId.trim() || "nigazhthisai-transit@upi",
+          upi_id: upiId.trim() || "nigalthisai-transit@upi",
           is_payments_enabled: isPaymentsEnabled,
         };
         const { error: fbErr } = await supabase.from("transport_authority_config").upsert(fallbackPayload);
@@ -134,7 +134,7 @@ export function SystemSettingsPage() {
       <div>
         <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">System Settings</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Nigazhthisai Transit Authority configuration. Changes apply system-wide.
+          Nigalthisai Transit Authority configuration. Changes apply system-wide.
         </p>
       </div>
 

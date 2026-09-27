@@ -66,7 +66,7 @@ function AppRoutes() {
           <LangToggle />
         </div>
       )}
-      <div className={showTabBar ? "pb-16" : undefined}>
+      <div className={showTabBar ? "pb-24" : undefined}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/search" element={<SearchResultsPage />} />

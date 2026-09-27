@@ -14,8 +14,8 @@ import { AdminI18nProvider } from "./lib/i18n";
 const isMasterAdminHost =
   typeof window !== "undefined" && window.location.hostname.includes("superadmin");
 document.title = isMasterAdminHost
-  ? "Nigazhthisai — Master Admin"
-  : "Nigazhthisai — District Admin";
+  ? "Nigalthisai — Master Admin"
+  : "Nigalthisai — District Admin";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -310,9 +310,9 @@ export function ScannerPage() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col bg-slate-950 text-slate-100">
+    <div className="flex min-h-dvh flex-col bg-slate-50 text-slate-900">
       {/* Top Bar */}
-      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 p-4 backdrop-blur">
+      <div className="flex items-center justify-between border-b border-slate-200 bg-white/90 p-4 backdrop-blur">
         <Button
           variant="ghost"
           size="sm"
@@ -332,7 +332,7 @@ export function ScannerPage() {
         {tripInfo && (
           <div className="flex items-center gap-1.5 text-xs text-slate-400">
             <Bus className="h-3.5 w-3.5 text-sky-400 shrink-0" />
-            <span className="font-semibold text-slate-200">Bus #{tripInfo.bus_number}</span>
+            <span className="font-semibold text-slate-800">Bus #{tripInfo.bus_number}</span>
             {tripInfo.is_wheelchair_accessible && (
               <span className="inline-flex items-center gap-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 text-[10px] font-bold" title="Handicap Accessible Vehicle">
                 <WheelchairIcon size={12} className="text-blue-400" />
@@ -343,11 +343,11 @@ export function ScannerPage() {
           </div>
         )}
 
-        <div className="flex gap-1 rounded-lg bg-slate-800 p-1">
+        <div className="flex gap-1 rounded-lg bg-slate-100 border border-slate-200 p-1">
           <button
             type="button"
             className={`inline-flex items-center gap-1.5 rounded px-3 py-1 text-xs font-semibold transition ${
-              mode === "camera" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-slate-200"
+              mode === "camera" ? "bg-emerald-600 text-white" : "text-slate-500 hover:text-slate-800"
             }`}
             onClick={() => setMode("camera")}
           >
@@ -357,7 +357,7 @@ export function ScannerPage() {
           <button
             type="button"
             className={`inline-flex items-center gap-1.5 rounded px-3 py-1 text-xs font-semibold transition ${
-              mode === "pnr" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-slate-200"
+              mode === "pnr" ? "bg-emerald-600 text-white" : "text-slate-500 hover:text-slate-800"
             }`}
             onClick={() => setMode("pnr")}
           >
@@ -382,8 +382,8 @@ export function ScannerPage() {
         </div>
       ) : (
         <div className="flex-1 p-5 max-w-md mx-auto w-full flex flex-col justify-center gap-4">
-          <Card className="border-slate-800 bg-slate-900/90 p-5 shadow-xl">
-            <h2 className="text-base font-bold text-slate-100">{t("Manual Ticket Validation")}</h2>
+          <Card className="border-slate-200 bg-white/90 p-5 shadow-xl">
+            <h2 className="text-base font-bold text-slate-900">{t("Manual Ticket Validation")}</h2>
             <p className="mt-1 text-xs text-slate-400">
               {t("Enter the 8-character PNR code or Ticket ID from the passenger's screen / receipt.")}
             </p>
@@ -408,7 +408,7 @@ export function ScannerPage() {
                       if (k === "CLR") setPnrInput("");
                       else setPnrInput((prev) => prev + k);
                     }}
-                    className="rounded bg-slate-800 py-2 text-sm font-mono font-semibold text-slate-200 hover:bg-slate-700 active:scale-95 transition"
+                    className="rounded bg-slate-100 border border-slate-200 py-2 text-sm font-mono font-semibold text-slate-700 hover:bg-slate-200 active:scale-95 transition"
                   >
                     {k}
                   </button>
@@ -429,7 +429,7 @@ export function ScannerPage() {
       )}
 
       {/* Feedback Panel */}
-      <div className="p-4 bg-slate-900 border-t border-slate-800">
+      <div className="p-4 bg-white border-t border-slate-200">
         {status === "camera-denied" && mode === "camera" && (
           <Alert tone="danger" title={t("Camera permission denied")}>
             {t("Enable camera access in your browser settings or switch to Manual PNR mode.")}
@@ -480,7 +480,7 @@ export function ScannerPage() {
                 : " Would you like to end this ride, stop GPS broadcasting, and complete your shift?"}
             </p>
           </div>
-          <div className="w-full rounded-xl bg-slate-900 border border-slate-800 p-3 text-xs text-slate-300 font-mono text-left space-y-1">
+          <div className="w-full rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600 font-mono text-left space-y-1">
             <div>• Trip status: <strong className="text-emerald-400">COMPLETED</strong></div>
             <div>• Remaining active tickets: <strong className="text-amber-400">EXPIRED</strong></div>
             <div>• Live GPS broadcasting: <strong className="text-rose-400">STOPPED</strong></div>
@@ -526,7 +526,7 @@ export function ScannerPage() {
               </Button>
               <Button
                 variant="outline"
-                className="flex-1 font-bold text-slate-300 hover:text-white"
+                className="flex-1 font-bold text-slate-600 hover:text-white"
                 disabled={isEndingShift}
                 onClick={async () => {
                   if (effectiveTripId && pendingEndShiftQr && tripInfo?.status !== "COMPLETED") {

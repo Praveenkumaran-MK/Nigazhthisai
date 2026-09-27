@@ -16,11 +16,11 @@ export interface BrandLogoProps {
 }
 
 /**
- * Official Nigazhthisai Brand Logo Mark (Raster Asset from Brand Master)
+ * Official Nigalthisai Brand Logo Mark (Raster Asset from Brand Master)
  */
 function LogoMark({ tone, className, title }: { tone: BrandLogoTone; className?: string; title?: string }) {
   const src = tone === "light" ? BRAND_LOGO_LIGHT : BRAND_LOGO_NAVY;
-  const alt = title || "Nigazhthisai";
+  const alt = title || "Nigalthisai";
 
   return (
     <img
@@ -37,7 +37,7 @@ function LogoMark({ tone, className, title }: { tone: BrandLogoTone; className?:
  * `lockup` adds the wordmark beside it; `lockup-stacked` places it below
  * for splash/hero use.
  */
-export function BrandLogo({ variant = "mark", tone = "navy", className, title = "Nigazhthisai", subtitle }: BrandLogoProps) {
+export function BrandLogo({ variant = "mark", tone = "navy", className, title = "Nigalthisai", subtitle }: BrandLogoProps) {
   if (variant === "mark") {
     return <LogoMark tone={tone} className={cn("h-9 w-9", className)} title={title} />;
   }
@@ -57,7 +57,7 @@ export function BrandLogo({ variant = "mark", tone = "navy", className, title = 
     >
       <LogoMark tone={tone} className={cn(stacked ? "h-14 w-14" : "h-9 w-9", "shrink-0")} />
       <span className={cn("flex flex-col leading-none", stacked && "items-center")}>
-        <span className={cn("text-base font-bold tracking-tight", nameColor)}>Nigazhthisai</span>
+        <span className={cn("text-base font-bold tracking-tight", nameColor)}>Nigalthisai</span>
         <span className={cn("mt-0.5 text-[10px] font-medium uppercase tracking-[0.14em]", subColor)}>
           {subtitle ?? "District Network"}
         </span>

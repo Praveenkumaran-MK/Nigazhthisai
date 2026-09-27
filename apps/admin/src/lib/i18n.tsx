@@ -7,8 +7,8 @@ const STORAGE_KEY = "ngz_admin_lang";
 // Complete, comprehensive bilingual dictionary (transit, revenue, alerts, operations, fleet, settings)
 export const dictionary: Record<string, string> = {
   // Brand & Identity
-  "NIGAZHTHISAI": "நிகழ்த்திசை",
-  "Nigazhthisai": "நிகழ்த்திசை",
+  "NIGALTHISAI": "நிகழ்த்திசை",
+  "Nigalthisai": "நிகழ்த்திசை",
   "MASTER ADMIN": "முதன்மை நிர்வாகி",
   "DISTRICT ADMIN": "மாவட்ட நிர்வாகி",
   "MASTER": "முதன்மை",
@@ -230,7 +230,7 @@ export const dictionary: Record<string, string> = {
   "Revenue & Financial Audits": "வருவாய் & நிதி தணிக்கை",
   "Financial Audits": "நிதி தணிக்கை",
   "Real-time financial breakdown, custom date range filtering, digital fare analytics, and branded audit PDF export.": "நேரலை நிதி விவரங்கள், தனிப்பயன் தேதி வரம்பு வடிகட்டுதல், டிஜிட்டல் கட்டண பகுப்பாய்வு மற்றும் தணிக்கை பிடிஎஃப் ஏற்றுமதி.",
-  "Export Nigazhthisai PDF": "நிகழ்த்திசை PDF ஏற்றுமதி செய்க",
+  "Export Nigalthisai PDF": "நிகழ்த்திசை PDF ஏற்றுமதி செய்க",
   "All Operating Districts": "அனைத்து செயல்படும் மாவட்டங்கள்",
   "All Operating": "அனைத்து செயல்படும்",
   "Total Net Revenue": "மொத்த நிகர வருவாய்",
@@ -334,7 +334,7 @@ export const dictionary: Record<string, string> = {
   "acknowledged": "ஏற்றுக்கொள்ளப்பட்டது",
 
   // Executive Mission Control / Dashboard
-  "Nigazhthisai — Executive Mission Control": "நிகழ்த்திசை — தலைமை கட்டுப்பாட்டு மையம்",
+  "Nigalthisai — Executive Mission Control": "நிகழ்த்திசை — தலைமை கட்டுப்பாட்டு மையம்",
   "Real-time telemetry pulse, high-level operational highlights, and rapid access across all modules": "நேரலை தொலை அளவியல் துடிப்பு, உயர்நிலை செயல்பாட்டு சிறப்பம்சங்கள் மற்றும் அனைத்து தொகுதிகளுக்கும் விரைவான அணுகல்",
   "Operational Section Highlights": "செயல்பாட்டுப் பிரிவின் சிறப்பம்சங்கள்",
   "Real-time status snapshot · Click any module to deep-dive": "நேரலை நிலை சுருக்கம் · விரிவாகப் பார்க்க எந்த தொகுதியையும் கிளிக் செய்க",

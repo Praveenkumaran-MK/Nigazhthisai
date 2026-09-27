@@ -7,8 +7,8 @@ const STORAGE_KEY = "ngz_conductor_lang";
 // Complete Conductor & ETM transit dictionary
 export const dictionary: Record<string, string> = {
   // Brand & Roles
-  "NIGAZHTHISAI": "நிகழ்த்திசை",
-  "Nigazhthisai": "நிகழ்த்திசை",
+  "NIGALTHISAI": "நிகழ்த்திசை",
+  "Nigalthisai": "நிகழ்த்திசை",
   "CONDUCTOR": "நடத்துனர்",
   "Conductor": "நடத்துனர்",
   "CONDUCTOR PORTAL": "நடத்துனர் தளம்",

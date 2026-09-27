@@ -454,7 +454,7 @@ export function TicketPage() {
         originName={originStop?.name ?? "Origin"}
         destinationCode={destStop?.code ?? "—"}
         destinationName={destStop?.name ?? "Destination"}
-        operatorLabel="Nigazhthisai"
+        operatorLabel="Nigalthisai"
         statusBadge={<Badge tone={statusTone[ticket.status]}>{ticket.status}</Badge>}
         qrValue={`${ticket.qr_payload}.${ticket.qr_signature}`}
         fields={[
@@ -614,7 +614,7 @@ export function TicketPage() {
             {t("rateYourTrip")}
           </h2>
           <p className="mb-4 text-center text-xs text-slate-400">
-            Help us improve the Nigazhthisai experience
+            Help us improve the Nigalthisai experience
           </p>
 
           <StarRating value={ratingValue} onChange={setRatingValue} />

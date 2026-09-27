@@ -57,7 +57,7 @@ export function EmergencySosModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="relative flex flex-col w-full max-w-lg max-h-[88dvh] sm:max-h-[92vh] overflow-hidden rounded-t-3xl sm:rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl text-slate-100">
+      <div className="relative flex flex-col w-full max-w-lg max-h-[88dvh] sm:max-h-[92vh] overflow-hidden rounded-t-3xl sm:rounded-3xl bg-white border border-slate-200 shadow-2xl text-slate-900">
         {/* Mobile drag handle */}
         <div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
           <div className="w-12 h-1 rounded-full bg-slate-700" />
@@ -66,21 +66,21 @@ export function EmergencySosModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-700 transition"
+          className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-slate-800/80 text-slate-400 hover:text-slate-900 hover:bg-slate-700 transition"
         >
           <X className="h-4 w-4" />
         </button>
 
         {/* 3 Header Segmented Tabs (matching Image 3) */}
-        <div className="flex items-center gap-1.5 p-3.5 pt-4 border-b border-slate-800/80 bg-slate-950/60 overflow-x-auto">
+        <div className="flex items-center gap-1.5 p-3.5 pt-4 border-b border-slate-200 bg-slate-50 overflow-x-auto">
           {/* Tab 1: Live Assistant */}
           <button
             type="button"
             onClick={() => setActiveTab("chat")}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
               activeTab === "chat"
-                ? "bg-slate-800 text-white shadow-sm border border-slate-700"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/60"
+                ? "bg-slate-800 text-white shadow-sm border border-slate-300"
+                : "text-slate-400 hover:text-slate-800 hover:bg-slate-50"
             }`}
           >
             <MessageSquare className="h-3.5 w-3.5" />
@@ -97,7 +97,7 @@ export function EmergencySosModal({
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
               activeTab === "helpline"
                 ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/60"
+                : "text-slate-400 hover:text-slate-800 hover:bg-slate-50"
             }`}
           >
             <PhoneCall className="h-3.5 w-3.5 text-amber-400" />
@@ -110,8 +110,8 @@ export function EmergencySosModal({
             onClick={() => setActiveTab("guide")}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
               activeTab === "guide"
-                ? "bg-slate-800 text-white shadow-sm border border-slate-700"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/60"
+                ? "bg-slate-800 text-white shadow-sm border border-slate-300"
+                : "text-slate-400 hover:text-slate-800 hover:bg-slate-50"
             }`}
           >
             <HelpCircle className="h-3.5 w-3.5" />
@@ -127,7 +127,7 @@ export function EmergencySosModal({
           {activeTab === "helpline" && (
             <div className="flex flex-col gap-4">
               {/* Card 1: TOLL-FREE HELPLINE */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 sm:p-5 shadow-sm">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
                     <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
@@ -156,9 +156,9 @@ export function EmergencySosModal({
               </div>
 
               {/* Card 2: DISTRICT TRANSPORT DESK */}
-              <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/70 p-4 shadow-sm">
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-800">
                     {districtName.toUpperCase()} DISTRICT TRANSPORT DESK
                   </h3>
                   <p className="mt-0.5 text-xs text-slate-400 font-mono">
@@ -167,7 +167,7 @@ export function EmergencySosModal({
                 </div>
                 <a
                   href="tel:+914222435678"
-                  className="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 px-4 py-2 text-xs font-bold text-white border border-slate-700 transition"
+                  className="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 px-4 py-2 text-xs font-bold text-white border border-slate-300 transition"
                 >
                   Call
                 </a>
@@ -209,7 +209,7 @@ export function EmergencySosModal({
           {activeTab === "chat" && (
             <div className="flex flex-col gap-3">
               {/* Header Status */}
-              <div className="flex items-center justify-between rounded-xl bg-slate-950/80 border border-slate-800 p-3">
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200 p-3">
                 <div className="flex items-center gap-2">
                   <ShieldAlert className="h-5 w-5 text-amber-400" />
                   <div>
@@ -233,11 +233,11 @@ export function EmergencySosModal({
               </div>
 
               {/* Messages Container */}
-              <div className="flex flex-col gap-2.5 min-h-[220px] max-h-[340px] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950/90 p-3.5">
+              <div className="flex flex-col gap-2.5 min-h-[220px] max-h-[340px] overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
                 {sosMessages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 text-center text-xs text-slate-400">
                     <MessageSquare className="h-8 w-8 text-slate-600 mb-1.5" />
-                    <p className="font-semibold text-slate-300">No dispatch messages yet.</p>
+                    <p className="font-semibold text-slate-600">No dispatch messages yet.</p>
                     <p className="text-[11px] text-slate-500 mt-1 max-w-xs">
                       Send a message below or trigger an SOS beacon to alert control room operators immediately.
                     </p>
@@ -283,7 +283,7 @@ export function EmergencySosModal({
                     key={chip}
                     type="button"
                     onClick={() => onSendSosMsg(chip)}
-                    className="rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1 text-[11px] text-slate-300 hover:border-slate-600 hover:text-white transition"
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 hover:border-slate-600 hover:text-slate-900 transition"
                   >
                     + {chip}
                   </button>
@@ -303,7 +303,7 @@ export function EmergencySosModal({
                     }
                   }}
                   placeholder="Type an urgent message to control room..."
-                  className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none"
+                  className="flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none"
                 />
                 <Button
                   size="sm"
@@ -322,25 +322,25 @@ export function EmergencySosModal({
           {/* ========================================================================= */}
           {activeTab === "guide" && (
             <div className="flex flex-col gap-3 text-xs">
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                <h3 className="font-bold text-sm text-slate-100 flex items-center gap-1.5">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
                   <HelpCircle className="h-4 w-4 text-amber-400" />
                   <span>Standard Operating Procedures</span>
                 </h3>
-                <div className="mt-3 space-y-2.5 text-slate-300">
-                  <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-3">
+                <div className="mt-3 space-y-2.5 text-slate-600">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <p className="font-bold text-amber-300">1. Medical Emergency / Passenger Faint</p>
                     <p className="text-[11px] text-slate-400 mt-1">
                       Signal the driver to park safely on the shoulder. Trigger the Emergency SOS beacon and dial 108. Maintain airflow inside the bus.
                     </p>
                   </div>
-                  <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-3">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <p className="font-bold text-amber-300">2. Breakdown / Technical Fault</p>
                     <p className="text-[11px] text-slate-400 mt-1">
                       Switch hazard lights on. Inform passengers calmly. Send a "Vehicle mechanical issue" update to the control room dispatcher for substitute vehicle dispatch.
                     </p>
                   </div>
-                  <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-3">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <p className="font-bold text-amber-300">3. Route Diversion / Roadblock</p>
                     <p className="text-[11px] text-slate-400 mt-1">
                       Always confirm alternate route clearance with depot control room before deviating from the scheduled transit path.
@@ -350,37 +350,37 @@ export function EmergencySosModal({
               </div>
 
               {/* Emergency Numbers Quick List */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <h4 className="font-bold text-xs uppercase tracking-wider text-slate-400 mb-2.5">
                   Universal Emergency Services
                 </h4>
                 <div className="grid grid-cols-2 gap-2 font-mono text-xs">
                   <a
                     href="tel:112"
-                    className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/90 p-2.5 hover:border-slate-700"
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-2.5 hover:border-slate-300"
                   >
-                    <span className="text-slate-300 font-sans">Police Patrol</span>
+                    <span className="text-slate-600 font-sans">Police Patrol</span>
                     <span className="font-bold text-amber-400">112</span>
                   </a>
                   <a
                     href="tel:108"
-                    className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/90 p-2.5 hover:border-slate-700"
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-2.5 hover:border-slate-300"
                   >
-                    <span className="text-slate-300 font-sans">Ambulance</span>
+                    <span className="text-slate-600 font-sans">Ambulance</span>
                     <span className="font-bold text-amber-400">108</span>
                   </a>
                   <a
                     href="tel:181"
-                    className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/90 p-2.5 hover:border-slate-700"
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-2.5 hover:border-slate-300"
                   >
-                    <span className="text-slate-300 font-sans">Women Helpline</span>
+                    <span className="text-slate-600 font-sans">Women Helpline</span>
                     <span className="font-bold text-amber-400">181</span>
                   </a>
                   <a
                     href="tel:1098"
-                    className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/90 p-2.5 hover:border-slate-700"
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-2.5 hover:border-slate-300"
                   >
-                    <span className="text-slate-300 font-sans">Childline</span>
+                    <span className="text-slate-600 font-sans">Childline</span>
                     <span className="font-bold text-amber-400">1098</span>
                   </a>
                 </div>

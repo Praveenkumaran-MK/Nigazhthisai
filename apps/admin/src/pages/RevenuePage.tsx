@@ -124,7 +124,7 @@ export function RevenuePage() {
 
   const digitalRatio = (totalCash + totalDigital) > 0 ? Math.round((totalDigital / (totalCash + totalDigital)) * 100) : 0;
 
-  // Export PDF with Nigazhthisai Brand
+  // Export PDF with Nigalthisai Brand
   const handleExportPdf = () => {
     const doc = new jsPDF();
 
@@ -135,7 +135,7 @@ export function RevenuePage() {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(15);
     doc.setFont("helvetica", "bold");
-    doc.text("NIGAZHTHISAI TRANSIT SYSTEMS", 14, 14);
+    doc.text("NIGALTHISAI TRANSIT SYSTEMS", 14, 14);
 
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "normal");
@@ -189,13 +189,13 @@ export function RevenuePage() {
       doc.setFontSize(7.5);
       doc.setTextColor(140);
       doc.text(
-        `Nigazhthisai Smart Transit Platform — Operational & Revenue Audit — Page ${i} of ${pageCount}`,
+        `Nigalthisai Smart Transit Platform — Operational & Revenue Audit — Page ${i} of ${pageCount}`,
         14,
         287
       );
     }
 
-    doc.save(`Nigazhthisai_Revenue_Audit_${startDate}_to_${endDate}.pdf`);
+    doc.save(`Nigalthisai_Revenue_Audit_${startDate}_to_${endDate}.pdf`);
   };
 
   return (
@@ -222,7 +222,7 @@ export function RevenuePage() {
             className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             <DownloadIcon className="h-4 w-4" />
-            <span>Export Nigazhthisai PDF</span>
+            <span>Export Nigalthisai PDF</span>
           </Button>
         </div>
       </div>

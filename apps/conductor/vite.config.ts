@@ -13,7 +13,7 @@ export default defineConfig({
       includeAssets: ["icons/icon.svg"],
       manifest: {
         id: "/",
-        name: "Nigazhthisai — Conductor",
+        name: "Nigalthisai — Conductor",
         short_name: "Transit Conductor",
         description: "Start service, scan tickets, and track your trip.",
         theme_color: "#050E1F",

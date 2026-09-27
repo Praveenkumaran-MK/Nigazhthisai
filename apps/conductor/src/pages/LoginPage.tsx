@@ -41,14 +41,14 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-dvh items-center justify-center p-6">
-      <Card className="relative w-full max-w-sm">
+      <Card className="relative w-full max-w-sm bg-white border-slate-200 shadow-xl">
         {/* Bilingual Switcher Pill */}
-        <div className="absolute top-5 right-5 inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800">
+        <div className="absolute top-5 right-5 inline-flex rounded-lg bg-white p-0.5 border border-slate-200">
           <button
             type="button"
             onClick={() => setLang("en")}
             className={`rounded-md px-2.5 py-1 text-[10px] font-bold transition-all ${
-              lang === "en" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-400 hover:text-white"
+              lang === "en" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-500 hover:text-slate-900"
             }`}
           >
             EN
@@ -57,15 +57,15 @@ export function LoginPage() {
             type="button"
             onClick={() => setLang("ta")}
             className={`rounded-md px-2.5 py-1 text-[10px] font-bold transition-all ${
-              lang === "ta" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-400 hover:text-white"
+              lang === "ta" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-500 hover:text-slate-900"
             }`}
           >
             TA
           </button>
         </div>
 
-        <BrandLogo variant="lockup" tone="light" className="mb-5" />
-        <h1 className="text-lg font-semibold text-slate-100">Conductor Login</h1>
+        <BrandLogo variant="lockup" tone="navy" className="mb-5" />
+        <h1 className="text-lg font-semibold text-slate-900">Conductor Login</h1>
         <p className="mt-1 text-sm text-slate-500">Enter your government ID or email, and password.</p>
 
         <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">

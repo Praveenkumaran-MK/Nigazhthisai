@@ -881,7 +881,7 @@ export function DashboardPage() {
       <header className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-slate-100">{conductor?.display_name ?? "Conductor"}</h1>
+            <h1 className="text-xl font-bold text-slate-900">{conductor?.display_name ?? "Conductor"}</h1>
             <Badge tone="brand">Ticketing Active</Badge>
           </div>
           <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
@@ -892,12 +892,12 @@ export function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           {/* Bilingual Language Switcher */}
-          <div className="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800">
+          <div className="inline-flex rounded-lg bg-white p-0.5 border border-slate-200">
             <button
               type="button"
               onClick={() => setLang("en")}
               className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition-all ${
-                lang === "en" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-400 hover:text-white"
+                lang === "en" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-400 hover:text-slate-900"
               }`}
             >
               EN
@@ -906,7 +906,7 @@ export function DashboardPage() {
               type="button"
               onClick={() => setLang("ta")}
               className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition-all ${
-                lang === "ta" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-400 hover:text-white"
+                lang === "ta" ? "bg-[#D97F00] text-navy-950 shadow-sm" : "text-slate-400 hover:text-slate-900"
               }`}
             >
               TA
@@ -961,7 +961,7 @@ export function DashboardPage() {
                 </div>
 
                 <div className="mt-3">
-                  <h2 className="text-lg font-bold text-slate-100">
+                  <h2 className="text-lg font-bold text-slate-900">
                     {activeTrip.routes?.route_number ? `Route ${activeTrip.routes.route_number}: ` : ""}
                     {activeTrip.routes?.name ?? "Live Transit Service"}
                   </h2>
@@ -973,14 +973,14 @@ export function DashboardPage() {
                         : "Recently"}
                     </span>
                     <span>•</span>
-                    <span className="font-mono text-slate-300">
+                    <span className="font-mono text-slate-600">
                       ID: #{activeTrip.id.slice(0, 6).toUpperCase()}
                     </span>
                   </div>
                 </div>
 
                 {/* Continuous Automated GPS Telemetry Status Strip */}
-                <div className="mt-3.5 flex items-center justify-between rounded-xl bg-slate-950/70 border border-emerald-500/20 px-3 py-2 text-xs">
+                <div className="mt-3.5 flex items-center justify-between rounded-xl bg-slate-50 border border-emerald-500/20 px-3 py-2 text-xs">
                   <div className="flex items-center gap-2">
                     <span className="relative flex h-2.5 w-2.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -998,25 +998,108 @@ export function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Route Visual Progress Runner */}
+                {/* Route Visual Horizontal Dot Graph Tracker */}
                 {stops.length > 1 && (
                   <div className="mt-4 pt-1">
-                    <TransitBusRunner
-                      label="Automated Route Progression"
-                      progress={routeProgressPercent}
-                      stops={stops.map((s, i) => ({
-                        label: s.stop.name,
-                        atPercent: (i / Math.max(1, stops.length - 1)) * 100,
-                        done: s.status === "DEPARTED",
-                      }))}
-                    />
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Automated Route Progression</span>
+                      </div>
+                      <span className="text-slate-500 font-mono text-[11px]">
+                        {Math.round(routeProgressPercent)}% Completed
+                      </span>
+                    </div>
+
+                    {/* Horizontal Rail with Stop Nodes */}
+                    <div className="relative rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-inner">
+                      {/* Origin & Destination Labels */}
+                      <div className="flex items-center justify-between text-[11px] font-black text-slate-700 pb-2 mb-2 border-b border-slate-200">
+                        <span className="truncate max-w-[45%] text-left" title={stops[0]?.stop.name}>
+                          ?? {stops[0]?.stop.name}
+                        </span>
+                        <span className="truncate max-w-[45%] text-right text-brand-600" title={stops[stops.length - 1]?.stop.name}>
+                          ?? {stops[stops.length - 1]?.stop.name}
+                        </span>
+                      </div>
+
+                      {/* Horizontal Dot Rail */}
+                      <div className="relative flex items-center justify-between px-2 pt-1 pb-4 overflow-x-auto no-scrollbar">
+                        {/* Progress Background Track */}
+                        <div className="absolute left-4 right-4 top-[17px] h-1 bg-slate-200 rounded-full" />
+                        {/* Active Progress Fill Bar */}
+                        <div
+                          className="absolute left-4 top-[17px] h-1 bg-emerald-500 rounded-full transition-all duration-500"
+                          style={{ width: `calc(${Math.min(100, Math.max(0, routeProgressPercent))}% - 16px)` }}
+                        />
+
+                        {/* Stop Dots */}
+                        {stops.map((s, idx) => {
+                          const isDeparted = s.status === "DEPARTED";
+                          const isArrived = s.status === "ARRIVED";
+
+                          return (
+                            <div
+                              key={s.id || idx}
+                              className="relative z-10 flex flex-col items-center group cursor-default min-w-[36px]"
+                            >
+                              <div
+                                className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+                                  isDeparted
+                                    ? "border-emerald-600 bg-emerald-500 text-white shadow-xs"
+                                    : isArrived
+                                      ? "border-blue-600 bg-white ring-4 ring-blue-500/20 text-blue-600 scale-110"
+                                      : "border-slate-300 bg-white text-slate-600"
+                                }`}
+                              >
+                                {isDeparted ? (
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                ) : isArrived ? (
+                                  <span className="h-2 w-2 rounded-full bg-blue-600 animate-ping" />
+                                ) : (
+                                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+                                )}
+                              </div>
+
+                              <span
+                                className={`mt-1.5 text-[10px] font-bold text-center leading-tight max-w-[64px] truncate transition-colors ${
+                                  isArrived
+                                    ? "text-blue-700 font-black scale-105"
+                                    : isDeparted
+                                      ? "text-emerald-700"
+                                      : "text-slate-400"
+                                }`}
+                                title={s.stop.name}
+                              >
+                                {s.stop.name}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Stage footer */}
+                      <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 pt-1 border-t border-slate-200">
+                        <span>
+                          Current Stop:{" "}
+                          <strong className="text-slate-800">
+                            {stops.find((s) => s.status === "ARRIVED")?.stop.name ||
+                              stops.find((s) => s.status === "UPCOMING")?.stop.name ||
+                              stops[stops.length - 1]?.stop.name}
+                          </strong>
+                        </span>
+                        <span className="font-mono">
+                          Stop {stops.filter((s) => s.status === "DEPARTED").length + 1} of {stops.length}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 )}
 
                 {/* Conductor Re-Scan Bus QR to End Ride / Shift Wherever You Are */}
-                <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-3">
+                <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold text-slate-200">Active Shift Service</p>
+                    <p className="text-xs font-bold text-slate-800">Active Shift Service</p>
                     <p className="text-[11px] text-slate-400">Scan bus QR plate again to conclude ride & shift</p>
                   </div>
                   <Button
@@ -1035,11 +1118,11 @@ export function DashboardPage() {
 
               {/* Live Bus Occupancy Card */}
               {occupancy && (
-                <Card className="border-slate-800 bg-slate-900/90 shadow-md">
+                <Card className="border-slate-200 bg-white shadow-md">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">{t("Bus Occupancy")}</p>
-                      <p className="mt-1 text-2xl font-black text-slate-100">
+                      <p className="mt-1 text-2xl font-black text-slate-900">
                         {occupancy.current_passenger_count}{" "}
                         <span className="text-sm font-normal text-slate-400">/ {occupancy.capacity} {t("Seats")}</span>
                       </p>
@@ -1051,7 +1134,7 @@ export function DashboardPage() {
                       {Math.max(0, occupancy.capacity - occupancy.current_passenger_count)} {t("seats left")}
                     </Badge>
                   </div>
-                  <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-800">
+                  <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
                     <div
                       className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300"
                       style={{
@@ -1063,15 +1146,15 @@ export function DashboardPage() {
               )}
 
               {/* Stop Progression Sequence (Automated via Continuous GPS) */}
-              <Card className="border-slate-800 bg-slate-900/90 shadow-md">
+              <Card className="border-slate-200 bg-white shadow-md">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Navigation className="h-4 w-4 text-emerald-400" />
-                    <p className="text-xs uppercase tracking-wider text-slate-300 font-bold">Automated Stop Sequence</p>
+                    <p className="text-xs uppercase tracking-wider text-slate-600 font-bold">Automated Stop Sequence</p>
                   </div>
                   <span className="text-xs text-slate-400 font-medium">{stops.length} Stops</span>
                 </div>
-                <p className="text-[11px] text-slate-400 mb-3 bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
+                <p className="text-[11px] text-slate-400 mb-3 bg-slate-50 p-2 rounded-lg border border-slate-200">
                   ⚡ <strong>Automatic GPS Progression:</strong> Stops arrive and depart automatically based on continuous vehicle GPS telemetry.
                 </p>
 
@@ -1088,8 +1171,8 @@ export function DashboardPage() {
                           isCurrent
                             ? "border-emerald-500 bg-emerald-500/10 shadow-sm"
                             : isDeparted
-                            ? "border-slate-800/40 bg-slate-950/40 opacity-70"
-                            : "border-slate-800 bg-slate-950/80"
+                            ? "border-slate-200 bg-slate-50 opacity-70"
+                            : "border-slate-200 bg-slate-50"
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -1098,14 +1181,14 @@ export function DashboardPage() {
                               isCurrent
                                 ? "bg-emerald-500 text-slate-950"
                                 : isDeparted
-                                ? "bg-slate-800 text-slate-500"
-                                : "bg-slate-800 text-slate-300"
+                                ? "bg-slate-100 text-slate-500"
+                                : "bg-slate-100 text-slate-600"
                             }`}
                           >
                             {idx + 1}
                           </span>
                           <div>
-                            <p className="text-sm font-bold text-slate-100">{s.stop.name}</p>
+                            <p className="text-sm font-bold text-slate-900">{s.stop.name}</p>
                             <div className="mt-0.5 flex items-center gap-1.5">
                               <Badge
                                 tone={isDeparted ? "neutral" : isArrived ? "brand" : "neutral"}
@@ -1151,7 +1234,7 @@ export function DashboardPage() {
                 </div>
               </div>
               <div className="mt-3">
-                <h2 className="text-lg font-bold text-slate-100">
+                <h2 className="text-lg font-bold text-slate-900">
                   {primaryScheduledTrip.routes?.route_number ? `Route ${primaryScheduledTrip.routes.route_number}: ` : ""}
                   {primaryScheduledTrip.routes?.name ?? "Assigned Route"}
                 </h2>
@@ -1189,7 +1272,7 @@ export function DashboardPage() {
               </div>
             </Card>
           ) : lastCompletedTrip ? (
-            <Card className="border-slate-800 bg-slate-900/80 shadow-lg">
+            <Card className="border-slate-200 bg-white shadow-lg">
               <div className="flex items-center justify-between">
                 <Badge tone="neutral" className="font-bold">SHIFT CONCLUDED</Badge>
                 <span className="text-xs text-slate-400">
@@ -1199,7 +1282,7 @@ export function DashboardPage() {
                 </span>
               </div>
               <div className="mt-2.5">
-                <h2 className="text-base font-bold text-slate-100 flex items-center gap-1.5">
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
                   <BusIcon className="h-4 w-4 text-emerald-400 shrink-0" />
                   <span>Bus #{lastCompletedTrip.buses?.bus_number ?? "Assigned"} — {lastCompletedTrip.routes?.name ?? "Service Completed"}</span>
                 </h2>
@@ -1231,12 +1314,12 @@ export function DashboardPage() {
               </div>
             </Card>
           ) : (
-            <Card className="border-slate-800 bg-slate-900/60">
+            <Card className="border-slate-200 bg-white">
               <div className="flex items-center justify-between">
                 <Badge tone="neutral">SCHEDULE</Badge>
                 <span className="text-xs text-slate-400">Today: {assignedTrips.length} Trips Assigned</span>
               </div>
-              <p className="mt-2 text-sm text-slate-300">No trips currently assigned or active right now.</p>
+              <p className="mt-2 text-sm text-slate-600">No trips currently assigned or active right now.</p>
             </Card>
           )}
 
@@ -1248,10 +1331,10 @@ export function DashboardPage() {
                 {otherScheduledTrips.map((st) => (
                   <div
                     key={st.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/80 p-3.5 transition hover:border-slate-700"
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3.5 transition hover:border-slate-300"
                   >
                     <div>
-                      <p className="font-bold text-slate-200 text-sm">
+                      <p className="font-bold text-slate-800 text-sm">
                         {st.routes?.route_number ? `${st.routes.route_number}: ` : ""}
                         {st.routes?.name ?? "Trip Service"}
                       </p>
@@ -1300,7 +1383,7 @@ export function DashboardPage() {
             <button
               type="button"
               onClick={toggleHideFinancials}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-1 text-xs font-semibold text-slate-400 hover:border-slate-700 hover:text-slate-200 transition"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-400 hover:border-slate-300 hover:text-slate-800 transition"
               title={hideFinancials ? "Show metrics" : "Hide metrics"}
             >
               {hideFinancials ? (
@@ -1329,13 +1412,13 @@ export function DashboardPage() {
           </div>
 
           {/* Financial Breakdown Card */}
-          <Card className="border-slate-800 bg-slate-900/80">
+          <Card className="border-slate-200 bg-white">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-200">Today's Revenue Breakdown</h3>
+              <h3 className="text-sm font-semibold text-slate-800">Today's Revenue Breakdown</h3>
               <button
                 type="button"
                 onClick={toggleHideFinancials}
-                className="text-slate-500 hover:text-slate-300 transition"
+                className="text-slate-500 hover:text-slate-600 transition"
                 title={hideFinancials ? "Show Revenue" : "Hide Revenue"}
                 aria-label={hideFinancials ? "Show Revenue" : "Hide Revenue"}
               >
@@ -1343,26 +1426,26 @@ export function DashboardPage() {
               </button>
             </div>
             <div className="mt-3 space-y-2 text-sm">
-              <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
+              <div className="flex items-center justify-between py-1 border-b border-slate-200">
                 <span className="text-slate-400 flex items-center gap-2">
                   <span className="inline-block h-2 w-2 rounded-full bg-emerald-400"></span>
                   Cash Ticket Collections
                 </span>
-                <span className="font-mono font-semibold text-slate-100">
+                <span className="font-mono font-semibold text-slate-900">
                   {hideFinancials ? "₹ ••••" : `₹${(stats?.cash_revenue ?? 0).toFixed(2)}`}
                 </span>
               </div>
-              <div className="flex items-center justify-between py-1 border-b border-slate-800/60">
+              <div className="flex items-center justify-between py-1 border-b border-slate-200">
                 <span className="text-slate-400 flex items-center gap-2">
                   <span className="inline-block h-2 w-2 rounded-full bg-cyan-400"></span>
                   Digital / Online Tickets
                 </span>
-                <span className="font-mono font-semibold text-slate-100">
+                <span className="font-mono font-semibold text-slate-900">
                   {hideFinancials ? "₹ ••••" : `₹${(stats?.digital_revenue ?? 0).toFixed(2)}`}
                 </span>
               </div>
               <div className="flex items-center justify-between pt-1">
-                <span className="text-slate-300 font-medium">Total Shift Collection</span>
+                <span className="text-slate-600 font-medium">Total Shift Collection</span>
                 <span className="font-mono font-bold text-emerald-400 text-base">
                   {hideFinancials ? "₹ ••••" : `₹${(stats?.total_revenue ?? 0).toFixed(2)}`}
                 </span>
@@ -1428,7 +1511,7 @@ export function DashboardPage() {
       {/* 4. STICKY BOTTOM DOCK (For Active Transit Operations)                       */}
       {/* ========================================================================= */}
       {activeTrip && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-800/90 bg-slate-950/95 p-3 backdrop-blur-md shadow-2xl">
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 p-3 backdrop-blur-md shadow-2xl">
           <div className="mx-auto flex max-w-md items-center gap-2">
             <button
               type="button"
@@ -1468,7 +1551,7 @@ export function DashboardPage() {
             <button
               type="button"
               onClick={() => setPocketMode(true)}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 hover:text-white"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 hover:text-slate-900"
               title={t("Pocket Lock")}
             >
               <Lock className="h-5 w-5" />
@@ -1521,7 +1604,7 @@ export function DashboardPage() {
               </div>
             )}
 
-            <div className="text-xs text-slate-300 space-y-1.5 w-full bg-slate-900/90 p-3.5 rounded-xl border border-slate-800 font-mono">
+            <div className="text-xs text-slate-600 space-y-1.5 w-full bg-white p-3.5 rounded-xl border border-slate-200 font-mono">
               <div className="flex justify-between">
                 <span className="text-slate-400">Passengers:</span>
                 <span className="font-bold text-white">
@@ -1532,7 +1615,7 @@ export function DashboardPage() {
                 <span className="text-slate-400">Concession:</span>
                 <span className="font-bold text-white">{issuedTicket.concession_type}</span>
               </div>
-              <div className="flex justify-between font-black text-emerald-400 text-base pt-2 border-t border-slate-800">
+              <div className="flex justify-between font-black text-emerald-400 text-base pt-2 border-t border-slate-200">
                 <span>Total Collected:</span>
                 <span>₹{Number(issuedTicket.fare).toFixed(2)}</span>
               </div>
@@ -1588,12 +1671,12 @@ export function DashboardPage() {
             {/* Passenger Count Stepper + Concession */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-300">Passengers</label>
-                <div className="flex items-center rounded-lg border border-slate-700 bg-slate-900 p-1">
+                <label className="mb-1 block text-xs font-semibold text-slate-600">Passengers</label>
+                <div className="flex items-center rounded-lg border border-slate-300 bg-white p-1">
                   <button
                     type="button"
                     onClick={() => setPassengerCount((c) => Math.max(1, c - 1))}
-                    className="flex h-9 w-9 items-center justify-center rounded-md bg-slate-800 text-lg font-bold text-white hover:bg-slate-700"
+                    className="flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-lg font-bold text-white hover:bg-slate-700"
                   >
                     -
                   </button>
@@ -1601,7 +1684,7 @@ export function DashboardPage() {
                   <button
                     type="button"
                     onClick={() => setPassengerCount((c) => Math.min(6, c + 1))}
-                    className="flex h-9 w-9 items-center justify-center rounded-md bg-slate-800 text-lg font-bold text-white hover:bg-slate-700"
+                    className="flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-lg font-bold text-white hover:bg-slate-700"
                   >
                     +
                   </button>
@@ -1678,7 +1761,7 @@ export function DashboardPage() {
                 Bus #{completedShiftSummary.busNumber} • {completedShiftSummary.routeName}
               </p>
             </div>
-            <div className="w-full rounded-2xl border border-slate-800 bg-slate-900/80 p-4 font-mono text-xs text-slate-300 space-y-2 text-left">
+            <div className="w-full rounded-2xl border border-slate-200 bg-white p-4 font-mono text-xs text-slate-600 space-y-2 text-left">
               <div className="flex justify-between">
                 <span className="text-slate-400">Status:</span>
                 <span className="font-bold text-emerald-400">COMPLETED</span>
@@ -1693,7 +1776,7 @@ export function DashboardPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Occupancy:</span>
-                <span className="font-bold text-slate-200">Cleared (0 Seats)</span>
+                <span className="font-bold text-slate-800">Cleared (0 Seats)</span>
               </div>
             </div>
             <div className="flex flex-col gap-2 w-full mt-2">
@@ -1709,7 +1792,7 @@ export function DashboardPage() {
               </Button>
               <Button
                 variant="secondary"
-                className="w-full font-bold text-slate-300 hover:text-white"
+                className="w-full font-bold text-slate-600 hover:text-slate-900"
                 size="md"
                 onClick={() => setShowEndShiftModal(false)}
               >

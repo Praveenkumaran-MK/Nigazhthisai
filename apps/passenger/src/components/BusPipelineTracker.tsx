@@ -304,7 +304,7 @@ export function BusPipelineTracker({
             <div className="flex items-center gap-2">
               <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
               <h1 className="text-sm font-extrabold tracking-tight text-white leading-none">
-                Nigazhthisai Live Transit
+                Nigalthisai Live Transit
               </h1>
             </div>
             <p className="text-[11px] text-slate-300 font-medium leading-none mt-1">

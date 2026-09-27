@@ -10,7 +10,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { status, logout } = useConductorAuth();
   if (status === "loading") {
     return (
-      <div className="flex h-dvh items-center justify-center bg-black">
+      <div className="flex h-dvh items-center justify-center bg-slate-100">
         <LoadingState label="Checking session…" />
       </div>
     );
@@ -23,7 +23,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     // Dashboard's own effect returns early on a null conductor and the
     // screen was a permanent spinner with no indication of what's wrong.
     return (
-      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-black p-6 text-center">
+      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-slate-100 p-6 text-center">
         <ErrorState
           title="Account not linked"
           description="Your login isn't linked to a conductor profile yet. Contact your district admin to finish setting up your account."
@@ -45,7 +45,7 @@ export function App() {
   // OLED black is a battery requirement here (same reason Pocket Mode is
   // pure black), not a stylistic choice.
   return (
-    <div key={lang} className="min-h-dvh bg-canvas-oled text-slate-100">
+    <div key={lang} className="min-h-dvh bg-slate-50 text-slate-900">
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route

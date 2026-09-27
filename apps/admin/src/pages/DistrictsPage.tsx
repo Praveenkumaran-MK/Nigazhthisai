@@ -136,7 +136,7 @@ export function DistrictsPage() {
         <div>
           <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Districts</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            All transit jurisdictions under Nigazhthisai Transit Authority. Assign district admins via the Admin Users page.
+            All transit jurisdictions under Nigalthisai Transit Authority. Assign district admins via the Admin Users page.
           </p>
         </div>
         <Button
