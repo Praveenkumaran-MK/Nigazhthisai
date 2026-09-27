@@ -57,7 +57,7 @@ export function toAppError(error: unknown): ServiceAppError {
     }
     return new ServiceAppError(
       code,
-      friendly ?? (rawMessage && !rawMessage.startsWith("{") ? rawMessage : "Something went wrong. Please try again."),
+      friendly ?? "Something went wrong. Please try again.",
       error,
     );
   }

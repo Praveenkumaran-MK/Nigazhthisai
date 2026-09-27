@@ -55,64 +55,6 @@ interface ScheduledBusItem {
   fare: number;
 }
 
-const makeStop = (id: string, name: string, code: string, district: string, lat = 13.0, lng = 80.0): Stop => ({
-  id,
-  name,
-  code,
-  district,
-  location: { latitude: lat, longitude: lng },
-  created_at: "2026-01-01T00:00:00Z",
-  updated_at: "2026-01-01T00:00:00Z",
-});
-
-const DEFAULT_TAMIL_NADU_STOPS: Stop[] = [
-  // Chennai Corridors
-  makeStop("chn-01", "Vannaarapettai (Washermanpet)", "CH-01", "Chennai", 13.1065, 80.2831),
-  makeStop("chn-02", "Puratchi Thalaivar Dr. M.G.R. Central", "MAS", "Chennai", 13.0827, 80.2757),
-  makeStop("chn-03", "Koyambedu (CMBT)", "CMBT", "Chennai", 13.0694, 80.2056),
-  makeStop("chn-04", "T. Nagar Bus Terminus", "TNG", "Chennai", 13.0418, 80.2341),
-  makeStop("chn-05", "Tambaram Sanatorium", "TBM", "Chennai", 12.9255, 80.1265),
-  makeStop("chn-06", "Guindy Industrial Estate", "GDY", "Chennai", 13.0067, 80.2025),
-  makeStop("chn-07", "Broadway Terminus", "BWY", "Chennai", 13.0878, 80.2872),
-  makeStop("chn-08", "Adyar Old Depot", "ADY", "Chennai", 13.0012, 80.2565),
-
-  // Coimbatore Corridors
-  makeStop("cbe-01", "Gandhipuram Central Bus Stand", "GDP", "Coimbatore", 11.0168, 76.9673),
-  makeStop("cbe-02", "Ukkadam Bus Terminus", "UKD", "Coimbatore", 10.9897, 76.9602),
-  makeStop("cbe-03", "Singanallur Bus Stand", "SGL", "Coimbatore", 10.9984, 77.0264),
-  makeStop("cbe-04", "Coimbatore Railway Junction", "CBE", "Coimbatore", 10.9979, 76.9649),
-  makeStop("cbe-05", "RS Puram Head Post Office", "RSP", "Coimbatore", 11.0089, 76.9482),
-  makeStop("cbe-06", "Coimbatore International Airport", "CJB", "Coimbatore", 11.0300, 77.0434),
-  makeStop("cbe-07", "Saravanampatti IT Corridor", "SVP", "Coimbatore", 11.0824, 76.9959),
-
-  // Krishnagiri Corridors
-  makeStop("kri-01", "Main Bus Stand", "KRI-01", "Krishnagiri", 12.5266, 78.2144),
-  makeStop("kri-02", "Krishnagiri College", "KRI-02", "Krishnagiri", 12.5188, 78.2201),
-  makeStop("kri-03", "Fish Market", "KRI-03", "Krishnagiri", 12.5305, 78.2109),
-  makeStop("kri-04", "Hosur Bus Terminus", "HSR-01", "Krishnagiri", 12.7409, 77.8253),
-
-  // Thanjavur Corridors
-  makeStop("tnj-01", "Thanjai Central Bus Stand", "TCB-01", "Thanjavur", 10.7870, 79.1378),
-  makeStop("tnj-02", "Big Temple East Gate", "BTE-02", "Thanjavur", 10.7828, 79.1318),
-  makeStop("tnj-03", "Medical College Junction", "MCJ-03", "Thanjavur", 10.7612, 79.1121),
-  makeStop("tnj-04", "Railway Station North", "RSN-04", "Thanjavur", 10.7745, 79.1390),
-];
-
-const TAMIL_NADU_DISTRICTS = [
-  "Coimbatore",
-  "Chennai",
-  "Madurai",
-  "Salem",
-  "Tiruchirappalli",
-  "Erode",
-  "Tirunelveli",
-  "Tiruppur",
-  "Vellore",
-  "Thanjavur",
-  "Krishnagiri",
-  "Dindigul",
-  "Kanyakumari",
-];
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -137,6 +79,7 @@ export function HomePage() {
   const [showAlertsModal, setShowAlertsModal] = useState(false);
 
   // Transit state
+  const [dbDistricts, setDbDistricts] = useState<string[]>([]);
   const [allStops, setAllStops] = useState<Stop[]>([]);
   const [allRoutes, setAllRoutes] = useState<Route[]>([]);
   const [originStop, setOriginStop] = useState<Stop | null>(null);
@@ -190,28 +133,27 @@ export function HomePage() {
 
     listStops(supabase)
       .then((stops) => {
-        const combined = [...stops];
-        for (const def of DEFAULT_TAMIL_NADU_STOPS) {
-          if (!combined.some((s) => s.name.toLowerCase() === def.name.toLowerCase() || s.code === def.code)) {
-            combined.push(def);
-          }
-        }
-        setAllStops(combined);
-
-        const districtStop = combined.find(
+        setAllStops(stops);
+        const districtStop = stops.find(
           (s) => s.district?.toLowerCase() === selectedDistrict.toLowerCase()
-        ) || combined.find((s) => s.name.toLowerCase().includes("gandhipuram")) || combined[0];
+        ) || stops.find((s) => s.name.toLowerCase().includes("gandhipuram")) || stops[0];
 
         if (districtStop && !originStop) {
           setOriginStop(districtStop);
           setOriginQuery(districtStop.name);
         }
       })
-      .catch(() => {
-        setAllStops(DEFAULT_TAMIL_NADU_STOPS);
-        if (!originStop && DEFAULT_TAMIL_NADU_STOPS[0]) {
-          setOriginStop(DEFAULT_TAMIL_NADU_STOPS[0]);
-          setOriginQuery(DEFAULT_TAMIL_NADU_STOPS[0].name);
+      .catch(() => setAllStops([]));
+
+    // Dynamic districts fetch directly from Supabase database
+    supabase
+      .from("districts")
+      .select("name")
+      .eq("is_active", true)
+      .order("name")
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setDbDistricts(data.map((d: any) => d.name));
         }
       });
 
@@ -296,12 +238,12 @@ export function HomePage() {
     userPickedOriginRef.current = true;
   };
 
-  // List of all districts
+  // 100% Dynamic list of all districts (DB jurisdictions + stops data)
   const availableDistricts = useMemo(() => {
-    const fromStops = Array.from(new Set(allStops.map((s) => s.district).filter(Boolean))) as string[];
-    const combined = Array.from(new Set([...TAMIL_NADU_DISTRICTS, ...fromStops]));
+    const fromStops = Array.from(new Set(allStops.map((s) => s.district).filter((d): d is string => Boolean(d))));
+    const combined = Array.from(new Set([...dbDistricts, ...fromStops]));
     return combined.sort();
-  }, [allStops]);
+  }, [allStops, dbDistricts]);
 
   // Destination autocomplete
   const matchingDestStops = useMemo(() => {
