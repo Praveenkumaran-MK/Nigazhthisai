@@ -1,12 +1,12 @@
-# Load Testing
+﻿# Load Testing
 
-Part of the [scaling/operations plan](../SCALING_AND_OPERATIONS_PLAN.md), Phase 3.
+Performance and concurrency test suite for the Nigalthisai transit platform (see [HANDOVER.md](../HANDOVER.md)).
 
-## ⚠️ Read this before running anything
+## âš ï¸ Read this before running anything
 
 **These scripts create real data and place real load.** `ticket-purchase-burst.js`
 creates real `auth.users` (anonymous) and real `tickets` rows. It calls the
-*actual* `create_secure_ticket`/`validate_ticket` RPCs — not a mock — against
+*actual* `create_secure_ticket`/`validate_ticket` RPCs â€” not a mock â€” against
 whatever `K6_SUPABASE_URL` points at.
 
 **Never point these at a project you can't afford to disrupt or pollute.**
@@ -14,31 +14,31 @@ The scaling plan calls for a dedicated staging Supabase project, sized like
 production, for exactly this reason. If you don't have one yet and are
 tempted to run these against the one project this app currently uses:
 understand that a burst test intentionally tries to oversell a bus's
-capacity and hammer the ticket/validation RPCs concurrently — on a shared
+capacity and hammer the ticket/validation RPCs concurrently â€” on a shared
 project this can pollute real admin-visible data (tickets, anonymous users)
 and will count against that project's Realtime connection limits and
 compute. Run the **smoke** scale (`K6_VUS=2 K6_ITERATIONS=2`) first, always,
-regardless of target — see [Smoke-test first](#smoke-test-first-mandatory).
+regardless of target â€” see [Smoke-test first](#smoke-test-first-mandatory).
 
 ## What's here
 
 ```text
 load-tests/
-├── k6/                          # HTTP/RPC load — needs the k6 binary
-│   ├── lib/auth.js                # anonymous sign-in / conductor+admin login helpers
-│   ├── ticket-purchase-burst.js   # Scenario 1 — correctness under concurrency, not just throughput
-│   ├── duplicate-validation-race.js # Scenario 2 — double-scan race
-│   ├── sustained-read-load.js     # Scenario 4 (also used for Scenario 5 soak, via env var)
-│   └── README is this file
-└── realtime-harness/            # GPS Broadcast fan-out — needs real @supabase/supabase-js,
-    │                               k6 doesn't speak the Phoenix/Realtime protocol
-    ├── package.json
-    └── gps-fanout.js               # Scenario 3
+â”œâ”€â”€ k6/                          # HTTP/RPC load â€” needs the k6 binary
+â”‚   â”œâ”€â”€ lib/auth.js                # anonymous sign-in / conductor+admin login helpers
+â”‚   â”œâ”€â”€ ticket-purchase-burst.js   # Scenario 1 â€” correctness under concurrency, not just throughput
+â”‚   â”œâ”€â”€ duplicate-validation-race.js # Scenario 2 â€” double-scan race
+â”‚   â”œâ”€â”€ sustained-read-load.js     # Scenario 4 (also used for Scenario 5 soak, via env var)
+â”‚   â””â”€â”€ README is this file
+â””â”€â”€ realtime-harness/            # GPS Broadcast fan-out â€” needs real @supabase/supabase-js,
+    â”‚                               k6 doesn't speak the Phoenix/Realtime protocol
+    â”œâ”€â”€ package.json
+    â””â”€â”€ gps-fanout.js               # Scenario 3
 ```
 
 ## Prerequisites
 
-- **k6**: not installed in this environment. Install per your OS —
+- **k6**: not installed in this environment. Install per your OS â€”
   `winget install k6.k6` / `choco install k6` / `brew install k6` / see
   https://grafana.com/docs/k6/latest/set-up/install-k6/
 - **Realtime harness**: `cd realtime-harness && npm install`
@@ -47,13 +47,13 @@ load-tests/
   - A **conductor** login (government ID + password) with an **ACTIVE** trip
     assigned, for `duplicate-validation-race.js`.
   - That trip's `bus_id` capacity should be small (e.g. temporarily set to 2
-    via Admin → Buses) so `ticket-purchase-burst.js` can prove the `BUS_FULL`
+    via Admin â†’ Buses) so `ticket-purchase-burst.js` can prove the `BUS_FULL`
     boundary without needing hundreds of VUs.
 
 ## Smoke-test first (mandatory)
 
 Before any real-scale run, prove the script itself is correct at trivial
-scale — this catches script bugs (wrong endpoint, bad payload, expired test
+scale â€” this catches script bugs (wrong endpoint, bad payload, expired test
 trip) without generating real load:
 
 ```bash
@@ -75,7 +75,7 @@ toward the real scenario numbers described in each script's header comment.
 | `ticket-purchase-burst.js` | Exactly `capacity` tickets succeed for a near-full trip; the rest get `BUS_FULL`. **Zero oversell is a hard pass/fail, not a percentile.** | `oversell_count == 0` (custom metric); p95 RPC latency < 300ms |
 | `duplicate-validation-race.js` | Firing the same QR at `validate_ticket` from concurrent connections lets exactly one succeed. | `double_validation_count == 0` (hard fail if nonzero) |
 | `sustained-read-load.js` | Baseline capacity/latency for `find_nearest_stop`/`list_eligible_buses`/`stops_public` reads. Pass `K6_DURATION=45m K6_VUS=50` for the Scenario 5 soak variant. | p95 < 300ms, error rate < 0.1%, no degradation over the run (check the trend, not just the final aggregate) |
-| `realtime-harness/gps-fanout.js` | Broadcast delivery latency/loss as subscriber count scales (100/500/1000). | Documented in the script's own summary output — no hard threshold yet (first run establishes the baseline) |
+| `realtime-harness/gps-fanout.js` | Broadcast delivery latency/loss as subscriber count scales (100/500/1000). | Documented in the script's own summary output â€” no hard threshold yet (first run establishes the baseline) |
 
 ## Running
 
@@ -98,8 +98,8 @@ node gps-fanout.js --subscribers=1000
 Ticket-purchase-burst and duplicate-validation-race create real anonymous
 auth users and tickets. The migration-017 cleanup job will eventually sweep
 the anonymous users (they'll have no `PAID`/`VALIDATED` tickets after the
-test trip cycles, once tickets expire) — but if you need it gone
+test trip cycles, once tickets expire) â€” but if you need it gone
 immediately for a clean admin dashboard, either wait for the 48h abandoned-
 session window or manually run
-`select cleanup_stale_anonymous_users(p_dry_run => false);` (see README §21
+`select cleanup_stale_anonymous_users(p_dry_run => false);` (see README Â§21
 in the repo root for the caution that applies to running that for real).
