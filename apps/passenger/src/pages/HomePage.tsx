@@ -1,8 +1,8 @@
 ﻿import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Spinner } from "@sbt/ui";
+import { Button, Spinner, useToast } from "@sbt/ui";
 import type { Stop, Route } from "@sbt/shared-types";
-import { listStops, listRoutes } from "@sbt/supabase-client";
+import { listStops, listRoutes, findNearestStop } from "@sbt/supabase-client";
 import { supabase } from "../lib/supabase";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useNearestStop } from "../hooks/useNearestStop";
@@ -61,6 +61,7 @@ export function HomePage() {
   const geo = useGeolocation();
   const nearest = useNearestStop();
   const { t } = useI18n();
+  const { push: pushToast } = useToast();
 
   // Dynamic user greeting state (persisted in localStorage)
   const [passengerName, setPassengerName] = useState<string>(() => {
@@ -205,23 +206,98 @@ export function HomePage() {
     }
   }, [nearest.stop, allStops, selectedDistrict]);
 
-  // Detect Location (GPS Auto-Detection)
+  // Detect Location (GPS Auto-Detection with Pinpoint Nearest Stop Lookup)
   const handleDetectLocation = () => {
-    setDetectingGps(true);
-    geo.request();
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          nearest.lookup(pos.coords.latitude, pos.coords.longitude);
-          userPickedOriginRef.current = false;
-          setDetectingGps(false);
-        },
-        () => setDetectingGps(false),
-        { enableHighAccuracy: true, timeout: 8000 }
-      );
-    } else {
-      setDetectingGps(false);
+    if (!navigator.geolocation) {
+      pushToast({
+        tone: "warning",
+        title: "GPS Not Supported",
+        description: "Your browser does not support geolocation. Please select your terminal manually.",
+      });
+      return;
     }
+
+    setDetectingGps(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const nearestResult = await findNearestStop(supabase, lat, lng);
+
+          if (nearestResult) {
+            const match = allStops.find((s) => s.id === nearestResult.stop_id);
+            const detectedStop: Stop = match || {
+              id: nearestResult.stop_id,
+              name: nearestResult.name,
+              code: nearestResult.code,
+              district: nearestResult.district || selectedDistrict,
+              location: { latitude: lat, longitude: lng },
+              created_at: "",
+              updated_at: "",
+            };
+
+            setOriginStop(detectedStop);
+            setOriginQuery(detectedStop.name);
+            if (detectedStop.district) {
+              setSelectedDistrict(detectedStop.district);
+              localStorage.setItem("selected_district", detectedStop.district);
+            }
+            if (destStop && destStop.id === detectedStop.id) {
+              setDestStop(null);
+              setDestQuery("");
+            }
+            userPickedOriginRef.current = true;
+
+            const distKm = (nearestResult.distance_meters / 1000).toFixed(1);
+            pushToast({
+              tone: "success",
+              title: `Located: ${detectedStop.name}`,
+              description: `Closest transit stop in ${detectedStop.district || "your area"} (${distKm} km away).`,
+            });
+          } else {
+            pushToast({
+              tone: "info",
+              title: "No Transit Stop Nearby",
+              description: "Could not find a registered bus stop near your current GPS location.",
+            });
+          }
+        } catch (err: any) {
+          console.warn("[Detect Location] Nearest stop lookup error:", err);
+          pushToast({
+            tone: "danger",
+            title: "Location Lookup Failed",
+            description: err.message || "Failed to find nearby stop.",
+          });
+        } finally {
+          setDetectingGps(false);
+        }
+      },
+      (err) => {
+        setDetectingGps(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          pushToast({
+            tone: "warning",
+            title: "Location Permission Denied",
+            description: "Please allow location access in your browser settings to detect your nearest stop.",
+          });
+        } else if (err.code === err.TIMEOUT) {
+          pushToast({
+            tone: "warning",
+            title: "Location Timed Out",
+            description: "GPS signal took too long to respond. Please try again or select manually.",
+          });
+        } else {
+          pushToast({
+            tone: "info",
+            title: "GPS Position Unavailable",
+            description: "Unable to retrieve device position. Please select your stop manually.",
+          });
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
   };
 
   // Swap Origin and Destination
