@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../../lib/supabase";
 import { DataTable, ConfirmDialog, ErrorState, useToast } from "@sbt/ui";
 import { useCrudResource } from "../../hooks/useCrudResource";
 import { ResourceFormDialog } from "./ResourceFormDialog";
@@ -38,6 +39,18 @@ export function ResourceCrudPage<T extends { id: string }>({
   emptyTitle,
 }: ResourceCrudPageProps<T>) {
   const { rows, status, error, create, update, remove, reload } = useCrudResource<T>({ table, readTable, orderBy });
+  const [districts, setDistricts] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from("districts")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("name")
+      .then(({ data }) => {
+        if (data) setDistricts(data);
+      });
+  }, []);
   const { push } = useToast();
   const [formOpen, setFormOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<T | null>(null);
@@ -171,12 +184,12 @@ export function ResourceCrudPage<T extends { id: string }>({
               aria-label="Filter district"
               className="bg-transparent text-xs font-bold text-slate-700 uppercase focus:outline-none"
             >
-              <option value="ALL">ALL DISTRICTS</option>
-              <option value="CHENNAI">CHENNAI</option>
-              <option value="COIMBATORE">COIMBATORE</option>
-              <option value="MADURAI">MADURAI</option>
-              <option value="SALEM">SALEM</option>
-              <option value="TIRUPPUR">TIRUPPUR</option>
+              <option value="ALL">ALL DISTRICTS ({districts.length})</option>
+              {districts.map((d) => (
+                <option key={d.id} value={d.name.toUpperCase()}>
+                  {d.name.toUpperCase()}
+                </option>
+              ))}
             </select>
           </div>
         </div>

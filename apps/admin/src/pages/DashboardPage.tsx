@@ -231,7 +231,7 @@ export function DashboardPage() {
         setTicketTrend({ direction: "flat", label: "All-Time Synced" });
       }
 
-      // 3. Exact Database Record Counts
+      // 3. Exact Database Record Counts (100% DB-driven, dynamically scoped by district)
       let stopsQ = supabase.from("stops").select("id", { count: "exact", head: true });
       let routesQ = supabase.from("routes").select("id", { count: "exact", head: true });
       let busesQ = supabase.from("buses").select("id", { count: "exact", head: true });
@@ -239,6 +239,42 @@ export function DashboardPage() {
       let allTicketsQ = supabase.from("tickets").select("id", { count: "exact", head: true });
       let complaintsQ = supabase.from("complaints").select("id", { count: "exact", head: true });
       let pendingComplaintsQ = supabase.from("complaints").select("id", { count: "exact", head: true }).in("status", ["OPEN", "IN_REVIEW"]);
+
+      let activeTripsQ = supabase
+        .from("trips")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "ACTIVE")
+        .not("conductor_id", "is", null)
+        .not("started_at", "is", null);
+
+      let scheduledTripsQ = supabase
+        .from("trips")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "SCHEDULED");
+
+      let completedTripsQ = supabase
+        .from("trips")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "COMPLETED");
+
+      let activeAlertsQ = supabase
+        .from("alerts")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["ACTIVE", "ACKNOWLEDGED"]);
+
+      let highAlertsQ = supabase
+        .from("alerts")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["ACTIVE", "ACKNOWLEDGED"])
+        .in("severity", ["CRITICAL", "SOS"]);
+
+      let maintenanceQ = supabase
+        .from("bus_maintenance_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "OPEN");
+
+      let districtRouteIds: string[] = [];
+      let districtBusIds: string[] = [];
 
       if (isDistrictFiltered) {
         stopsQ = stopsQ.eq("district_id", selectedDistrict);
@@ -248,6 +284,35 @@ export function DashboardPage() {
         allTicketsQ = allTicketsQ.eq("district_id", selectedDistrict);
         complaintsQ = complaintsQ.eq("district_id", selectedDistrict);
         pendingComplaintsQ = pendingComplaintsQ.eq("district_id", selectedDistrict);
+
+        // Fetch routes and buses belonging to this district to scope trips and alerts
+        const [{ data: dRoutes }, { data: dBuses }] = await Promise.all([
+          supabase.from("routes").select("id").eq("district_id", selectedDistrict),
+          supabase.from("buses").select("id").eq("district_id", selectedDistrict),
+        ]);
+
+        districtRouteIds = (dRoutes ?? []).map((r) => r.id);
+        districtBusIds = (dBuses ?? []).map((b) => b.id);
+
+        if (districtRouteIds.length > 0) {
+          activeTripsQ = activeTripsQ.in("route_id", districtRouteIds);
+          scheduledTripsQ = scheduledTripsQ.in("route_id", districtRouteIds);
+          completedTripsQ = completedTripsQ.in("route_id", districtRouteIds);
+        } else {
+          activeTripsQ = activeTripsQ.eq("route_id", "00000000-0000-0000-0000-000000000000");
+          scheduledTripsQ = scheduledTripsQ.eq("route_id", "00000000-0000-0000-0000-000000000000");
+          completedTripsQ = completedTripsQ.eq("route_id", "00000000-0000-0000-0000-000000000000");
+        }
+
+        if (districtBusIds.length > 0) {
+          activeAlertsQ = activeAlertsQ.in("bus_id", districtBusIds);
+          highAlertsQ = highAlertsQ.in("bus_id", districtBusIds);
+          maintenanceQ = maintenanceQ.in("bus_id", districtBusIds);
+        } else {
+          activeAlertsQ = activeAlertsQ.eq("bus_id", "00000000-0000-0000-0000-000000000000");
+          highAlertsQ = highAlertsQ.eq("bus_id", "00000000-0000-0000-0000-000000000000");
+          maintenanceQ = maintenanceQ.eq("bus_id", "00000000-0000-0000-0000-000000000000");
+        }
       }
 
       const [
@@ -269,17 +334,17 @@ export function DashboardPage() {
         stopsQ,
         routesQ,
         busesQ,
-        supabase.from("trips").select("id", { count: "exact", head: true }).eq("status", "ACTIVE"),
-        supabase.from("trips").select("id", { count: "exact", head: true }).eq("status", "SCHEDULED"),
-        supabase.from("trips").select("id", { count: "exact", head: true }).eq("status", "COMPLETED"),
-        supabase.from("alerts").select("id", { count: "exact", head: true }).in("status", ["ACTIVE", "ACKNOWLEDGED"]),
-        supabase.from("alerts").select("id", { count: "exact", head: true }).in("status", ["ACTIVE", "ACKNOWLEDGED"]).in("severity", ["CRITICAL", "SOS"]),
+        activeTripsQ,
+        scheduledTripsQ,
+        completedTripsQ,
+        activeAlertsQ,
+        highAlertsQ,
         supabase.from("districts").select("id", { count: "exact", head: true }),
         conductorsQ,
         allTicketsQ,
         complaintsQ,
         pendingComplaintsQ,
-        supabase.from("bus_maintenance_logs").select("id", { count: "exact", head: true }).eq("status", "OPEN"),
+        maintenanceQ,
       ]);
 
       setMetrics({
@@ -299,7 +364,7 @@ export function DashboardPage() {
         maintenanceLogsCount: maintenanceRes.count ?? 0,
       });
 
-      // 4. Fetch Real Running Trips from DB (No mock fallback)
+      // 4. Fetch Real Running Trips from DB (No mock fallback, strictly conductor-scanned active)
       let tripsQuery = supabase
         .from("trips")
         .select(`
@@ -308,6 +373,7 @@ export function DashboardPage() {
           started_at,
           scheduled_departure,
           created_at,
+          conductor_id,
           routes ( name, route_number ),
           buses ( bus_number, district_id )
         `)
@@ -315,41 +381,56 @@ export function DashboardPage() {
         .order("created_at", { ascending: false })
         .limit(3);
 
-      if (isDistrictFiltered) {
-        tripsQuery = tripsQuery.eq("buses.district_id", selectedDistrict);
+      if (isDistrictFiltered && districtRouteIds.length > 0) {
+        tripsQuery = tripsQuery.in("route_id", districtRouteIds);
+      } else if (isDistrictFiltered) {
+        tripsQuery = tripsQuery.eq("route_id", "00000000-0000-0000-0000-000000000000");
       }
 
       const { data: tripsData } = await tripsQuery;
       if (tripsData && tripsData.length > 0) {
-        const formatted = tripsData.map((t) => {
-          const r = Array.isArray(t.routes) ? t.routes[0] : t.routes;
-          const b = Array.isArray(t.buses) ? t.buses[0] : t.buses;
-          const departureTime = t.scheduled_departure || t.started_at || t.created_at;
-          const timeStr = departureTime
-            ? new Date(departureTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-            : "--:--";
-          return {
-            id: t.id,
-            trip_code: `TRP-${t.id.slice(0, 6).toUpperCase()}`,
-            route_name: r?.name || (r?.route_number ? `Route ${r.route_number}` : "Transit Corridor"),
-            plate_number: b?.bus_number || "Unassigned Bus",
-            status: t.status === "ACTIVE" ? "RUNNING" : "SCHEDULED",
-            eta: timeStr,
-          };
-        });
+        const formatted = tripsData
+          .filter((t) => {
+            // For ACTIVE trips, ensure conductor initiated
+            if (t.status === "ACTIVE" && !t.conductor_id) return false;
+            return true;
+          })
+          .map((t) => {
+            const r = Array.isArray(t.routes) ? t.routes[0] : t.routes;
+            const b = Array.isArray(t.buses) ? t.buses[0] : t.buses;
+            const departureTime = t.scheduled_departure || t.started_at || t.created_at;
+            const timeStr = departureTime
+              ? new Date(departureTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : "--:--";
+            return {
+              id: t.id,
+              trip_code: `TRP-${t.id.slice(0, 6).toUpperCase()}`,
+              route_name: r?.name || (r?.route_number ? `Route ${r.route_number}` : "Transit Corridor"),
+              plate_number: b?.bus_number || "Unassigned Bus",
+              status: t.status === "ACTIVE" ? "RUNNING" : "SCHEDULED",
+              eta: timeStr,
+            };
+          });
         setActiveTripsList(formatted);
       } else {
         setActiveTripsList([]);
       }
 
-      // 5. Fetch Latest Alert from DB
-      const { data: alertData } = await supabase
+      // 5. Fetch Latest Alert from DB (District-scoped)
+      let alertQuery = supabase
         .from("alerts")
         .select("id, message, created_at, severity, buses(bus_number, district_id)")
         .in("status", ["ACTIVE", "ACKNOWLEDGED"])
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
+
+      if (isDistrictFiltered && districtBusIds.length > 0) {
+        alertQuery = alertQuery.in("bus_id", districtBusIds);
+      } else if (isDistrictFiltered) {
+        alertQuery = alertQuery.eq("bus_id", "00000000-0000-0000-0000-000000000000");
+      }
+
+      const { data: alertData } = await alertQuery.maybeSingle();
 
       if (alertData) {
         const rawBus = alertData.buses as { bus_number?: string } | { bus_number?: string }[] | null;
@@ -365,11 +446,18 @@ export function DashboardPage() {
         setLatestAlert(null);
       }
 
-      // 6. Fetch Live Route Demand Analytics
+      // 6. Fetch Live Route Demand Analytics (District-scoped)
       try {
         const insights = await computeRouteDemandAnalytics(supabase);
         if (insights && Array.isArray(insights)) {
-          setDemandInsights(insights as RouteDemandInsight[]);
+          if (isDistrictFiltered && districtRouteIds.length > 0) {
+            const rSet = new Set(districtRouteIds);
+            setDemandInsights(insights.filter((item) => rSet.has(item.route_id)));
+          } else if (isDistrictFiltered) {
+            setDemandInsights([]);
+          } else {
+            setDemandInsights(insights as RouteDemandInsight[]);
+          }
         }
       } catch (err) {
         // Handled silently if analytics RPC is unpopulated
