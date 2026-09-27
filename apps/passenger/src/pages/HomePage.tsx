@@ -55,6 +55,49 @@ interface ScheduledBusItem {
   fare: number;
 }
 
+const makeStop = (id: string, name: string, code: string, district: string, lat = 13.0, lng = 80.0): Stop => ({
+  id,
+  name,
+  code,
+  district,
+  location: { latitude: lat, longitude: lng },
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+});
+
+const DEFAULT_TAMIL_NADU_STOPS: Stop[] = [
+  // Chennai Corridors
+  makeStop("chn-01", "Vannaarapettai (Washermanpet)", "CH-01", "Chennai", 13.1065, 80.2831),
+  makeStop("chn-02", "Puratchi Thalaivar Dr. M.G.R. Central", "MAS", "Chennai", 13.0827, 80.2757),
+  makeStop("chn-03", "Koyambedu (CMBT)", "CMBT", "Chennai", 13.0694, 80.2056),
+  makeStop("chn-04", "T. Nagar Bus Terminus", "TNG", "Chennai", 13.0418, 80.2341),
+  makeStop("chn-05", "Tambaram Sanatorium", "TBM", "Chennai", 12.9255, 80.1265),
+  makeStop("chn-06", "Guindy Industrial Estate", "GDY", "Chennai", 13.0067, 80.2025),
+  makeStop("chn-07", "Broadway Terminus", "BWY", "Chennai", 13.0878, 80.2872),
+  makeStop("chn-08", "Adyar Old Depot", "ADY", "Chennai", 13.0012, 80.2565),
+
+  // Coimbatore Corridors
+  makeStop("cbe-01", "Gandhipuram Central Bus Stand", "GDP", "Coimbatore", 11.0168, 76.9673),
+  makeStop("cbe-02", "Ukkadam Bus Terminus", "UKD", "Coimbatore", 10.9897, 76.9602),
+  makeStop("cbe-03", "Singanallur Bus Stand", "SGL", "Coimbatore", 10.9984, 77.0264),
+  makeStop("cbe-04", "Coimbatore Railway Junction", "CBE", "Coimbatore", 10.9979, 76.9649),
+  makeStop("cbe-05", "RS Puram Head Post Office", "RSP", "Coimbatore", 11.0089, 76.9482),
+  makeStop("cbe-06", "Coimbatore International Airport", "CJB", "Coimbatore", 11.0300, 77.0434),
+  makeStop("cbe-07", "Saravanampatti IT Corridor", "SVP", "Coimbatore", 11.0824, 76.9959),
+
+  // Krishnagiri Corridors
+  makeStop("kri-01", "Main Bus Stand", "KRI-01", "Krishnagiri", 12.5266, 78.2144),
+  makeStop("kri-02", "Krishnagiri College", "KRI-02", "Krishnagiri", 12.5188, 78.2201),
+  makeStop("kri-03", "Fish Market", "KRI-03", "Krishnagiri", 12.5305, 78.2109),
+  makeStop("kri-04", "Hosur Bus Terminus", "HSR-01", "Krishnagiri", 12.7409, 77.8253),
+
+  // Thanjavur Corridors
+  makeStop("tnj-01", "Thanjai Central Bus Stand", "TCB-01", "Thanjavur", 10.7870, 79.1378),
+  makeStop("tnj-02", "Big Temple East Gate", "BTE-02", "Thanjavur", 10.7828, 79.1318),
+  makeStop("tnj-03", "Medical College Junction", "MCJ-03", "Thanjavur", 10.7612, 79.1121),
+  makeStop("tnj-04", "Railway Station North", "RSN-04", "Thanjavur", 10.7745, 79.1390),
+];
+
 const TAMIL_NADU_DISTRICTS = [
   "Coimbatore",
   "Chennai",
@@ -137,6 +180,8 @@ export function HomePage() {
       setOriginQuery(match.name);
       userPickedOriginRef.current = true;
     }
+    setDestStop(null);
+    setDestQuery("");
   };
 
   // 1. Initial loads: fetch stops, routes, and operational alerts
@@ -145,21 +190,30 @@ export function HomePage() {
 
     listStops(supabase)
       .then((stops) => {
-        setAllStops(stops);
-        const districtStop = stops.find(
-          (s) =>
-            s.district?.toLowerCase() === selectedDistrict.toLowerCase() ||
-            s.name.toLowerCase().includes("gandhipuram")
-        );
+        const combined = [...stops];
+        for (const def of DEFAULT_TAMIL_NADU_STOPS) {
+          if (!combined.some((s) => s.name.toLowerCase() === def.name.toLowerCase() || s.code === def.code)) {
+            combined.push(def);
+          }
+        }
+        setAllStops(combined);
+
+        const districtStop = combined.find(
+          (s) => s.district?.toLowerCase() === selectedDistrict.toLowerCase()
+        ) || combined.find((s) => s.name.toLowerCase().includes("gandhipuram")) || combined[0];
+
         if (districtStop && !originStop) {
           setOriginStop(districtStop);
           setOriginQuery(districtStop.name);
-        } else if (stops.length > 0 && !originStop && stops[0]) {
-          setOriginStop(stops[0]);
-          setOriginQuery(stops[0].name);
         }
       })
-      .catch(() => setAllStops([]));
+      .catch(() => {
+        setAllStops(DEFAULT_TAMIL_NADU_STOPS);
+        if (!originStop && DEFAULT_TAMIL_NADU_STOPS[0]) {
+          setOriginStop(DEFAULT_TAMIL_NADU_STOPS[0]);
+          setOriginQuery(DEFAULT_TAMIL_NADU_STOPS[0].name);
+        }
+      });
 
     listRoutes(supabase)
       .then(setAllRoutes)
@@ -302,9 +356,13 @@ export function HomePage() {
 
   // Popular Destination Stops for 1-Tap Quick Selection (Eliminating dead space)
   const popularDestinations = useMemo(() => {
+    const originName = originStop?.name.toLowerCase() || "";
     return allStops
       .filter((s) => {
-        if (originStop && s.id === originStop.id) return false;
+        if (!originStop) return false;
+        if (s.id === originStop.id) return false;
+        const sName = s.name.toLowerCase();
+        if (sName.includes(originName) || (originName.length > 4 && originName.includes(sName))) return false;
         return s.district?.toLowerCase() === selectedDistrict.toLowerCase();
       })
       .slice(0, 6);
@@ -312,8 +370,15 @@ export function HomePage() {
 
   // Live Upcoming Departures from Selected Origin Terminal (Station Board)
   const originDepartures = useMemo(() => {
+    const originName = originStop?.name.toLowerCase() || "";
     const destCandidates = allStops
-      .filter((s) => (!originStop || s.id !== originStop.id) && s.district?.toLowerCase() === selectedDistrict.toLowerCase())
+      .filter((s) => {
+        if (!originStop) return true;
+        if (s.id === originStop.id) return false;
+        const sName = s.name.toLowerCase();
+        if (sName.includes(originName) || (originName.length > 4 && originName.includes(sName))) return false;
+        return s.district?.toLowerCase() === selectedDistrict.toLowerCase();
+      })
       .slice(0, 3);
 
     const busTypes = ["Ordinary City Service", "Express Deluxe", "Low Floor AC"];
@@ -510,7 +575,7 @@ export function HomePage() {
   const alertBadgeCount = serviceAlerts.length > 0 ? serviceAlerts.length : 14;
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-5.5rem)] max-w-md flex-col justify-between text-slate-900 select-none pb-4">
+    <div className="mx-auto flex max-w-md flex-col text-slate-900 select-none pb-6 gap-3">
       {/* ── 1. Top Header Bar (Matching Image 1) ── */}
       <header className="mx-3.5 mt-2.5 mb-2.5 flex items-center justify-between rounded-2xl border border-slate-200/90 bg-white px-3 py-2 shadow-xs">
         {/* Left: Hamburger Menu Button */}
@@ -774,7 +839,7 @@ export function HomePage() {
       </div>
 
       {/* ── 3. ACTIVE SCHEDULED BUSES Section (Below Bus Lookup, Above Navbar) ── */}
-      <div className="flex-1 flex flex-col justify-between px-3.5 mt-1">
+      <div className="px-3.5 flex flex-col gap-3">
         <div>
         <div className="flex items-center justify-between mb-2 px-0.5">
           <div className="flex items-center gap-1.5">
@@ -800,7 +865,7 @@ export function HomePage() {
         {/* Section Body: Compact Empty State vs Populated Bus Cards */}
         {!destStop ? (
           /* Empty State matching Image 1 + Improvised Rich Content to Eliminate Dead Space */
-          <div className="flex-1 flex flex-col justify-between gap-3">
+          <div className="flex flex-col gap-3">
             <div className="flex flex-col rounded-3xl border border-slate-200/90 bg-white p-4 shadow-xs">
               <div className="flex flex-col items-center text-center pb-3 border-b border-slate-100">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/15 border border-amber-400/30 text-amber-500 shadow-inner mb-1.5">
